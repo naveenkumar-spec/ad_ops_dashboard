@@ -1,0 +1,40 @@
+{
+  "users": [
+    {
+      "id": "984dd37c-a148-4e15-95e2-fde0dd5f1855",
+      "username": "admin",
+      "passwordHash": "$2b$10$gK9SK1EAEXuJvV6XdMYyC.ayq.Z4eOFJKm68VYEVHqkmFQLhjgUAi",
+      "role": "admin",
+      "allowedCountries": [],
+      "allowedAdops": [],
+      "allowedTabs": [
+        "overview",
+        "management",
+        "admin"
+      ],
+      "createdAt": "2026-03-25T17:11:33.605Z",
+      "updatedAt": "2026-03-25T17:27:47.966Z",
+      "email": "admin@silverpush.local"
+    },
+    {
+      "id": "0662b523-05b0-4ee4-b196-8f57e8b124ab",
+      "username": "naveen.kumar@silverpush.co",
+      "email": "naveen.kumar@silverpush.co",
+      "displayName": "naveen.kumar@silverpush.co",
+      "passwordHash": "$2b$10$VLNbTsbRulE4u.Rc9FK7Xe8rLYhDX3TEt67r1VbQA0qOPAYUZmWqW",
+      "authProvider": "local",
+      "createdAt": "2026-03-25T17:49:52.046Z",
+      "role": "user",
+      "fullAccess": false,
+      "allowedCountries": [
+        "Australia"
+      ],
+      "allowedAdops": [],
+      "allowedTabs": [
+        "overview",
+        "management"
+      ],
+      "updatedAt": "2026-03-25T17:50:37.110Z"
+    }
+  ]
+}

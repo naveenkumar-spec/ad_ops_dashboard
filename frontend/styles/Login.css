@@ -1,0 +1,138 @@
+.login-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 500px at 10% -20%, rgba(40, 87, 149, 0.18), transparent 60%),
+    radial-gradient(900px 400px at 90% 110%, rgba(25, 135, 84, 0.14), transparent 55%),
+    linear-gradient(145deg, #eff5f2 0%, #dbe7e2 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-shell {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  border-radius: 18px;
+  overflow: visible;
+}
+
+.login-main-title {
+  margin: 0 0 18px;
+  text-align: center;
+  font-size: 34px;
+  line-height: 1.1;
+  color: #0f1f3d;
+  letter-spacing: 0.2px;
+}
+
+.login-card {
+  background: #ffffff;
+  width: 520px;
+  max-width: 100%;
+  padding: 30px 28px;
+  border-radius: 18px;
+  box-shadow: 0 24px 48px rgba(7, 30, 25, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.login-card h2 {
+  margin: 0 0 16px;
+  font-size: 32px;
+  line-height: 1.05;
+}
+
+.login-card label {
+  display: block;
+  margin: 10px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.login-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-bottom: 2px;
+  outline: none;
+}
+
+.login-input:focus {
+  border-color: #0f4c81;
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.14);
+}
+
+.login-btn {
+  width: 100%;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.login-btn.primary {
+  background: #0f4c81;
+  color: white;
+}
+
+.login-btn.secondary {
+  background: #1d4ed8;
+  color: white;
+}
+
+.login-google-wrap {
+  margin-top: 10px;
+}
+
+.login-link-btn {
+  margin-top: 12px;
+  background: transparent;
+  border: none;
+  color: #0f4c81;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 600;
+}
+
+.login-error {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-size: 13px;
+}
+
+.login-reset {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.login-reset-msg {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.login-reset-msg.ok {
+  color: #065f46;
+}
+
+.login-reset-msg.err {
+  color: #b91c1c;
+}
+
+@media (max-width: 920px) {
+  .login-main-title {
+    font-size: 28px;
+  }
+}

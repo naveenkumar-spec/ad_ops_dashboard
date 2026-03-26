@@ -1,0 +1,37 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  min-height: 100%;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  background: #a8b4ae;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* ── Fixed 1280px canvas; stays fixed on all viewports ── */
+.app-shell {
+  width: 1280px;
+  min-width: 1280px;
+  background: #dfe8e3;
+  box-shadow: 0 0 60px rgba(0,0,0,0.2);
+}
+
+body { overflow-x: auto; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.03); }
+::-webkit-scrollbar-thumb { background: #9cb8aa; border-radius: 3px; }
+
+/* Mobile bottom-right stacking helper */
+.management-bottom-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

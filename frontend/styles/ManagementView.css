@@ -1,0 +1,13 @@
+.management-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #dfe8e3;
+}
+
+.management-stack {
+  padding: 12px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}

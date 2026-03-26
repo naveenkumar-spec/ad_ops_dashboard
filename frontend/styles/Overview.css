@@ -1,0 +1,23 @@
+﻿.overview-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #dfe8e3;
+}
+
+/* Tables stacked vertically */
+.overview-tables-stack {
+  padding: 0 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Old side-by-side row kept for reference */
+.overview-tables-row {
+  padding: 0 24px 28px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}

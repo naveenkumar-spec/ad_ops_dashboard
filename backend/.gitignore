@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+google-sa.json
+backend/secrets/google-sa.json

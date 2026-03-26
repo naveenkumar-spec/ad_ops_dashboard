@@ -1,0 +1,351 @@
+﻿/* ── Basic table card (existing components) ── */
+.table-card {
+  background: #f6faf7;
+  border-radius: 8px;
+  border: 1px solid #c8d6cd;
+  box-shadow: 0 4px 16px rgba(15,31,47,0.07);
+  overflow: hidden;
+  width: 100%;
+}
+
+.table-card-header {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid #dde6e1;
+  background: #f6faf7;
+}
+
+.table-card-header h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #102235;
+  margin: 0;
+}
+
+.table-card-body { width: 100%; overflow-x: auto; }
+.overflow-wrapper {
+  width: 100%;
+  overflow: auto;
+  max-height: 430px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: white;
+}
+
+.data-table th,
+.data-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #dde8e2;
+  border-right: 1px solid #dde8e2;
+  white-space: nowrap;
+  text-align: left;
+}
+.data-table th:last-child, .data-table td:last-child { border-right: none; }
+
+.data-table th {
+  background: linear-gradient(180deg, #14253a 0%, #1f3550 100%);
+  color: #e8f0f5;
+  font-weight: 700;
+  font-size: 11.5px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.data-table td { color: #0f1f2f; background: #fdfefe; }
+.data-table tbody tr:nth-child(even) td { background: #f4f9f6; }
+.data-table tbody tr:hover td { background: #e4f0ea; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+
+/* Keep totals row fixed at bottom while table body scrolls */
+.data-table .table-total td {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: #11283f;
+  color: #e8f0f5;
+  font-weight: 700;
+  border-top: 1px solid #243b55;
+}
+
+.table-expander {
+  margin-right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid #9fb7ac;
+  background: #f5f9f6;
+  color: #1b2b44;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.table-expander.disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.table-expander-placeholder {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+}
+
+.table-loading, .table-error, .table-empty {
+  padding: 40px; text-align: center; color: #9ca3af; font-size: 12px;
+}
+.table-error { color: #b91c1c; }
+
+/* ══════════════════════════════════════════════════
+   ADVANCED TABLE CARD (BottomCampaigns, CountryWise)
+   ══════════════════════════════════════════════════ */
+.adv-table-card {
+  background: #ffffff;
+  border: 1px solid #d0dbd6;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(15,31,47,0.07);
+  overflow: hidden;
+  width: 100%;
+}
+
+/* Header row: title left, toggle right */
+.adv-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.adv-table-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+/* Bottom / Top toggle */
+.bottom-top-toggle {
+  display: flex;
+  border: 1px solid #c8d6cd;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.bt-btn {
+  padding: 6px 18px;
+  border: none;
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #444;
+  cursor: pointer;
+  border-right: 1px solid #c8d6cd;
+  transition: all 0.15s;
+}
+.bt-btn:last-child { border-right: none; }
+.bt-btn:hover { background: #f0f5f2; }
+.bt-btn.active {
+  background: #8fba8f;
+  color: #0f1f2f;
+  font-weight: 700;
+}
+
+/* Scrollable table area */
+.adv-table-scroll {
+  overflow: auto;
+  width: 100%;
+  max-height: 430px;
+}
+
+/* The actual table */
+.adv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 900px;
+}
+
+.adv-table th {
+  background: linear-gradient(180deg, #14253a 0%, #1f3550 100%);
+  color: #e8f0f5;
+  font-weight: 700;
+  font-size: 11.5px;
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+  border-right: 1px solid #243b55;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.adv-table th:last-child { border-right: none; }
+
+.adv-table td {
+  padding: 9px 12px;
+  color: #0f1f2f;
+  background: #ffffff;
+  border-bottom: 1px solid #eaf0ed;
+  border-right: 1px solid #eaf0ed;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.adv-table td:last-child { border-right: none; }
+.adv-table tbody tr:nth-child(even) td { background: #f7fbf8; }
+.adv-table tbody tr:hover td { background: #eaf4ee; }
+
+/* Campaign name — slightly truncated */
+.col-name {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Total row — dark navy like header */
+.adv-table tfoot .total-row td {
+  background: linear-gradient(180deg, #14253a 0%, #1f3550 100%);
+  color: #e8f0f5;
+  font-weight: 700;
+  font-size: 12px;
+  border-right: 1px solid #243b55;
+  border-bottom: none;
+  padding: 10px 12px;
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+}
+.adv-table tfoot .total-row td:last-child { border-right: none; }
+.adv-table tfoot .total-row strong { color: #e8f0f5; font-weight: 700; }
+
+/* Expand + button in country table */
+.expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #8bb59a;
+  border-radius: 3px;
+  background: #fff;
+  color: #2d4a3e;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: 6px;
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 0;
+  vertical-align: middle;
+}
+.expand-btn:hover { background: #eef5f0; }
+
+/* Delivered % in grey */
+.delivered-pct {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+/* Region row */
+.region-row td:first-child {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Region row ── */
+.region-row td {
+  font-weight: 500;
+  background: #ffffff;
+}
+.region-row td:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.region-name { font-weight: 600; color: #0f1f2f; }
+
+/* ── Child (country) row ── */
+.child-row td {
+  background: #f7fbf8;
+  color: #2a3a30;
+}
+.child-row:hover td { background: #edf5f0; }
+.child-name {
+  display: flex;
+  align-items: center;
+  padding-left: 8px !important;
+}
+.child-bullet {
+  color: #5a8a6a;
+  font-size: 14px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Expand button ── */
+.expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border: 1px solid #8bb59a;
+  border-radius: 3px;
+  background: #fff;
+  color: #2d4a3e;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: 8px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.expand-btn:hover { background: #dff0e6; }
+.expand-btn.open { background: #2d4a3e; color: #fff; border-color: #2d4a3e; }
+.expand-btn.disabled,
+.expand-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: #f5f9f6;
+  color: #2d4a3e;
+  border-color: #c6d4dc;
+}
+
+/* Delivered % text */
+.delivered-pct { color: #6b7280; font-size: 11px; }
+.delivered-pct-total { color: #9ab8c0; font-size: 11px; }
+
+/* ── Small plus marker used in Product / Campaign tables ── */
+.row-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #c6d4dc;
+  background: #eef3f6;
+  color: #1f3550;
+  font-weight: 700;
+  font-size: 12px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.name-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.text-warn {
+  color: #b45309;
+  font-weight: 600;
+}
