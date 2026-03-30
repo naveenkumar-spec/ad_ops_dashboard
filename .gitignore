@@ -3,3 +3,24 @@ node_modules/
 
 __pycache__/
 *.pyc
+
+# Environment files
+.env
+.env.*
+backend/.env
+frontend/.env
+
+# Keep templates
+!.env.example
+!frontend/.env.example
+!backend/.env.example
+
+# Secrets and keys
+backend/secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*google-sa*.json
+*service-account*.json
+*credentials*.json
