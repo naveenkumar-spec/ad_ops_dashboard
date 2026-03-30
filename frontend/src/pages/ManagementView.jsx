@@ -1,4 +1,4 @@
-import DashboardHeader from "../components/DashboardHeader";
+﻿import DashboardHeader from "../components/DashboardHeader";
 import AppLayout from "../components/AppLayout";
 import FiltersPanel from "../components/FiltersPanel";
 import OwnerPerformanceTable from "../components/OwnerPerformanceTable";
@@ -33,7 +33,7 @@ export default function ManagementView({ currentUser, onLogout }) {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/management/filter-options", { timeout: 5000 })
+      .get("/api/management/filter-options", { timeout: 5000 })
       .then((res) => setFilterOptions(res.data || {}))
       .catch(() => setFilterOptions({}));
   }, []);
@@ -82,3 +82,5 @@ export default function ManagementView({ currentUser, onLogout }) {
     </AppLayout>
   );
 }
+
+

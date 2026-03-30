@@ -1,4 +1,4 @@
-export function toApiParams(filters = {}) {
+﻿export function toApiParams(filters = {}) {
   const params = {};
   Object.entries(filters || {}).forEach(([key, value]) => {
     if (value === undefined || value === null) return;
@@ -14,3 +14,5 @@ export function toApiParams(filters = {}) {
   });
   return params;
 }
+
+

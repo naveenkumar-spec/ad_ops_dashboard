@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import DashboardHeader from "../components/DashboardHeader";
 import AppLayout from "../components/AppLayout";
@@ -38,7 +38,7 @@ function MultiSelectDropdown({ label, options = [], value = [], onChange, disabl
         onClick={() => !disabled && setOpen((v) => !v)}
       >
         <span>{summary}</span>
-        <span className="ms-arrow">{open ? "▲" : "▼"}</span>
+        <span className="ms-arrow">{open ? "â–²" : "â–¼"}</span>
       </button>
       {open && !disabled ? (
         <div className="ms-panel">
@@ -85,8 +85,8 @@ export default function AdminSetup({ currentUser, onLogout }) {
 
   const loadAll = async () => {
     const [u, o] = await Promise.all([
-      axios.get("http://localhost:5000/api/admin/users", { timeout: 6000 }),
-      axios.get("http://localhost:5000/api/admin/options", { timeout: 6000 })
+      axios.get("/api/admin/users", { timeout: 6000 }),
+      axios.get("/api/admin/options", { timeout: 6000 })
     ]);
     setUsers(u.data || []);
     setOptions({ countries: o.data?.countries || [], adops: o.data?.adops || [] });
@@ -109,10 +109,10 @@ export default function AdminSetup({ currentUser, onLogout }) {
       if (!payload.email) throw new Error("Email is required");
 
       if (editingEmail) {
-        await axios.put(`http://localhost:5000/api/admin/users/${encodeURIComponent(editingEmail)}`, payload, { timeout: 6000 });
+        await axios.put(`/api/admin/users/${encodeURIComponent(editingEmail)}`, payload, { timeout: 6000 });
         setMsg("Access updated");
       } else {
-        await axios.post("http://localhost:5000/api/admin/users", payload, { timeout: 6000 });
+        await axios.post("/api/admin/users", payload, { timeout: 6000 });
         setMsg("Access added");
       }
       setForm(EMPTY_FORM);
@@ -139,7 +139,7 @@ export default function AdminSetup({ currentUser, onLogout }) {
 
   const deleteUser = async (email) => {
     try {
-      await axios.delete(`http://localhost:5000/api/admin/users/${encodeURIComponent(email)}`, { timeout: 6000 });
+      await axios.delete(`/api/admin/users/${encodeURIComponent(email)}`, { timeout: 6000 });
       await loadAll();
     } catch (err) {
       setMsg(err.response?.data?.error || "Failed to delete user");
@@ -297,3 +297,5 @@ export default function AdminSetup({ currentUser, onLogout }) {
     </AppLayout>
   );
 }
+
+

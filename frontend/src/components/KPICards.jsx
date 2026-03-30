@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { mockKPIs } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
@@ -61,7 +61,7 @@ export default function KPICards({ filters = {} }) {
   useEffect(() => {
     setLoading(true);
     setError("");
-    axios.get("http://localhost:5000/api/overview/kpis", { timeout: 5000, params: toApiParams(filters) })
+    axios.get("/api/overview/kpis", { timeout: 5000, params: toApiParams(filters) })
       .then(res => {
         const ordered = CARD_ORDER.map(t=>(res.data||[]).find(i=>i.title===t)).filter(Boolean);
         setKpis(ordered);
@@ -94,7 +94,7 @@ export default function KPICards({ filters = {} }) {
     });
   }, [kpis]);
 
-  if(loading) return <div className="kpi-banner">Loading KPI data…</div>;
+  if(loading) return <div className="kpi-banner">Loading KPI dataâ€¦</div>;
   if(error) return <div className="kpi-banner">{error}</div>;
   if(!display.length) return <div className="kpi-banner">No KPI data available</div>;
 
@@ -111,3 +111,5 @@ export default function KPICards({ filters = {} }) {
     </div>
   );
 }
+
+

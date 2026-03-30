@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+﻿import { NavLink } from "react-router-dom";
 
 export default function AppLayout({ currentUser, children }) {
   const canSeeAdmin = currentUser?.role === "admin" || (currentUser?.allowedTabs || []).includes("admin");
@@ -22,3 +22,5 @@ export default function AppLayout({ currentUser, children }) {
     </div>
   );
 }
+
+

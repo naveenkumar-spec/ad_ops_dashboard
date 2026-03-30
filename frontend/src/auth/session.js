@@ -1,4 +1,4 @@
-const STORAGE_KEY = "adops_dashboard_session";
+﻿const STORAGE_KEY = "adops_dashboard_session";
 
 export function loadSession() {
   try {
@@ -19,3 +19,5 @@ export function saveSession(session) {
 export function clearSession() {
   localStorage.removeItem(STORAGE_KEY);
 }
+
+

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { mockPlatformSpends } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
@@ -20,7 +20,7 @@ export default function PlatformSpendsTable({ filters = {} }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/management/platform-spends", { timeout: 6000, params: toApiParams(filters) })
+    axios.get("/api/management/platform-spends", { timeout: 6000, params: toApiParams(filters) })
       .then((res) => setRows(res.data?.length ? res.data : mockPlatformSpends()))
       .catch(() => setRows(mockPlatformSpends()))
       .finally(() => setLoading(false));
@@ -79,3 +79,5 @@ export default function PlatformSpendsTable({ filters = {} }) {
     </div>
   );
 }
+
+

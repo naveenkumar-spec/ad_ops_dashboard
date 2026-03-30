@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import axios from "axios";
 import { mockCampaigns } from "../mockData.js";
 import { formatAbsoluteCurrency, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
@@ -16,7 +16,7 @@ export default function CampaignTable({ title="Campaign Performance (Bottom Perf
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
-    axios.get("http://localhost:5000/api/overview/campaigns",{timeout:6000})
+    axios.get("/api/overview/campaigns",{timeout:6000})
       .then(res=>setData(res.data?.length ? res.data : mockCampaigns))
       .catch(()=>setData(mockCampaigns))
       .finally(()=>setLoading(false));
@@ -26,7 +26,7 @@ export default function CampaignTable({ title="Campaign Performance (Bottom Perf
     <div className="table-card">
       <div className="table-card-header"><h3>{title}</h3></div>
       <div className="table-card-body">
-        {loading ? <div className="table-loading">Loading…</div>
+        {loading ? <div className="table-loading">Loadingâ€¦</div>
          : data.length===0 ? <div className="table-empty">No data</div>
          : (
           <div className="overflow-wrapper">
@@ -61,3 +61,5 @@ export default function CampaignTable({ title="Campaign Performance (Bottom Perf
     </div>
   );
 }
+
+

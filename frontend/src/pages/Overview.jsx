@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import axios from "axios";
 import DashboardHeader from "../components/DashboardHeader";
 import AppLayout from "../components/AppLayout";
@@ -41,7 +41,7 @@ export default function Overview({ currentUser, onLogout }) {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/overview/filter-options", { timeout: 5000 })
+      .get("/api/overview/filter-options", { timeout: 5000 })
       .then((res) => setFilterOptions(res.data || {}))
       .catch(() => setFilterOptions({}));
   }, []);
@@ -92,3 +92,5 @@ export default function Overview({ currentUser, onLogout }) {
     </AppLayout>
   );
 }
+
+

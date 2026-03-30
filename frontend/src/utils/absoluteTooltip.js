@@ -1,4 +1,4 @@
-export function toFiniteNumber(value) {
+﻿export function toFiniteNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
@@ -31,3 +31,5 @@ export function safeTitle(value) {
   if (value === undefined || value === null) return "";
   return String(value);
 }
+
+

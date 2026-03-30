@@ -1,4 +1,4 @@
-// Rich mock data: Jan 2020 – Dec 2026
+﻿// Rich mock data: Jan 2020 â€“ Dec 2026
 
 const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const YEARS = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
@@ -11,7 +11,7 @@ function seededRand(seed) {
   };
 }
 
-// ── KPIs ──────────────────────────────────────────────────────────────────
+// â”€â”€ KPIs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const mockKPIs = [
   { title: 'No of Campaigns', value: 315,    subtitle: 'Budget Groups: 63' },
   { title: 'Gross Margin %',  value: '58.8%', subtitle: 'Gross Margin: $10.98M' },
@@ -19,11 +19,11 @@ export const mockKPIs = [
   { title: 'Spend',           value: '$7.70M', subtitle: 'Booked Revenue: $18.68M' },
 ];
 
-// ── Revenue Trend — matches screenshot values for 2025/2026 ──────────────
+// â”€â”€ Revenue Trend â€” matches screenshot values for 2025/2026 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function mockRevenueTrend() {
   // Exact 2025 values from screenshot
   const v2025 = [1.74, 2.15, 3.17, 3.13, 3.44, 3.85, 3.51, 4.42, 4.75, 5.63, 4.94, 4.83];
-  // Exact 2026 values from screenshot (only Jan–Mar shown)
+  // Exact 2026 values from screenshot (only Janâ€“Mar shown)
   const v2026 = [2.60, 3.84, 2.90, null, null, null, null, null, null, null, null, null];
 
   const rand = seededRand(42);
@@ -37,19 +37,19 @@ export function mockRevenueTrend() {
     Object.entries(base).forEach(([y, b]) => {
       row[y] = +(b * seasonal[i] * (0.85 + rand() * 0.3)).toFixed(2);
     });
-    // 2025 — exact screenshot values
+    // 2025 â€” exact screenshot values
     row[2025] = v2025[i];
-    // 2026 — only first 3 months have data
+    // 2026 â€” only first 3 months have data
     if (v2026[i] !== null) row[2026] = v2026[i];
     return row;
   });
 }
 
-// ── Gross Margin Trend — matches screenshot values ────────────────────────
+// â”€â”€ Gross Margin Trend â€” matches screenshot values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function mockMarginTrend() {
   // Exact 2025 values from screenshot
   const v2025 = [53.47, 53.33, 48.35, 48.04, 47.66, 47.07, 50.28, 50.14, 43.30, 50.44, 52.17, 53.98];
-  // 2026 — only March shown with 67.82
+  // 2026 â€” only March shown with 67.82
   const v2026 = [53.20, 53.10, 67.82, null, null, null, null, null, null, null, null, null];
 
   const rand = seededRand(99);
@@ -67,7 +67,7 @@ export function mockMarginTrend() {
   });
 }
 
-// ── Campaigns ─────────────────────────────────────────────────────────────
+// â”€â”€ Campaigns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const mockCampaigns = [
   { campaignName:'APAC Programmatic Q1',    status:'Active',  revenue:128000, spend:98000,  profit:30000,  grossMargin:23.4 },
   { campaignName:'EMEA Display Retargeting',status:'Active',  revenue:95000,  spend:77000,  profit:18000,  grossMargin:18.9 },
@@ -83,7 +83,7 @@ export const mockCampaigns = [
   { campaignName:'FR Performance Max',      status:'Paused',  revenue:28000,  spend:27000,  profit:1000,   grossMargin:3.6  },
 ];
 
-// ── Regions ────────────────────────────────────────────────────────────────
+// â”€â”€ Regions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const mockRegions = [
   { country:'United States',  campaigns:72,  revenue:6.84, spend:2.94, impressions:4820000, profit:3.90, grossMargin:57.0, netMargin:28.4 },
   { country:'United Kingdom', campaigns:38,  revenue:2.42, spend:0.98, impressions:1940000, profit:1.44, grossMargin:59.5, netMargin:29.8 },
@@ -141,7 +141,7 @@ export const mockManagementRegions = [
   { region: "Africa", adOps: 1, cs: 1, sales: 1, bookedRevenue: 219520, totalCampaigns: 13, budgetGroups: 72, spend: 91430, plannedImpressions: 30500000, deliveredImpressions: 17050000, deliveredPct: 55.90, grossMargin: 128090, grossMarginPct: 58.34 },
 ];
 
-// ── Owners ────────────────────────────────────────────────────────────────
+// â”€â”€ Owners â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const mockOwners = {
   ops: [
     { owner:'Aayushi',  campaigns:6,  revenue:360000,  spend:138000, grossMarginPct:61.7, netMarginPct:32.4 },
@@ -176,11 +176,11 @@ export const mockOwners = {
   ],
 };
 
-// ── Average Buying CPM Trend ──────────────────────────────────────────────
+// â”€â”€ Average Buying CPM Trend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function mockCPMTrend() {
   // Exact 2025 values from screenshot (Apr/May missing = null)
   const v2025 = [null, null, null, 3.6, null, 3.6, 3.2, 3.1, 2.2, 2.2, 1.7, 3.3];
-  // Exact 2026 values (Jan–Mar shown)
+  // Exact 2026 values (Janâ€“Mar shown)
   const v2026 = [3.5, 4.3, 4.6, null, null, null, null, null, null, null, null, null];
 
   const rand = seededRand(55);
@@ -198,11 +198,11 @@ export function mockCPMTrend() {
   });
 }
 
-// ── Net Margin Trend (Tracker Sheet) ─────────────────────────────────────
+// â”€â”€ Net Margin Trend (Tracker Sheet) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function mockNetMarginTrend() {
   // Exact 2025 values from screenshot
   const v2025 = [30.78, 34.04, 34.12, 36.37, 32.66, 37.76, 48.31, 48.03, 44.38, 44.78, 51.85, 33.05];
-  // 2026 values (Apr–Jun shown at 50%)
+  // 2026 values (Aprâ€“Jun shown at 50%)
   const v2026 = [null, null, null, 50.00, 50.00, 50.00, null, null, null, null, null, null];
 
   const rand = seededRand(123);
@@ -220,7 +220,7 @@ export function mockNetMarginTrend() {
   });
 }
 
-// ── Platform Spends (2020–2025 all months) ────────────────────────────────
+// â”€â”€ Platform Spends (2020â€“2025 all months) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function mockPlatformSpends() {
   const platforms = ['CTV','Meta','OpenWeb','Tiktok','Youtube','YT Mirrors'];
   const rand = seededRand(77);
@@ -243,10 +243,10 @@ export function mockPlatformSpends() {
   return rows;
 }
 
-// ── Bottom Campaigns (full columns matching screenshot) ───────────────────
+// â”€â”€ Bottom Campaigns (full columns matching screenshot) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const mockBottomCampaigns = [
-  { name:'Regent Seven Sea Crui…',   status:'Live', revenue:300000,  spend:178380, grossMargin:121622, grossMarginPct:40.54, netMargin:null,   netMarginPct:null,  plannedImpressions:48600000  },
-  { name:'Zoetis Simparica OLV P…',  status:'Live', revenue:250250,  spend:187690, grossMargin:62563,  grossMarginPct:25.00, netMargin:null,   netMarginPct:null,  plannedImpressions:109600000 },
+  { name:'Regent Seven Sea Cruiâ€¦',   status:'Live', revenue:300000,  spend:178380, grossMargin:121622, grossMarginPct:40.54, netMargin:null,   netMarginPct:null,  plannedImpressions:48600000  },
+  { name:'Zoetis Simparica OLV Pâ€¦',  status:'Live', revenue:250250,  spend:187690, grossMargin:62563,  grossMarginPct:25.00, netMargin:null,   netMarginPct:null,  plannedImpressions:109600000 },
   { name:'Direct Health ECOM',        status:'Live', revenue:141480,  spend:104520, grossMargin:36958,  grossMarginPct:26.12, netMargin:null,   netMarginPct:null,  plannedImpressions:11000000  },
   { name:'Good Apple_Crexont',        status:'Live', revenue:140250,  spend:97930,  grossMargin:42319,  grossMarginPct:30.17, netMargin:null,   netMarginPct:null,  plannedImpressions:62500000  },
   { name:'Zoetis Simparica OLV CC',   status:'Live', revenue:134750,  spend:90330,  grossMargin:44418,  grossMarginPct:32.96, netMargin:null,   netMarginPct:null,  plannedImpressions:49700000  },
@@ -259,7 +259,7 @@ export const mockBottomCampaignsTotals = {
   grossMarginPct: 32.61, netMargin: 855410, netMarginPct: 12.39, plannedImpressions: 1950000000,
 };
 
-// ── Country wise Data ─────────────────────────────────────────────────────
+// â”€â”€ Country wise Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const mockCountryData = [
   { region:'India+SEA',     campaigns:153, budgetGroups:1216, revenue:7330000,  spend:2510000, plannedImpressions:2590000000, deliveredImpressions:2222320000, deliveredPct:85.91, grossMargin:4810000,  grossMarginPct:65.70 },
   { region:'North America', campaigns:48,  budgetGroups:295,  revenue:4550000,  spend:2630000, plannedImpressions:1140000000, deliveredImpressions:628350000,  deliveredPct:55.10, grossMargin:1920000,  grossMarginPct:42.21 },
@@ -277,7 +277,7 @@ export const mockCountryTotals = {
   grossMargin:12420000, grossMarginPct:58.74,
 };
 
-// ── Product wise data (matches screenshot layout) ──
+// â”€â”€ Product wise data (matches screenshot layout) â”€â”€
 export const mockProductData = [
   {
     product:"Product",
@@ -685,7 +685,7 @@ export const mockProductChildren = {
   Crafters: [],
 };
 
-// ── Campaign wise data (table below the product table) ──
+// â”€â”€ Campaign wise data (table below the product table) â”€â”€
 export const mockCampaignWise = [
   {
     name:"MYT_France_Initiative_Dyson_XCAT Wintersales_2026",
@@ -739,3 +739,5 @@ export const mockCampaignWise = [
 ];
 
 export const mockCampaignWiseTotals = null;
+
+

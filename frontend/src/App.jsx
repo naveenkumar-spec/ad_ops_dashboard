@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Overview from "./pages/Overview";
@@ -6,6 +6,9 @@ import ManagementView from "./pages/ManagementView";
 import Login from "./pages/Login";
 import AdminSetup from "./pages/AdminSetup";
 import { clearSession, loadSession, saveSession } from "./auth/session";
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+axios.defaults.baseURL = API_BASE_URL;
 
 const initialSession = loadSession();
 if (initialSession?.token) {
@@ -24,6 +27,7 @@ function App() {
 
   useEffect(() => {
     const token = session?.token;
+    axios.defaults.baseURL = API_BASE_URL;
     if (token) {
       axios.defaults.headers.common.Authorization = `Bearer ${token}`;
     } else {
@@ -84,3 +88,4 @@ function App() {
 }
 
 export default App;
+

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import TrendChart from "./TrendChart";
 import "../../styles/Charts.css";
 
@@ -46,7 +46,7 @@ export default function CombinedTrends({ filters = {} }) {
             <div className="year-select-label">Selected Years: {selectedYearsText}</div>
             <button type="button" className="year-select-btn" onClick={() => setShowPanel(o => !o)}>
               {yearButtonLabel}
-              <span className="select-chevron">▼</span>
+              <span className="select-chevron">â–¼</span>
             </button>
             {showPanel && (
               <div className="year-dropdown">
@@ -86,7 +86,7 @@ export default function CombinedTrends({ filters = {} }) {
 
       <TrendChart
         title="Booked Revenue Trend"
-        endpoint="http://localhost:5000/api/overview/revenue-trend"
+        endpoint="/api/overview/revenue-trend"
         isPercent={false}
         filters={{}}
         controlledYears={selectedYears}
@@ -97,7 +97,7 @@ export default function CombinedTrends({ filters = {} }) {
 
       <TrendChart
         title="Gross Margin Trend"
-        endpoint="http://localhost:5000/api/overview/margin-trend"
+        endpoint="/api/overview/margin-trend"
         isPercent={true}
         filters={{}}
         controlledYears={selectedYears}
@@ -108,3 +108,5 @@ export default function CombinedTrends({ filters = {} }) {
     </div>
   );
 }
+
+

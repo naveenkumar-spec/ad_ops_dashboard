@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import axios from "axios";
 import { mockBottomCampaigns, mockBottomCampaignsTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
@@ -32,7 +32,7 @@ export default function BottomCampaignsTable({ filters = {} }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/overview/campaigns-detailed", { timeout: 6000, params: toApiParams(filters) })
+    axios.get("/api/overview/campaigns-detailed", { timeout: 6000, params: toApiParams(filters) })
       .then(res => {
         if (res.data?.rows?.length) {
           setData(res.data.rows);
@@ -71,7 +71,7 @@ export default function BottomCampaignsTable({ filters = {} }) {
       </div>
 
       {loading ? (
-        <div className="table-loading">Loading…</div>
+        <div className="table-loading">Loadingâ€¦</div>
       ) : (
         <div className="adv-table-scroll">
           <table className="adv-table">
@@ -124,3 +124,5 @@ export default function BottomCampaignsTable({ filters = {} }) {
     </div>
   );
 }
+
+

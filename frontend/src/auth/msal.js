@@ -1,4 +1,4 @@
-import { PublicClientApplication } from "@azure/msal-browser";
+﻿import { PublicClientApplication } from "@azure/msal-browser";
 
 const clientId = import.meta.env.VITE_ENTRA_CLIENT_ID;
 const tenantId = import.meta.env.VITE_ENTRA_TENANT_ID;
@@ -27,3 +27,5 @@ export function getMsalApp() {
   }
   return msalApp;
 }
+
+

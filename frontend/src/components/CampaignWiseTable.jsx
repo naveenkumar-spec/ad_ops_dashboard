@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { mockCampaignWise, mockCampaignWiseTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
@@ -57,7 +57,7 @@ export default function CampaignWiseTable({ filters = {} }) {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/overview/campaign-wise", { timeout: 6000, params: toApiParams(filters) })
+      .get("/api/overview/campaign-wise", { timeout: 6000, params: toApiParams(filters) })
       .then((res) => {
         if (res.data?.rows?.length) {
           setData(res.data.rows.map(deriveRow));
@@ -166,3 +166,5 @@ export default function CampaignWiseTable({ filters = {} }) {
     </div>
   );
 }
+
+

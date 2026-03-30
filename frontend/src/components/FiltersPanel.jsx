@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import "../../styles/Filters.css";
 
 export default function FiltersPanel({
@@ -301,3 +301,5 @@ export default function FiltersPanel({
     </div>
   );
 }
+
+

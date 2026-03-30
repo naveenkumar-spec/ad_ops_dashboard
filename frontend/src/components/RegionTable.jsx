@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, Fragment } from "react";
+﻿import { useEffect, useState, useMemo, Fragment } from "react";
 import axios from "axios";
 import { mockRegions, mockManagementRegions } from "../mockData.js";
 import { formatAbsoluteCurrency, formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
@@ -41,7 +41,7 @@ export default function RegionTable({ title="Region Performance", variant="overv
       return;
     }
     const isManagement = variant === "management";
-    const endpoint = isManagement ? "http://localhost:5000/api/management/regions" : "http://localhost:5000/api/overview/regions";
+    const endpoint = isManagement ? "/api/management/regions" : "/api/overview/regions";
     const fallback = isManagement ? mockManagementRegions : mockRegions;
     axios.get(endpoint,{timeout:6000})
       .then(res=>setData(res.data?.length ? res.data : fallback))
@@ -61,7 +61,7 @@ export default function RegionTable({ title="Region Performance", variant="overv
     <div className="table-card">
       <div className="table-card-header"><h3>{title}</h3></div>
       <div className="table-card-body">
-        {loading ? <div className="table-loading">Loading…</div>
+        {loading ? <div className="table-loading">Loadingâ€¦</div>
          : data.length===0 ? <div className="table-empty">No data</div>
          : (
           <div className="overflow-wrapper">
@@ -88,7 +88,7 @@ export default function RegionTable({ title="Region Performance", variant="overv
                             disabled={!r.children?.length}
                             onClick={(e)=>{e.stopPropagation(); r.children?.length && toggle(i);}}
                           >
-                            {r.children?.length ? (expanded.has(i) ? "−" : "+") : "+"}
+                            {r.children?.length ? (expanded.has(i) ? "âˆ’" : "+") : "+"}
                           </button>
                           <span title={safeTitle(r.region)}>{r.region}</span>
                         </td>
@@ -148,7 +148,7 @@ export default function RegionTable({ title="Region Performance", variant="overv
                             disabled={!r.children?.length}
                             onClick={(e)=>{e.stopPropagation(); r.children?.length && toggle(i);}}
                           >
-                            {r.children?.length ? (expanded.has(i) ? "−" : "+") : "+"}
+                            {r.children?.length ? (expanded.has(i) ? "âˆ’" : "+") : "+"}
                           </button>
                           <span title={safeTitle(r.region)}>{r.region}</span>
                         </td>
@@ -196,3 +196,5 @@ export default function RegionTable({ title="Region Performance", variant="overv
     </div>
   );
 }
+
+

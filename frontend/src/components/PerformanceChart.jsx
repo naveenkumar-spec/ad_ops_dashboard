@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -101,7 +101,7 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await axios.get("http://localhost:5000/api/management/performance", {
+        const res = await axios.get("/api/management/performance", {
           params: { type: variant, ...filters },
           timeout: 6000
         });
@@ -174,7 +174,7 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
           </ResponsiveContainer>
         </div>
       </div>
-      {loading && <div className="chart-loading">Loading…</div>}
+      {loading && <div className="chart-loading">Loadingâ€¦</div>}
 
       <div className="perf-legend perf-legend-bottom">
         <span className="legend-dot budget" /> Budget Groups
@@ -184,3 +184,5 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
     </div>
   );
 }
+
+

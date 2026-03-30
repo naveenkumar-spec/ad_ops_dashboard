@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import axios from "axios";
 import { mockCountryData, mockCountryTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
@@ -69,7 +69,7 @@ export default function CountryWiseTable({ filters = {} }) {
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/overview/country-wise", { timeout: 6000, params: toApiParams(filters) })
+    axios.get("/api/overview/country-wise", { timeout: 6000, params: toApiParams(filters) })
       .then(res => {
         if (res.data?.rows?.length) {
           setData(res.data.rows);
@@ -105,7 +105,7 @@ export default function CountryWiseTable({ filters = {} }) {
       </div>
 
       {loading ? (
-        <div className="table-loading">Loading…</div>
+        <div className="table-loading">Loadingâ€¦</div>
       ) : (
         <div className="adv-table-scroll">
           <table className="adv-table">
@@ -135,7 +135,7 @@ export default function CountryWiseTable({ filters = {} }) {
                           onClick={() => hasChildren && toggle(r.region)}
                           style={{ visibility: hasChildren ? "visible" : "hidden" }}
                         >
-                          {isOpen ? "−" : "+"}
+                          {isOpen ? "âˆ’" : "+"}
                         </button>
                         <span className="region-name" title={safeTitle(r.region)}>{r.region}</span>
                       </td>
@@ -158,7 +158,7 @@ export default function CountryWiseTable({ filters = {} }) {
                   return (
                     <tr key={`child-${i}`} className="child-row">
                       <td className="child-name">
-                        <span className="child-bullet">•</span>
+                        <span className="child-bullet">â€¢</span>
                         <span title={safeTitle(r.country)}>{r.country}</span>
                       </td>
                       <td title={formatAbsoluteInteger(r.campaigns)}>{r.campaigns}</td>
@@ -205,3 +205,5 @@ export default function CountryWiseTable({ filters = {} }) {
     </div>
   );
 }
+
+

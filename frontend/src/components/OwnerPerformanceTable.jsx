@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import axios from "axios";
 import { mockOwners } from "../mockData.js";
 import { formatAbsoluteCurrency, formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
@@ -37,7 +37,7 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {} })
 
   useEffect(()=>{
     const key = endpoint?.includes("ops") ? "ops" : endpoint?.includes("cs") ? "cs" : "sales";
-    axios.get(`http://localhost:5000${endpoint}`,{
+    axios.get(`${endpoint}`,{
       timeout:6000,
       params: filters
     })
@@ -50,7 +50,7 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {} })
     <div className="table-card">
       <div className="table-card-header"><h3>{title}</h3></div>
       <div className="table-card-body">
-        {loading ? <div className="table-loading">Loading…</div>
+        {loading ? <div className="table-loading">Loadingâ€¦</div>
          : rows.length===0 ? <div className="table-empty">No data</div>
          : (
           <div className="overflow-wrapper">
@@ -70,3 +70,5 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {} })
     </div>
   );
 }
+
+

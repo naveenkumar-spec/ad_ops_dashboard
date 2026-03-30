@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   mockProductData,
@@ -34,7 +34,7 @@ export default function ProductWiseTable({ filters = {} }) {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/overview/product-wise", { timeout: 6000, params: toApiParams(filters) })
+      .get("/api/overview/product-wise", { timeout: 6000, params: toApiParams(filters) })
       .then((res) => {
         if (res.data?.rows?.length) {
           setRows(res.data.rows);
@@ -112,7 +112,7 @@ export default function ProductWiseTable({ filters = {} }) {
                   return (
                     <tr key={`c-${idx}`} className="child-row">
                       <td className="child-name">
-                        <span className="child-bullet">•</span>
+                        <span className="child-bullet">â€¢</span>
                         <span title={safeTitle(row.product)}>{row.product}</span>
                       </td>
                       <td title={formatAbsoluteInteger(row.totalCampaigns)}>{row.totalCampaigns}</td>
@@ -203,3 +203,5 @@ export default function ProductWiseTable({ filters = {} }) {
     </div>
   );
 }
+
+

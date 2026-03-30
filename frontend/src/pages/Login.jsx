@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import axios from "axios";
 import { getMsalApp, isMicrosoftLoginConfigured } from "../auth/msal";
 import { useEffect, useRef } from "react";
@@ -26,7 +26,7 @@ export default function Login({ onLogin }) {
       client_id: googleClientId,
       callback: async (resp) => {
         try {
-          const res = await axios.post("http://localhost:5000/api/auth/google", { idToken: resp.credential }, { timeout: 10000 });
+          const res = await axios.post("/api/auth/google", { idToken: resp.credential }, { timeout: 10000 });
           onLogin?.(res.data);
         } catch (err) {
           setError(err.response?.data?.error || "Google login failed");
@@ -48,7 +48,7 @@ export default function Login({ onLogin }) {
     setError("");
     setLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", { email, password }, { timeout: 6000 });
+      const res = await axios.post("/api/auth/login", { email, password }, { timeout: 6000 });
       onLogin?.(res.data);
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
@@ -63,7 +63,7 @@ export default function Login({ onLogin }) {
       const app = getMsalApp();
       const response = await app.loginPopup({ scopes: ["openid", "profile", "email"] });
       const idToken = response.idToken;
-      const res = await axios.post("http://localhost:5000/api/auth/microsoft", { idToken }, { timeout: 10000 });
+      const res = await axios.post("/api/auth/microsoft", { idToken }, { timeout: 10000 });
       onLogin?.(res.data);
     } catch (err) {
       setError(err.response?.data?.error || err.message || "Microsoft login failed");
@@ -75,7 +75,7 @@ export default function Login({ onLogin }) {
     setResetMsg("");
     try {
       await axios.post(
-        "http://localhost:5000/api/auth/reset-password",
+        "/api/auth/reset-password",
         { email: resetUsername, currentPassword, newPassword },
         { timeout: 6000 }
       );
@@ -135,3 +135,5 @@ export default function Login({ onLogin }) {
     </div>
   );
 }
+
+
