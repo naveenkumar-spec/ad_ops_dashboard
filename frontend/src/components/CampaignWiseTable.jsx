@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { mockCampaignWise, mockCampaignWiseTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
+import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import "../../styles/Tables.css";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -116,16 +117,16 @@ export default function CampaignWiseTable({ filters = {} }) {
             <tbody>
               {data.map((r, i) => (
                 <tr key={i}>
-                  <td className="col-name">{r.name}</td>
-                  <td>{r.budgetGroups}</td>
-                  <td>{fmtDate(r.startDate)}</td>
-                  <td>{fmtDate(r.endDate)}</td>
-                  <td>{fmtNum(r.duration)}</td>
-                  <td className={r.daysRemaining < 0 ? "text-warn" : ""}>
+                  <td className="col-name" title={safeTitle(r.name)}>{r.name}</td>
+                  <td title={formatAbsoluteInteger(r.budgetGroups)}>{r.budgetGroups}</td>
+                  <td title={safeTitle(fmtDate(r.startDate))}>{fmtDate(r.startDate)}</td>
+                  <td title={safeTitle(fmtDate(r.endDate))}>{fmtDate(r.endDate)}</td>
+                  <td title={formatAbsoluteInteger(r.duration)}>{fmtNum(r.duration)}</td>
+                  <td className={r.daysRemaining < 0 ? "text-warn" : ""} title={formatAbsoluteInteger(r.daysRemaining)}>
                     {fmtNum(r.daysRemaining)}
                   </td>
-                  <td>{fmtPct(r.pctPassed)}</td>
-                  <td>{fmtImpr(r.plannedImpressions)}</td>
+                  <td title={formatAbsolutePercent(r.pctPassed, 2)}>{fmtPct(r.pctPassed)}</td>
+                  <td title={formatAbsoluteInteger(r.plannedImpressions)}>{fmtImpr(r.plannedImpressions)}</td>
                 </tr>
               ))}
             </tbody>
@@ -136,25 +137,25 @@ export default function CampaignWiseTable({ filters = {} }) {
                     <strong>Total</strong>
                   </td>
                   <td>
-                    <strong>{fmtNum(totalsDerived.budgetGroups)}</strong>
+                    <strong title={formatAbsoluteInteger(totalsDerived.budgetGroups)}>{fmtNum(totalsDerived.budgetGroups)}</strong>
                   </td>
                   <td></td>
                   <td></td>
                   <td>
-                    <strong>{fmtNum(totalsDerived.duration)}</strong>
+                    <strong title={formatAbsoluteInteger(totalsDerived.duration)}>{fmtNum(totalsDerived.duration)}</strong>
                   </td>
                   <td>
-                    <strong>{fmtNum(totalsDerived.daysRemaining)}</strong>
+                    <strong title={formatAbsoluteInteger(totalsDerived.daysRemaining)}>{fmtNum(totalsDerived.daysRemaining)}</strong>
                   </td>
                   <td>
                     <strong>
-                      {totalsDerived.avgPctPassed
+                      <span title={formatAbsolutePercent(totalsDerived.avgPctPassed, 2)}>{totalsDerived.avgPctPassed
                         ? `${totalsDerived.avgPctPassed.toFixed(2)}%`
-                        : ""}
+                        : ""}</span>
                     </strong>
                   </td>
                   <td>
-                    <strong>{fmtImpr(totalsDerived.plannedImpressions)}</strong>
+                    <strong title={formatAbsoluteInteger(totalsDerived.plannedImpressions)}>{fmtImpr(totalsDerived.plannedImpressions)}</strong>
                   </td>
                 </tr>
               </tfoot>

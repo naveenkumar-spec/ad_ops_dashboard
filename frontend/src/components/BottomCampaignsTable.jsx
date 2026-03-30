@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { mockBottomCampaigns, mockBottomCampaignsTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
+import { formatAbsoluteCurrency, formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import "../../styles/Tables.css";
 
 function fmtUSD(v) {
@@ -90,15 +91,15 @@ export default function BottomCampaignsTable({ filters = {} }) {
             <tbody>
               {displayed.map((r, i) => (
                 <tr key={i}>
-                  <td className="col-name">{r.name}</td>
-                  <td>{r.status}</td>
-                  <td>{fmtUSD(r.revenue)}</td>
-                  <td>{fmtUSD(r.spend)}</td>
-                  <td>{fmtNum(r.grossMargin)}</td>
-                  <td>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
-                  <td>{r.netMargin != null ? fmtUSD(r.netMargin) : ""}</td>
-                  <td>{r.netMarginPct != null ? `${r.netMarginPct.toFixed(2)}%` : ""}</td>
-                  <td>{fmtImpr(r.plannedImpressions)}</td>
+                  <td className="col-name" title={safeTitle(r.name)}>{r.name}</td>
+                  <td title={safeTitle(r.status)}>{r.status}</td>
+                  <td title={formatAbsoluteCurrency(r.revenue, "USD")}>{fmtUSD(r.revenue)}</td>
+                  <td title={formatAbsoluteCurrency(r.spend, "USD")}>{fmtUSD(r.spend)}</td>
+                  <td title={formatAbsoluteCurrency(r.grossMargin, "USD")}>{fmtNum(r.grossMargin)}</td>
+                  <td title={formatAbsolutePercent(r.grossMarginPct, 2)}>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
+                  <td title={formatAbsoluteCurrency(r.netMargin, "USD")}>{r.netMargin != null ? fmtUSD(r.netMargin) : ""}</td>
+                  <td title={formatAbsolutePercent(r.netMarginPct, 2)}>{r.netMarginPct != null ? `${r.netMarginPct.toFixed(2)}%` : ""}</td>
+                  <td title={formatAbsoluteInteger(r.plannedImpressions)}>{fmtImpr(r.plannedImpressions)}</td>
                 </tr>
               ))}
             </tbody>
@@ -107,13 +108,13 @@ export default function BottomCampaignsTable({ filters = {} }) {
                 <tr className="total-row">
                   <td><strong>Total</strong></td>
                   <td></td>
-                  <td><strong>{fmtUSD(totals.revenue)}</strong></td>
-                  <td><strong>{fmtUSD(totals.spend)}</strong></td>
-                  <td><strong>{fmtUSD(totals.grossMargin)}</strong></td>
-                  <td><strong>{totals.grossMarginPct.toFixed(2)}%</strong></td>
-                  <td><strong>{fmtUSD(totals.netMargin)}</strong></td>
-                  <td><strong>{totals.netMarginPct.toFixed(2)}%</strong></td>
-                  <td><strong>{fmtImpr(totals.plannedImpressions)}</strong></td>
+                  <td title={formatAbsoluteCurrency(totals.revenue, "USD")}><strong>{fmtUSD(totals.revenue)}</strong></td>
+                  <td title={formatAbsoluteCurrency(totals.spend, "USD")}><strong>{fmtUSD(totals.spend)}</strong></td>
+                  <td title={formatAbsoluteCurrency(totals.grossMargin, "USD")}><strong>{fmtUSD(totals.grossMargin)}</strong></td>
+                  <td title={formatAbsolutePercent(totals.grossMarginPct, 2)}><strong>{totals.grossMarginPct.toFixed(2)}%</strong></td>
+                  <td title={formatAbsoluteCurrency(totals.netMargin, "USD")}><strong>{fmtUSD(totals.netMargin)}</strong></td>
+                  <td title={formatAbsolutePercent(totals.netMarginPct, 2)}><strong>{totals.netMarginPct.toFixed(2)}%</strong></td>
+                  <td title={formatAbsoluteInteger(totals.plannedImpressions)}><strong>{fmtImpr(totals.plannedImpressions)}</strong></td>
                 </tr>
               </tfoot>
             )}

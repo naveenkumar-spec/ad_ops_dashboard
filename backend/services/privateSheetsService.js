@@ -45,10 +45,10 @@ const FIELD_ALIASES = {
   ],
   status: ["Status", "Campaign Status"],
   country: ["Country", "Region", "Geo", "Market"],
-  revenue: ["Revenue (USD)", "Revenue(USD)", "Revenue", "Booked Revenue", "Booked Revenue (USD)"],
+  revenue: ["Revenue (USD)", "Revenue(USD)", "Revenue", "Booked Revenue", "Booked Revenue (USD)", "Spend-Total", "Spend Total"],
   spend: ["Spends (USD)", "Spends(USD)", "Spend", "Total Spend", "Spend (USD)"],
   grossProfit: ["Gross Profit", "Gross Margin $", "Gross Profit / Loss"],
-  grossMarginPct: ["Gross Profit %", "Gross Margin %", "Gross Margin", "GM %"],
+  grossMarginPct: ["Gross Profit %", "Gross Margin %", "Gross Margin", "GM %", "Mergin percentage", "Margin percentage"],
   netMarginPct: ["% Net gross margin", "% Net gross margin ", "Net Margin %", "NM %"],
   netMargin: ["Net Margin", "Net Profit", "Net gross margin ", "Net Margin $"],
   plannedImpressions: [
@@ -68,7 +68,15 @@ const FIELD_ALIASES = {
   csOwner: ["CS Responsible", "CS Owner"],
   salesOwner: ["Sales Responsible", "Sales Owner"],
   budgetGroups: ["Budget Groups", "Budget Group", "Budget Group Count", "No of Budget Groups"],
-  cpm: ["Average Buying CPM", "Buying CPM", "CPM", "Avg CPM"]
+  cpm: ["Average Buying CPM", "Buying CPM", "CPM", "Avg CPM", "eCPM"]
+};
+
+const OVERVIEW_RAW_SPENDS_SOURCE = {
+  country: "Overview Legacy",
+  sheetId: "1MwWqMLj5b4FwIS6wD3FugfwgbWlyJD0xaQJLpmlRlQs",
+  tabName: "Raw Spends Data",
+  gid: 848964579,
+  enabled: true
 };
 
 const NORMALIZED_HEADER_CANDIDATES = new Set(
@@ -389,6 +397,14 @@ async function getCpmTrend() {
   return buildMonthYearSeries(rows, (r) => r.cpm, "avg");
 }
 
+async function getOverviewLegacyTrend(metric = "revenue") {
+  const sheets = await getSheetsClient();
+  const rows = await fetchSourceRows(sheets, OVERVIEW_RAW_SPENDS_SOURCE);
+  if (metric === "cpm") return buildMonthYearSeries(rows, (r) => r.cpm, "avg");
+  if (metric === "margin") return buildMonthYearSeries(rows, (r) => r.grossMarginPct, "avg");
+  return buildMonthYearSeries(rows, (r) => r.revenue, "sum");
+}
+
 async function getBottomCampaignsSimple(limit = 8) {
   const rows = await loadAllRows();
   return rows
@@ -612,6 +628,7 @@ module.exports = {
   getMarginTrend,
   getNetMarginTrend,
   getCpmTrend,
+  getOverviewLegacyTrend,
   getBottomCampaignsSimple,
   getCampaignsDetailed,
   getRegionTable,

@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { mockKPIs } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
+import { formatAbsoluteCurrency, formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import "../../styles/KPICards.css";
 
 const CARD_ORDER = ["No of Campaigns","Gross Margin %","Net Margin %","Spend"];
+const ENABLE_MOCK_FALLBACK = String(import.meta.env.VITE_ENABLE_MOCK_FALLBACK || "").toLowerCase() === "true";
 
 function parseNumber(val="") {
   const num = Number(String(val).replace(/[^\d.\-]/g,""));
@@ -27,19 +29,51 @@ function formatCurrency(v) {
   return `$${n.toFixed(0)}`;
 }
 
+function getValueTitle(kpi) {
+  const raw = String(kpi?.value ?? "");
+  if (!raw) return "";
+  if (kpi?.title === "No of Campaigns") return formatAbsoluteInteger(raw);
+  if (raw.includes("%")) return formatAbsolutePercent(parseNumber(raw), 2);
+  const asCurrency = parseCurrency(raw);
+  if (asCurrency != null) return formatAbsoluteCurrency(asCurrency, "USD");
+  const asNum = parseNumber(raw);
+  return asNum != null ? formatAbsoluteInteger(asNum) : safeTitle(raw);
+}
+
+function getSubtitleTitle(text = "") {
+  const raw = String(text || "");
+  const currency = parseCurrency(raw);
+  if (currency != null && /margin|revenue|spend/i.test(raw)) {
+    return raw.replace(/\$?[\d.,]+\s*[MBK]?/i, formatAbsoluteCurrency(currency, "USD"));
+  }
+  if (/budget groups/i.test(raw)) {
+    const n = parseNumber(raw);
+    if (n != null) return `Budget Groups: ${formatAbsoluteInteger(n)}`;
+  }
+  return safeTitle(raw);
+}
+
 export default function KPICards({ filters = {} }) {
   const [kpis, setKpis] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
+    setError("");
     axios.get("http://localhost:5000/api/overview/kpis", { timeout: 5000, params: toApiParams(filters) })
       .then(res => {
         const ordered = CARD_ORDER.map(t=>(res.data||[]).find(i=>i.title===t)).filter(Boolean);
         setKpis(ordered);
       })
       .catch(() => {
-        const ordered = CARD_ORDER.map(t=>mockKPIs.find(i=>i.title===t)).filter(Boolean);
-        setKpis(ordered);
+        if (ENABLE_MOCK_FALLBACK) {
+          const ordered = CARD_ORDER.map(t=>mockKPIs.find(i=>i.title===t)).filter(Boolean);
+          setKpis(ordered);
+          return;
+        }
+        setKpis([]);
+        setError("Failed to load KPI data");
       })
       .finally(() => setLoading(false));
   }, [JSON.stringify(filters)]);
@@ -61,16 +95,17 @@ export default function KPICards({ filters = {} }) {
   }, [kpis]);
 
   if(loading) return <div className="kpi-banner">Loading KPI data…</div>;
+  if(error) return <div className="kpi-banner">{error}</div>;
   if(!display.length) return <div className="kpi-banner">No KPI data available</div>;
 
   return (
     <div className="kpi-cards-container">
       {display.map((kpi,i) => (
         <article className="kpi-card" key={i}>
-          <p className="kpi-title">{kpi.title}</p>
-          <p className="kpi-value">{kpi.value}</p>
+          <p className="kpi-title" title={safeTitle(kpi.title)}>{kpi.title}</p>
+          <p className="kpi-value" title={getValueTitle(kpi)}>{kpi.value}</p>
           <div className="kpi-divider"/>
-          <p className="kpi-subtitle">{kpi.subtitleText}</p>
+          <p className="kpi-subtitle" title={getSubtitleTitle(kpi.subtitleText)}>{kpi.subtitleText}</p>
         </article>
       ))}
     </div>

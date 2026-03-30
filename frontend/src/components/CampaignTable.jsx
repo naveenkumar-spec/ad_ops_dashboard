@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { mockCampaigns } from "../mockData.js";
+import { formatAbsoluteCurrency, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import "../../styles/Tables.css";
 
 function fmt(v) {
@@ -38,18 +39,18 @@ export default function CampaignTable({ title="Campaign Performance (Bottom Perf
               <tbody>
                 {data.map((c,i)=>(
                   <tr key={i}>
-                    <td>{c.campaignName}</td>
+                    <td title={safeTitle(c.campaignName)}>{c.campaignName}</td>
                     <td>
                       <span style={{
                         display:'inline-block',padding:'2px 8px',borderRadius:99,fontSize:11,fontWeight:600,
                         background:c.status==='Active'?'#dcf5e7':c.status==='Paused'?'#fff3cd':'#f5e6e6',
                         color:c.status==='Active'?'#166534':c.status==='Paused'?'#92400e':'#991b1b'
-                      }}>{c.status}</span>
+                      }} title={safeTitle(c.status)}>{c.status}</span>
                     </td>
-                    <td>{fmt(c.revenue)}</td>
-                    <td>{fmt(c.spend)}</td>
-                    <td>{fmt(c.profit)}</td>
-                    <td>{c.grossMargin!=null?`${c.grossMargin}%`:""}</td>
+                    <td title={formatAbsoluteCurrency(c.revenue, "USD")}>{fmt(c.revenue)}</td>
+                    <td title={formatAbsoluteCurrency(c.spend, "USD")}>{fmt(c.spend)}</td>
+                    <td title={formatAbsoluteCurrency(c.profit, "USD")}>{fmt(c.profit)}</td>
+                    <td title={formatAbsolutePercent(c.grossMargin, 2)}>{c.grossMargin!=null?`${c.grossMargin}%`:""}</td>
                   </tr>
                 ))}
               </tbody>

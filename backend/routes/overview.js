@@ -7,6 +7,21 @@ const bigQueryReadService = require("../services/bigQueryReadService");
 const bigQuerySyncService = require("../services/bigQuerySyncService");
 
 const DATA_SOURCE = (process.env.DATA_SOURCE || "bigquery").toLowerCase();
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+];
+const MONTH_INDEX = Object.fromEntries(MONTHS.map((m, i) => [m, i]));
 
 function parseFilters(query = {}) {
   const get = (key) => {
@@ -51,6 +66,109 @@ function getDataProvider() {
 
 const provider = getDataProvider();
 
+function parseMonthYearKeysFromSeries(series = []) {
+  const keys = [];
+  (series || []).forEach((row) => {
+    const month = String(row?.month || "").trim();
+    const monthIdx = MONTH_INDEX[month];
+    if (monthIdx === undefined) return;
+    Object.keys(row || {}).forEach((k) => {
+      if (k === "month") return;
+      const year = Number(k);
+      const value = Number(row[k] || 0);
+      if (!Number.isFinite(year) || !Number.isFinite(value)) return;
+      if (Math.abs(value) <= 0) return;
+      keys.push({ key: `${year}__${month}`, year, month, monthIdx });
+    });
+  });
+  return keys.sort((a, b) => (a.year - b.year) || (a.monthIdx - b.monthIdx));
+}
+
+function mergeLegacySeries(baseSeries = [], legacySeries = []) {
+  const base = (baseSeries || []).map((row) => ({ ...row }));
+  if (!base.length || !legacySeries?.length) return base;
+
+  const activeKeys = parseMonthYearKeysFromSeries(base);
+  if (!activeKeys.length) return base;
+
+  const preserveRecent = new Set(activeKeys.slice(-2).map((x) => x.key));
+  const allYears = new Set();
+  base.forEach((row) => {
+    Object.keys(row || {}).forEach((k) => {
+      if (k !== "month") allYears.add(String(k));
+    });
+  });
+  legacySeries.forEach((row) => {
+    Object.keys(row || {}).forEach((k) => {
+      if (k !== "month") allYears.add(String(k));
+    });
+  });
+
+  base.forEach((row) => {
+    allYears.forEach((year) => {
+      if (row[year] === undefined) row[year] = 0;
+    });
+  });
+  const monthMap = new Map(base.map((row) => [row.month, row]));
+  legacySeries.forEach((legacyRow) => {
+    const month = legacyRow?.month;
+    const target = monthMap.get(month);
+    if (!target) return;
+    Object.keys(legacyRow || {}).forEach((year) => {
+      if (year === "month") return;
+      if (legacyRow[year] === undefined || legacyRow[year] === null) return;
+      const key = `${Number(year)}__${month}`;
+      if (preserveRecent.has(key)) return;
+      const value = Number(legacyRow[year]);
+      if (!Number.isFinite(value)) return;
+      target[year] = value;
+    });
+  });
+  return base;
+}
+
+function clampFutureMonths(series = []) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIndex = now.getMonth();
+
+  return (series || []).map((row) => {
+    const monthName = String(row?.month || "").trim();
+    const monthIndex = MONTH_INDEX[monthName];
+    if (monthIndex === undefined) return { ...row };
+
+    const out = { ...row };
+    Object.keys(out).forEach((key) => {
+      if (key === "month") return;
+      const year = Number(key);
+      if (!Number.isFinite(year)) return;
+      const isFutureYear = year > currentYear;
+      const isFutureMonthInCurrentYear = year === currentYear && monthIndex > currentMonthIndex;
+      if (isFutureYear || isFutureMonthInCurrentYear) {
+        out[key] = 0;
+      }
+    });
+    return out;
+  });
+}
+
+async function withLegacyOverviewTrend(metric, baseSeries, filters = {}) {
+  if (DATA_SOURCE !== "google_sheets") return baseSeries;
+  const hasScopedAccess = Array.isArray(filters.scopeCountries) && filters.scopeCountries.length;
+  const hasAdopsScope = Array.isArray(filters.scopeAdops) && filters.scopeAdops.length;
+  if (hasScopedAccess || hasAdopsScope) return baseSeries;
+  const filterKeys = ["region", "year", "month", "status", "product", "platform", "ops", "cs", "sales"];
+  const hasActiveFilters = filterKeys.some((key) => {
+    const value = filters[key];
+    if (value === undefined || value === null) return false;
+    if (Array.isArray(value)) return value.length > 0;
+    return String(value).trim().toLowerCase() !== "all" && String(value).trim() !== "";
+  });
+  if (hasActiveFilters) return baseSeries;
+  const legacySeries = await privateSheetsService.getOverviewLegacyTrend(metric);
+  return mergeLegacySeries(baseSeries, legacySeries);
+}
+
 router.get("/kpis", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
@@ -72,10 +190,11 @@ router.get("/kpis", async (_req, res) => {
 
 router.get("/revenue-trend", async (_req, res) => {
   try {
-    const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const trendData = DATA_SOURCE === "powerbi"
+    const trendFilters = {};
+    const baseSeries = DATA_SOURCE === "powerbi"
       ? await powerBiService.getRevenueTrendData()
-      : await provider.getRevenueTrend(filters);
+      : await provider.getRevenueTrend(trendFilters);
+    const trendData = clampFutureMonths(await withLegacyOverviewTrend("revenue", baseSeries, trendFilters));
     res.json(trendData);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch revenue trend", message: error.message });
@@ -84,10 +203,11 @@ router.get("/revenue-trend", async (_req, res) => {
 
 router.get("/margin-trend", async (_req, res) => {
   try {
-    const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const trendData = DATA_SOURCE === "powerbi"
+    const trendFilters = {};
+    const baseSeries = DATA_SOURCE === "powerbi"
       ? await powerBiService.getRevenueTrendData()
-      : await provider.getMarginTrend(filters);
+      : await provider.getMarginTrend(trendFilters);
+    const trendData = clampFutureMonths(await withLegacyOverviewTrend("margin", baseSeries, trendFilters));
     res.json(trendData);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch margin trend", message: error.message });
@@ -185,8 +305,9 @@ router.get("/product-wise", async (_req, res) => {
 
 router.get("/cpm-trend", async (_req, res) => {
   try {
-    const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const payload = await provider.getCpmTrend(filters);
+    const trendFilters = {};
+    const baseSeries = await provider.getCpmTrend(trendFilters);
+    const payload = clampFutureMonths(await withLegacyOverviewTrend("cpm", baseSeries, trendFilters));
     res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch cpm-trend", message: error.message });
@@ -196,7 +317,7 @@ router.get("/cpm-trend", async (_req, res) => {
 router.get("/net-margin-trend", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const payload = await provider.getNetMarginTrend(filters);
+    const payload = clampFutureMonths(await provider.getNetMarginTrend(filters));
     res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch net-margin-trend", message: error.message });

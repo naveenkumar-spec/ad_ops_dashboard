@@ -12,6 +12,7 @@ const keyFilename = path.isAbsolute(keyFileFromEnv)
 const projectId = process.env.GCP_PROJECT_ID;
 const datasetId = process.env.BIGQUERY_DATASET_ID || "adops_dashboard";
 const tableId = process.env.BIGQUERY_TABLE_ID || "campaign_tracker_consolidated";
+const transitionTableId = process.env.BIGQUERY_TRANSITION_TABLE_ID || "overview_transition_metrics";
 const stateTableId = process.env.BIGQUERY_SYNC_STATE_TABLE_ID || "campaign_tracker_sync_state";
 
 const bigquery = new BigQuery({
@@ -53,6 +54,19 @@ const TABLE_SCHEMA = [
   { name: "source_gid", type: "INT64" }
 ];
 
+const TRANSITION_TABLE_SCHEMA = [
+  { name: "sync_id", type: "STRING" },
+  { name: "synced_at", type: "TIMESTAMP" },
+  { name: "month", type: "STRING" },
+  { name: "year", type: "INT64" },
+  { name: "quarter", type: "STRING" },
+  { name: "booked_revenue_m", type: "FLOAT" },
+  { name: "gross_margin_pct", type: "FLOAT" },
+  { name: "average_buying_cpm", type: "FLOAT" },
+  { name: "source_sheet_id", type: "STRING" },
+  { name: "source_tab", type: "STRING" }
+];
+
 async function ensureTable() {
   if (!projectId || String(projectId).toLowerCase().includes("your-gcp-project-id")) {
     throw new Error("Set a real GCP_PROJECT_ID in backend/.env before running BigQuery sync");
@@ -72,6 +86,32 @@ async function ensureTable() {
     const [meta] = await table.getMetadata();
     const existing = new Set((meta.schema?.fields || []).map((f) => f.name));
     const missing = TABLE_SCHEMA.filter((f) => !existing.has(f.name));
+    if (missing.length) {
+      await table.setMetadata({
+        schema: {
+          fields: [...(meta.schema?.fields || []), ...missing]
+        }
+      });
+    }
+  }
+  return table;
+}
+
+async function ensureTransitionTable() {
+  const dataset = bigquery.dataset(datasetId);
+  await dataset.get({ autoCreate: true });
+
+  const table = dataset.table(transitionTableId);
+  const [tableExists] = await table.exists();
+  if (!tableExists) {
+    await table.create({
+      schema: TRANSITION_TABLE_SCHEMA,
+      description: "Overview transition metrics from Raw Spends Data tab for CPM/Revenue/Gross Margin visuals"
+    });
+  } else {
+    const [meta] = await table.getMetadata();
+    const existing = new Set((meta.schema?.fields || []).map((f) => f.name));
+    const missing = TRANSITION_TABLE_SCHEMA.filter((f) => !existing.has(f.name));
     if (missing.length) {
       await table.setMetadata({
         schema: {
@@ -104,8 +144,8 @@ async function ensureStateTable() {
   return table;
 }
 
-function computeChecksum(rows) {
-  const canonical = rows
+function computeChecksum(rows, transitionRows = []) {
+  const canonicalMain = rows
     .map((r) => [
       r.campaignName || "",
       r.country || "",
@@ -132,7 +172,20 @@ function computeChecksum(rows) {
     ].join("|"))
     .sort()
     .join("\n");
-  return crypto.createHash("sha256").update(canonical).digest("hex");
+
+  const canonicalTransition = transitionRows
+    .map((r) => [
+      r.month || "",
+      Number(r.year || 0),
+      r.quarter || "",
+      Number(r.booked_revenue_m || 0).toFixed(4),
+      Number(r.gross_margin_pct || 0).toFixed(4),
+      Number(r.average_buying_cpm || 0).toFixed(4)
+    ].join("|"))
+    .sort()
+    .join("\n");
+
+  return crypto.createHash("sha256").update(`${canonicalMain}\n---\n${canonicalTransition}`).digest("hex");
 }
 
 async function getLastChecksum() {
@@ -188,6 +241,69 @@ function toBigQueryRows(rows, syncId, syncedAtIso) {
   }));
 }
 
+function toTransitionMapRow(seriesByMetric, month, year) {
+  const row = {
+    month,
+    year: Math.round(Number(year || 0)),
+    quarter: null,
+    booked_revenue_m: 0,
+    gross_margin_pct: 0,
+    average_buying_cpm: 0
+  };
+  const monthIndex = {
+    January: 0, February: 1, March: 2, April: 3, May: 4, June: 5,
+    July: 6, August: 7, September: 8, October: 9, November: 10, December: 11
+  }[month];
+  if (monthIndex !== undefined) row.quarter = `Q${Math.floor(monthIndex / 3) + 1}`;
+
+  Object.entries(seriesByMetric || {}).forEach(([metric, series]) => {
+    const monthRow = (series || []).find((s) => s.month === month) || {};
+    const value = Number(monthRow[String(year)] || 0);
+    if (metric === "revenue") row.booked_revenue_m = Number(value.toFixed(2));
+    if (metric === "margin") row.gross_margin_pct = Number(value.toFixed(2));
+    if (metric === "cpm") row.average_buying_cpm = Number(value.toFixed(2));
+  });
+  return row;
+}
+
+function toTransitionRows(syncId, syncedAtIso, seriesByMetric) {
+  const monthOrder = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  const years = new Set();
+  Object.values(seriesByMetric || {}).forEach((series) => {
+    (series || []).forEach((row) => {
+      Object.keys(row || {}).forEach((k) => {
+        if (k !== "month" && Number.isFinite(Number(k))) years.add(Number(k));
+      });
+    });
+  });
+
+  const out = [];
+  Array.from(years).sort((a, b) => a - b).forEach((year) => {
+    monthOrder.forEach((month) => {
+      const merged = toTransitionMapRow(seriesByMetric, month, year);
+      if (!Number.isFinite(merged.year) || !merged.year) return;
+      if (
+        Math.abs(merged.booked_revenue_m) <= 0 &&
+        Math.abs(merged.gross_margin_pct) <= 0 &&
+        Math.abs(merged.average_buying_cpm) <= 0
+      ) {
+        return;
+      }
+      out.push({
+        sync_id: syncId,
+        synced_at: syncedAtIso,
+        ...merged,
+        source_sheet_id: "1MwWqMLj5b4FwIS6wD3FugfwgbWlyJD0xaQJLpmlRlQs",
+        source_tab: "Raw Spends Data"
+      });
+    });
+  });
+  return out;
+}
+
 async function syncToBigQuery(options = {}) {
   const fullRefresh = options.fullRefresh !== false;
   const skipIfUnchanged = options.skipIfUnchanged !== false;
@@ -195,9 +311,16 @@ async function syncToBigQuery(options = {}) {
   const syncedAtIso = new Date().toISOString();
   try {
     const table = await ensureTable();
+    const transitionTable = await ensureTransitionTable();
     await ensureStateTable();
     const rows = await privateSheetsService.loadAllRows(Boolean(options.forceRefresh));
-    const checksum = computeChecksum(rows);
+    const seriesByMetric = {
+      revenue: await privateSheetsService.getOverviewLegacyTrend("revenue"),
+      margin: await privateSheetsService.getOverviewLegacyTrend("margin"),
+      cpm: await privateSheetsService.getOverviewLegacyTrend("cpm")
+    };
+    const transitionRows = toTransitionRows(syncId, syncedAtIso, seriesByMetric);
+    const checksum = computeChecksum(rows, transitionRows);
     const previousChecksum = await getLastChecksum();
 
     if (skipIfUnchanged && previousChecksum && previousChecksum === checksum) {
@@ -207,8 +330,10 @@ async function syncToBigQuery(options = {}) {
         syncId,
         mode: fullRefresh ? "full_refresh" : "append",
         rowCount: rows.length,
+        transitionRowCount: transitionRows.length,
         datasetId,
         tableId,
+        transitionTableId,
         projectId,
         checksum,
         syncedAt: syncedAtIso,
@@ -219,7 +344,7 @@ async function syncToBigQuery(options = {}) {
         synced_at: syncedAtIso,
         status: "skipped",
         mode: skipped.mode,
-        row_count: rows.length,
+        row_count: rows.length + transitionRows.length,
         checksum,
         message: skipped.message
       });
@@ -234,6 +359,10 @@ async function syncToBigQuery(options = {}) {
         query: `TRUNCATE TABLE \`${projectId}.${datasetId}.${tableId}\``,
         location: process.env.BIGQUERY_LOCATION || "US"
       });
+      await bigquery.query({
+        query: `TRUNCATE TABLE \`${projectId}.${datasetId}.${transitionTableId}\``,
+        location: process.env.BIGQUERY_LOCATION || "US"
+      });
     }
 
     const batchSize = 500;
@@ -241,14 +370,20 @@ async function syncToBigQuery(options = {}) {
       const batch = bqRows.slice(i, i + batchSize);
       if (batch.length) await table.insert(batch);
     }
+    for (let i = 0; i < transitionRows.length; i += batchSize) {
+      const batch = transitionRows.slice(i, i + batchSize);
+      if (batch.length) await transitionTable.insert(batch);
+    }
 
     const result = {
       ok: true,
       syncId,
       mode: fullRefresh ? "full_refresh" : "append",
       rowCount: bqRows.length,
+      transitionRowCount: transitionRows.length,
       datasetId,
       tableId,
+      transitionTableId,
       projectId,
       checksum,
       syncedAt: syncedAtIso
@@ -258,7 +393,7 @@ async function syncToBigQuery(options = {}) {
       synced_at: syncedAtIso,
       status: "success",
       mode: result.mode,
-      row_count: bqRows.length,
+      row_count: bqRows.length + transitionRows.length,
       checksum,
       message: "Sync completed"
     });
@@ -280,7 +415,7 @@ async function syncToBigQuery(options = {}) {
       // no-op
     }
     try {
-      await alertService.sendAlert("AdOps BigQuery Sync Failed", `${message}\nProject: ${projectId}\nDataset: ${datasetId}\nTable: ${tableId}`);
+      await alertService.sendAlert("AdOps BigQuery Sync Failed", `${message}\nProject: ${projectId}\nDataset: ${datasetId}\nTable: ${tableId}\nTransition Table: ${transitionTableId}`);
     } catch (_ignored) {
       // no-op
     }

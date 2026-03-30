@@ -25,7 +25,9 @@ const keyFilename = path.isAbsolute(keyFileFromEnv)
 const projectId = process.env.GCP_PROJECT_ID;
 const datasetId = process.env.BIGQUERY_DATASET_ID || "adops_dashboard";
 const tableId = process.env.BIGQUERY_TABLE_ID || "campaign_tracker_consolidated";
+const transitionTableId = process.env.BIGQUERY_TRANSITION_TABLE_ID || "overview_transition_metrics";
 const tableRef = `\`${projectId}.${datasetId}.${tableId}\``;
+const transitionTableRef = `\`${projectId}.${datasetId}.${transitionTableId}\``;
 const location = process.env.BIGQUERY_LOCATION || "US";
 
 const bigquery = new BigQuery({
@@ -35,6 +37,8 @@ const bigquery = new BigQuery({
 
 let cachedRows = null;
 let lastFetchTime = 0;
+let cachedTransitionRows = null;
+let lastTransitionFetchTime = 0;
 const CACHE_MS = Number(process.env.BIGQUERY_READ_CACHE_MS || 120000);
 
 function normalize(value) {
@@ -166,6 +170,54 @@ async function loadAllRows(forceRefresh = false) {
   return cachedRows;
 }
 
+async function queryTransitionRows() {
+  if (!projectId || String(projectId).toLowerCase().includes("your-gcp-project-id")) {
+    throw new Error("Set GCP_PROJECT_ID in backend/.env");
+  }
+  try {
+    const [rows] = await bigquery.query({
+      query: `
+        SELECT month, year, quarter, booked_revenue_m, gross_margin_pct, average_buying_cpm
+        FROM (
+          SELECT
+            month,
+            year,
+            quarter,
+            booked_revenue_m,
+            gross_margin_pct,
+            average_buying_cpm,
+            ROW_NUMBER() OVER (PARTITION BY month, year ORDER BY synced_at DESC) AS rn
+          FROM ${transitionTableRef}
+        )
+        WHERE rn = 1
+      `,
+      location
+    });
+    return rows.map((r) => ({
+      month: r.month,
+      year: Number(r.year || 0),
+      quarter: r.quarter,
+      bookedRevenueM: Number(r.booked_revenue_m || 0),
+      grossMarginPct: Number(r.gross_margin_pct || 0),
+      averageBuyingCpm: Number(r.average_buying_cpm || 0)
+    }));
+  } catch (error) {
+    const msg = String(error?.message || "").toLowerCase();
+    if (msg.includes("not found") || msg.includes("no such table")) return [];
+    throw error;
+  }
+}
+
+async function loadTransitionRows(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedTransitionRows && now - lastTransitionFetchTime < CACHE_MS) {
+    return cachedTransitionRows;
+  }
+  cachedTransitionRows = await queryTransitionRows();
+  lastTransitionFetchTime = now;
+  return cachedTransitionRows;
+}
+
 function monthYearSeries(rows, getter, mode = "sum") {
   const years = Array.from(new Set(rows.map((r) => String(r.year)))).filter(Boolean).sort();
   const out = MONTHS.map((m) => {
@@ -186,6 +238,88 @@ function monthYearSeries(rows, getter, mode = "sum") {
   return out;
 }
 
+function parseMonthYearKeysFromSeries(series = []) {
+  const keys = [];
+  (series || []).forEach((row) => {
+    const month = String(row?.month || "").trim();
+    const monthIdx = MONTH_INDEX[month.toLowerCase()];
+    if (monthIdx === undefined) return;
+    Object.keys(row || {}).forEach((k) => {
+      if (k === "month") return;
+      const year = Number(k);
+      const value = Number(row[k] || 0);
+      if (!Number.isFinite(year) || !Number.isFinite(value)) return;
+      if (Math.abs(value) <= 0) return;
+      keys.push({ key: `${year}__${month}`, year, month, monthIdx });
+    });
+  });
+  return keys.sort((a, b) => (a.year - b.year) || (a.monthIdx - b.monthIdx));
+}
+
+function mergeSeriesPreserveRecent(baseSeries = [], legacySeries = []) {
+  const base = (baseSeries || []).map((row) => ({ ...row }));
+  if (!base.length || !legacySeries?.length) return base;
+
+  const activeKeys = parseMonthYearKeysFromSeries(base);
+  if (!activeKeys.length) return base;
+  const preserveRecent = new Set(activeKeys.slice(-2).map((x) => x.key));
+
+  const allYears = new Set();
+  base.forEach((row) => Object.keys(row || {}).forEach((k) => { if (k !== "month") allYears.add(String(k)); }));
+  legacySeries.forEach((row) => Object.keys(row || {}).forEach((k) => { if (k !== "month") allYears.add(String(k)); }));
+
+  base.forEach((row) => {
+    allYears.forEach((year) => {
+      if (row[year] === undefined) row[year] = 0;
+    });
+  });
+
+  const monthMap = new Map(base.map((row) => [row.month, row]));
+  legacySeries.forEach((legacyRow) => {
+    const month = legacyRow?.month;
+    const target = monthMap.get(month);
+    if (!target) return;
+    Object.keys(legacyRow || {}).forEach((year) => {
+      if (year === "month") return;
+      const value = Number(legacyRow[year]);
+      if (!Number.isFinite(value)) return;
+      const key = `${Number(year)}__${month}`;
+      if (preserveRecent.has(key)) return;
+      target[year] = value;
+    });
+  });
+  return base;
+}
+
+function transitionSeries(rows, metric) {
+  const years = Array.from(new Set((rows || []).map((r) => String(r.year)).filter(Boolean))).sort();
+  const out = MONTHS.map((month) => {
+    const row = { month };
+    years.forEach((year) => { row[year] = 0; });
+    return row;
+  });
+  const monthIdx = Object.fromEntries(MONTHS.map((m, i) => [m, i]));
+  (rows || []).forEach((r) => {
+    const month = String(r.month || "").trim();
+    const year = String(r.year || "");
+    const idx = monthIdx[month];
+    if (idx === undefined || !year) return;
+    let value = 0;
+    if (metric === "revenue") value = Number(r.bookedRevenueM || 0);
+    if (metric === "margin") value = Number(r.grossMarginPct || 0);
+    if (metric === "cpm") value = Number(r.averageBuyingCpm || 0);
+    out[idx][year] = Number(value.toFixed(2));
+  });
+  return out;
+}
+
+async function getMergedOverviewSeries(baseSeries, metric) {
+  const legacyRows = await loadTransitionRows();
+  if (!legacyRows.length) return baseSeries;
+  const legacySeries = transitionSeries(legacyRows, metric);
+  return mergeSeriesPreserveRecent(baseSeries, legacySeries);
+}
+
 async function getKpis(filters = {}) {
   const rows = applyFilters(await loadAllRows(), filters);
   const totalRevenue = sum(rows, (r) => r.revenue);
@@ -201,11 +335,13 @@ async function getKpis(filters = {}) {
 }
 
 async function getRevenueTrend(filters = {}) {
-  return monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.revenue, "sum");
+  const base = monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.revenue, "sum");
+  return getMergedOverviewSeries(base, "revenue");
 }
 
 async function getMarginTrend(filters = {}) {
-  return monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.grossMarginPct, "avg");
+  const base = monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.grossMarginPct, "avg");
+  return getMergedOverviewSeries(base, "margin");
 }
 
 async function getNetMarginTrend(filters = {}) {
@@ -213,7 +349,8 @@ async function getNetMarginTrend(filters = {}) {
 }
 
 async function getCpmTrend(filters = {}) {
-  return monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.cpm, "avg");
+  const base = monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.cpm, "avg");
+  return getMergedOverviewSeries(base, "cpm");
 }
 
 async function getBottomCampaignsSimple(limit = 8, filters = {}) {

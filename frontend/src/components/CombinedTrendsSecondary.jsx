@@ -3,9 +3,8 @@ import TrendChart from "./TrendChart";
 import "../../styles/Charts.css";
 
 export default function CombinedTrendsSecondary({ filters = {} }) {
-  const allowedYears = [2026, 2025, 2024];
-  const [selectedYears, setSelectedYears] = useState([2026, 2025]);
-  const [availableYears, setAvailableYears] = useState(allowedYears);
+  const [selectedYears, setSelectedYears] = useState([]);
+  const [availableYears, setAvailableYears] = useState([]);
   const [granularity, setGranularity] = useState("month");
   const [showPanel, setShowPanel] = useState(false);
   const yearWrapRef = useRef(null);
@@ -86,13 +85,11 @@ export default function CombinedTrendsSecondary({ filters = {} }) {
         endpoint="http://localhost:5000/api/overview/cpm-trend"
         isPercent={false}
         isRaw={true}
-        filters={filters}
+        filters={{}}
         controlledYears={selectedYears}
-        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).filter(y => allowedYears.includes(Number(y)))))}
+        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}
-        onAvailableYears={() => {
-          setAvailableYears(allowedYears);
-        }}
+        onAvailableYears={(years) => setAvailableYears(sortYearsDesc(Array.from(new Set((years || []).map(Number).filter(Boolean)))))}
       />
 
       <TrendChart
@@ -101,11 +98,9 @@ export default function CombinedTrendsSecondary({ filters = {} }) {
         isPercent={true}
         filters={filters}
         controlledYears={selectedYears}
-        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).filter(y => allowedYears.includes(Number(y)))))}
+        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}
-        onAvailableYears={() => {
-          setAvailableYears(allowedYears);
-        }}
+        onAvailableYears={(years) => setAvailableYears(sortYearsDesc(Array.from(new Set((years || []).map(Number).filter(Boolean)))))}
       />
     </div>
   );

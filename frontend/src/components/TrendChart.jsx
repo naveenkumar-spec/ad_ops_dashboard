@@ -6,29 +6,20 @@ import {
 import axios from "axios";
 import { mockRevenueTrend, mockMarginTrend, mockCPMTrend, mockNetMarginTrend } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
+import { formatAbsoluteCurrency, formatAbsoluteNumber, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import "../../styles/Charts.css";
+const ENABLE_MOCK_FALLBACK = String(import.meta.env.VITE_ENABLE_MOCK_FALLBACK || "").toLowerCase() === "true";
 
-// Palette light -> dark (as provided); latest year uses the last (darkest) color.
-const PALETTE = [
-  "#D2F5EA",
-  "#A6E9D7",
-  "#71D7BF",
-  "#58C4AE",
-  "#2BA18B",
-  "#208171",
-  "#1D685C",
-  "#1C534C",
-  "#1B4640",
-  "#0A2926",
-];
+// Year color order (latest year -> older year), as requested by design.
+const YEAR_COLORS = ["#2BA18B", "#208171", "#1D685C", "#1C534C", "#1B4640", "#0A2926"];
 
-// Spread colors across the palette range to maximize visible contrast for the number of series.
-const colorForIndex = (i, total) => {
-  if (total <= 1) return PALETTE[PALETTE.length - 1];
-  const step = (PALETTE.length - 1) / (total - 1);
-  const idx = Math.round(PALETTE.length - 1 - i * step);
-  return PALETTE[Math.max(0, Math.min(PALETTE.length - 1, idx))];
-};
+function fallbackColor(index) {
+  // Deterministic "random-like" fallback for additional years beyond the fixed palette.
+  const hue = (index * 137.508) % 360;
+  return `hsl(${hue.toFixed(0)} 55% 45%)`;
+}
+
+const colorForIndex = (index) => YEAR_COLORS[index] || fallbackColor(index);
 
 const MONTHS_ORDER = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const SHORT_TO_FULL = {Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'May',Jun:'June',Jul:'July',Aug:'August',Sep:'September',Oct:'October',Nov:'November',Dec:'December'};
@@ -81,12 +72,17 @@ function extractYears(raw) {
 function BarLabel({ x, y, width, value, isPercent, isRaw }) {
   if (value == null || value === 0) return null;
   let display;
+  let absolute;
   if (isPercent)  display = `${Number(value).toFixed(2)}%`;
   else if (isRaw) display = `${Number(value).toFixed(1)}`;
   else            display = `${Number(value).toFixed(2)}M`;
+  if (isPercent) absolute = formatAbsolutePercent(value, 2);
+  else if (isRaw) absolute = formatAbsoluteNumber(value, 2);
+  else absolute = formatAbsoluteCurrency(Number(value) * 1_000_000, "USD");
   return (
     <text x={x + width / 2} y={y - 4} textAnchor="middle"
       fontSize={9} fill="#444" fontFamily="Segoe UI, sans-serif">
+      <title>{absolute}</title>
       {display}
     </text>
   );
@@ -99,6 +95,7 @@ export default function TrendChart({
   const [rawData, setRawData]       = useState([]);
   const [localYears, setLocalYears] = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState("");
 
   const selectedYears = controlledYears ?? localYears;
   const setYears      = onYearsChange ?? setLocalYears;
@@ -106,6 +103,8 @@ export default function TrendChart({
 
   useEffect(() => {
     const fallback = getFallback(endpoint, isPercent, isRaw);
+    setLoading(true);
+    setError("");
     axios.get(endpoint, { timeout: 5000, params: toApiParams(filters) })
       .then(res => {
         const d = res.data?.length ? res.data : fallback;
@@ -115,10 +114,16 @@ export default function TrendChart({
         if (onAvailableYears) onAvailableYears(years);
       })
       .catch(() => {
-        setRawData(fallback);
-        const years = extractYears(fallback);
-        if (!controlledYears?.length && years.length) setYears(years);
-        if (onAvailableYears) onAvailableYears(years);
+        if (ENABLE_MOCK_FALLBACK) {
+          setRawData(fallback);
+          const years = extractYears(fallback);
+          if (!controlledYears?.length && years.length) setYears(years);
+          if (onAvailableYears) onAvailableYears(years);
+          return;
+        }
+        setRawData([]);
+        if (onAvailableYears) onAvailableYears([]);
+        setError("Failed to load trend data");
       })
       .finally(() => setLoading(false));
   }, [endpoint, JSON.stringify(filters)]);
@@ -130,7 +135,7 @@ export default function TrendChart({
 
   return (
     <div className="trend-block">
-      <h3 className="chart-title">{title}</h3>
+      <h3 className="chart-title" title={safeTitle(title)}>{title}</h3>
 
       <div className="trend-legend">
         <span className="legend-label-text">Year</span>
@@ -139,7 +144,7 @@ export default function TrendChart({
           return (
             <span key={y} className="legend-dot-item" style={{ color }}>
               <span className="legend-dot" style={{ background: color }} />
-              {y}
+              <span title={safeTitle(y)}>{y}</span>
             </span>
           );
         })}
@@ -147,6 +152,8 @@ export default function TrendChart({
 
       {loading ? (
         <div className="chart-placeholder">Loading…</div>
+      ) : error ? (
+        <div className="chart-placeholder">{error}</div>
       ) : data.length > 0 ? (
         <div className="trend-chart-area">
           <ResponsiveContainer width="100%" height="100%">
@@ -162,7 +169,11 @@ export default function TrendChart({
                 tickFormatter={yTickFmt} width={44} domain={yDomain} />
               <Tooltip
                 formatter={(v, name) => [
-                  isPercent ? `${Number(v).toFixed(2)}%` : isRaw ? `${Number(v).toFixed(1)}` : `${Number(v).toFixed(2)}M`,
+                  isPercent
+                    ? formatAbsolutePercent(v, 2)
+                    : isRaw
+                      ? formatAbsoluteNumber(v, 2)
+                      : formatAbsoluteCurrency(Number(v) * 1_000_000, "USD"),
                   name
                 ]}
                 contentStyle={{ fontSize: 11, border: "1px solid #c8d6cd", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { mockOwners } from "../mockData.js";
+import { formatAbsoluteCurrency, formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import "../../styles/Tables.css";
 
 function fmtVal(v, fmt) {
@@ -12,6 +13,13 @@ function fmtVal(v, fmt) {
   }
   if(fmt==="percent") return `${n.toFixed(1)}%`;
   return v;
+}
+
+function valueTitle(v, fmt) {
+  if (fmt === "currency") return formatAbsoluteCurrency(v, "USD");
+  if (fmt === "percent") return formatAbsolutePercent(v, 2);
+  if (typeof v === "number") return formatAbsoluteInteger(v);
+  return safeTitle(v);
 }
 
 const cols=[
@@ -51,7 +59,7 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {} })
               <tbody>
                 {rows.map((r,i)=>(
                   <tr key={i}>
-                    {cols.map(c=><td key={c.accessor}>{c.format?fmtVal(r[c.accessor],c.format):r[c.accessor]}</td>)}
+                    {cols.map(c=><td key={c.accessor} title={valueTitle(r[c.accessor], c.format)}>{c.format?fmtVal(r[c.accessor],c.format):r[c.accessor]}</td>)}
                   </tr>
                 ))}
               </tbody>

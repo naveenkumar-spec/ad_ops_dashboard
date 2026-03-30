@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { mockCountryData, mockCountryTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
+import { formatAbsoluteCurrency, formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import "../../styles/Tables.css";
 
 function fmtUSD(v) {
@@ -136,21 +137,21 @@ export default function CountryWiseTable({ filters = {} }) {
                         >
                           {isOpen ? "−" : "+"}
                         </button>
-                        <span className="region-name">{r.region}</span>
+                        <span className="region-name" title={safeTitle(r.region)}>{r.region}</span>
                       </td>
-                      <td>{r.campaigns}</td>
-                      <td>{r.budgetGroups?.toLocaleString()}</td>
-                      <td>{fmtUSD(r.revenue)}</td>
-                      <td>{fmtUSD(r.spend)}</td>
-                      <td>{fmtImpr(r.plannedImpressions)}</td>
-                      <td>
+                      <td title={formatAbsoluteInteger(r.campaigns)}>{r.campaigns}</td>
+                      <td title={formatAbsoluteInteger(r.budgetGroups)}>{r.budgetGroups?.toLocaleString()}</td>
+                      <td title={formatAbsoluteCurrency(r.revenue, "USD")}>{fmtUSD(r.revenue)}</td>
+                      <td title={formatAbsoluteCurrency(r.spend, "USD")}>{fmtUSD(r.spend)}</td>
+                      <td title={formatAbsoluteInteger(r.plannedImpressions)}>{fmtImpr(r.plannedImpressions)}</td>
+                      <td title={`${formatAbsoluteInteger(r.deliveredImpressions)}${r.deliveredPct != null ? ` (${formatAbsolutePercent(r.deliveredPct, 2)})` : ""}`}>
                         {fmtImpr(r.deliveredImpressions)}
                         {r.deliveredPct != null && (
                           <span className="delivered-pct"> ({r.deliveredPct.toFixed(2)}%)</span>
                         )}
                       </td>
-                      <td>{fmtUSD(r.grossMargin)}</td>
-                      <td>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
+                      <td title={formatAbsoluteCurrency(r.grossMargin, "USD")}>{fmtUSD(r.grossMargin)}</td>
+                      <td title={formatAbsolutePercent(r.grossMarginPct, 2)}>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
                     </tr>
                   );
                 } else {
@@ -158,21 +159,21 @@ export default function CountryWiseTable({ filters = {} }) {
                     <tr key={`child-${i}`} className="child-row">
                       <td className="child-name">
                         <span className="child-bullet">•</span>
-                        {r.country}
+                        <span title={safeTitle(r.country)}>{r.country}</span>
                       </td>
-                      <td>{r.campaigns}</td>
-                      <td>{r.budgetGroups?.toLocaleString()}</td>
-                      <td>{fmtUSD(r.revenue)}</td>
-                      <td>{fmtUSD(r.spend)}</td>
-                      <td>{fmtImpr(r.plannedImpressions)}</td>
-                      <td>
+                      <td title={formatAbsoluteInteger(r.campaigns)}>{r.campaigns}</td>
+                      <td title={formatAbsoluteInteger(r.budgetGroups)}>{r.budgetGroups?.toLocaleString()}</td>
+                      <td title={formatAbsoluteCurrency(r.revenue, "USD")}>{fmtUSD(r.revenue)}</td>
+                      <td title={formatAbsoluteCurrency(r.spend, "USD")}>{fmtUSD(r.spend)}</td>
+                      <td title={formatAbsoluteInteger(r.plannedImpressions)}>{fmtImpr(r.plannedImpressions)}</td>
+                      <td title={`${formatAbsoluteInteger(r.deliveredImpressions)}${r.deliveredPct != null ? ` (${formatAbsolutePercent(r.deliveredPct, 2)})` : ""}`}>
                         {fmtImpr(r.deliveredImpressions)}
                         {r.deliveredPct != null && (
                           <span className="delivered-pct"> ({r.deliveredPct.toFixed(2)}%)</span>
                         )}
                       </td>
-                      <td>{fmtUSD(r.grossMargin)}</td>
-                      <td>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
+                      <td title={formatAbsoluteCurrency(r.grossMargin, "USD")}>{fmtUSD(r.grossMargin)}</td>
+                      <td title={formatAbsolutePercent(r.grossMarginPct, 2)}>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
                     </tr>
                   );
                 }
@@ -182,19 +183,19 @@ export default function CountryWiseTable({ filters = {} }) {
               <tfoot>
                 <tr className="total-row">
                   <td><strong>Total</strong></td>
-                  <td><strong>{totals.campaigns}</strong></td>
-                  <td><strong>{totals.budgetGroups?.toLocaleString()}</strong></td>
-                  <td><strong>{fmtUSD(totals.revenue)}</strong></td>
-                  <td><strong>{fmtUSD(totals.spend)}</strong></td>
-                  <td><strong>{fmtImpr(totals.plannedImpressions)}</strong></td>
-                  <td>
+                  <td title={formatAbsoluteInteger(totals.campaigns)}><strong>{totals.campaigns}</strong></td>
+                  <td title={formatAbsoluteInteger(totals.budgetGroups)}><strong>{totals.budgetGroups?.toLocaleString()}</strong></td>
+                  <td title={formatAbsoluteCurrency(totals.revenue, "USD")}><strong>{fmtUSD(totals.revenue)}</strong></td>
+                  <td title={formatAbsoluteCurrency(totals.spend, "USD")}><strong>{fmtUSD(totals.spend)}</strong></td>
+                  <td title={formatAbsoluteInteger(totals.plannedImpressions)}><strong>{fmtImpr(totals.plannedImpressions)}</strong></td>
+                  <td title={`${formatAbsoluteInteger(totals.deliveredImpressions)}${totals.deliveredPct != null ? ` (${formatAbsolutePercent(totals.deliveredPct, 2)})` : ""}`}>
                     <strong>{fmtImpr(totals.deliveredImpressions)}</strong>
                     {totals.deliveredPct != null && (
                       <span className="delivered-pct-total"> ({totals.deliveredPct.toFixed(2)}%)</span>
                     )}
                   </td>
-                  <td><strong>{fmtUSD(totals.grossMargin)}</strong></td>
-                  <td><strong>{totals.grossMarginPct.toFixed(2)}%</strong></td>
+                  <td title={formatAbsoluteCurrency(totals.grossMargin, "USD")}><strong>{fmtUSD(totals.grossMargin)}</strong></td>
+                  <td title={formatAbsolutePercent(totals.grossMarginPct, 2)}><strong>{totals.grossMarginPct.toFixed(2)}%</strong></td>
                 </tr>
               </tfoot>
             )}

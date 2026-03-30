@@ -3,9 +3,8 @@ import TrendChart from "./TrendChart";
 import "../../styles/Charts.css";
 
 export default function CombinedTrends({ filters = {} }) {
-  const allowedYears = [2026, 2025, 2024];
-  const [selectedYears, setSelectedYears] = useState([2026, 2025]);
-  const [availableYears, setAvailableYears] = useState(allowedYears);
+  const [selectedYears, setSelectedYears] = useState([]);
+  const [availableYears, setAvailableYears] = useState([]);
   const [granularity, setGranularity] = useState("month");
   const [showPanel, setShowPanel] = useState(false);
   const yearWrapRef = useRef(null);
@@ -89,27 +88,22 @@ export default function CombinedTrends({ filters = {} }) {
         title="Booked Revenue Trend"
         endpoint="http://localhost:5000/api/overview/revenue-trend"
         isPercent={false}
-        filters={filters}
+        filters={{}}
         controlledYears={selectedYears}
-        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).filter(y => allowedYears.includes(Number(y)))))}
+        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}
-        onAvailableYears={() => {
-          // Keep the dropdown locked to the allowed years only.
-          setAvailableYears(allowedYears);
-        }}
+        onAvailableYears={(years) => setAvailableYears(sortYearsDesc(Array.from(new Set((years || []).map(Number).filter(Boolean)))))}
       />
 
       <TrendChart
         title="Gross Margin Trend"
         endpoint="http://localhost:5000/api/overview/margin-trend"
         isPercent={true}
-        filters={filters}
+        filters={{}}
         controlledYears={selectedYears}
-        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).filter(y => allowedYears.includes(Number(y)))))}
+        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}
-        onAvailableYears={() => {
-          setAvailableYears(allowedYears);
-        }}
+        onAvailableYears={(years) => setAvailableYears(sortYearsDesc(Array.from(new Set((years || []).map(Number).filter(Boolean)))))}
       />
     </div>
   );

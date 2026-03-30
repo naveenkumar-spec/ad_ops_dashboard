@@ -10,6 +10,7 @@ import {
   LabelList
 } from "recharts";
 import axios from "axios";
+import { formatAbsoluteCurrency, formatAbsoluteInteger, safeTitle } from "../utils/absoluteTooltip.js";
 import "../../styles/PerformanceChart.css";
 
 const fallbackOps = [
@@ -65,6 +66,7 @@ const renderBarLabel = (props) => {
       fontWeight={700}
       fill="#0f1f2f"
     >
+      <title>{formatAbsoluteInteger(value)}</title>
       {value}
     </text>
   );
@@ -84,6 +86,7 @@ const renderLineLabel = (props) => {
     <g>
       <rect x={x - width / 2} y={yPos} rx={4} ry={4} width={width} height={height} fill="#1b2b44" opacity={0.9} />
       <text x={x} y={yPos + height / 2 + 3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#ffffff">
+        <title>{formatAbsoluteCurrency(value, "USD")}</title>
         {txt}
       </text>
     </g>
@@ -126,7 +129,7 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
   return (
     <div className="performance-card">
       <div className="perf-header">
-        <h3>{title}</h3>
+        <h3 title={safeTitle(title)}>{title}</h3>
       </div>
 
       <div className="perf-chart-wrapper">
@@ -145,7 +148,13 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
                 hide
                 domain={[0, (dataMax) => dataMax * 1.15]}
               />
-              <Tooltip formatter={(v, name) => name === "Booked Revenue" ? `${valueLabel(v)}K` : v} />
+              <Tooltip
+                formatter={(v, name) => {
+                  const metricName = String(name || "");
+                  if (metricName.toLowerCase().includes("revenue")) return formatAbsoluteCurrency(v, "USD");
+                  return formatAbsoluteInteger(v);
+                }}
+              />
               <Bar yAxisId="left" dataKey="budgetGroups" name="Budget Groups" barSize={32} fill="#3b5e57" radius={[3,3,0,0]}>
                 <LabelList dataKey="budgetGroups" position="top" offset={0} content={renderBarLabel} />
               </Bar>
