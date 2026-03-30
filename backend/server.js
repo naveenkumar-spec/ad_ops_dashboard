@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { ensureServiceAccountFile } = require("./bootstrapServiceAccount");
+ensureServiceAccountFile();
+
 const express = require("express");
 const cors = require("cors");
 
