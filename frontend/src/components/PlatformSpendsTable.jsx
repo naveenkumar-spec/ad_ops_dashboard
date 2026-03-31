@@ -1,23 +1,22 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { mockPlatformSpends } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
-import { formatAbsoluteCurrency, safeTitle } from "../utils/absoluteTooltip.js";
+import { safeTitle } from "../utils/absoluteTooltip.js";
+import {
+  convertUsdToDisplay,
+  formatAbsoluteCurrencyByContext,
+  formatCompactCurrency
+} from "../utils/currencyDisplay.js";
 import "../../styles/Tables.css";
 
 const PRIORITY = ["CTV", "Meta", "OpenWeb", "Tiktok", "Youtube", "YT Mirrors"];
 const MONTH_ORDER = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
 
-function fmtC(v) {
-  const n = Number(v) || 0;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
-  if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
-  return `$${n.toFixed(0)}`;
-}
-
-export default function PlatformSpendsTable({ filters = {} }) {
+export default function PlatformSpendsTable({ filters = {}, currencyContext = null }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   useEffect(() => {
     axios.get("/api/management/platform-spends", { timeout: 6000, params: toApiParams(filters) })
@@ -64,11 +63,11 @@ export default function PlatformSpendsTable({ filters = {} }) {
                       <tr key={r.label}>
                         <td style={{ fontWeight: 600 }} title={safeTitle(r.label)}>{r.label}</td>
                         {platforms.map((p) => (
-                          <td key={p} title={r.spends[p] ? formatAbsoluteCurrency(r.spends[p], "USD") : ""}>
-                            {r.spends[p] ? fmtC(r.spends[p]) : "--"}
+                          <td key={p} title={r.spends[p] ? formatAbsoluteCurrencyByContext(c(r.spends[p]), currencyContext) : ""}>
+                            {r.spends[p] ? formatCompactCurrency(c(r.spends[p]), currencyContext) : "--"}
                           </td>
                         ))}
-                        <td style={{ fontWeight: 600 }} title={formatAbsoluteCurrency(r.total, "USD")}>{fmtC(r.total)}</td>
+                        <td style={{ fontWeight: 600 }} title={formatAbsoluteCurrencyByContext(c(r.total), currencyContext)}>{formatCompactCurrency(c(r.total), currencyContext)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -79,5 +78,4 @@ export default function PlatformSpendsTable({ filters = {} }) {
     </div>
   );
 }
-
 

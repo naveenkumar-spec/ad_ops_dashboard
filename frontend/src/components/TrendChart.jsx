@@ -6,7 +6,8 @@ import {
 import axios from "axios";
 import { mockRevenueTrend, mockMarginTrend, mockCPMTrend, mockNetMarginTrend } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
-import { formatAbsoluteCurrency, formatAbsoluteNumber, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
+import { formatAbsoluteNumber, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
+import { convertUsdToDisplay, formatAbsoluteCurrencyByContext, formatCompactCurrency } from "../utils/currencyDisplay.js";
 import "../../styles/Charts.css";
 const ENABLE_MOCK_FALLBACK = String(import.meta.env.VITE_ENABLE_MOCK_FALLBACK || "").toLowerCase() === "true";
 
@@ -69,16 +70,16 @@ function extractYears(raw) {
   return Object.keys(raw[0]).filter(k => k !== "month" && k !== "label").sort();
 }
 
-function BarLabel({ x, y, width, value, isPercent, isRaw }) {
+function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext }) {
   if (value == null || value === 0) return null;
   let display;
   let absolute;
   if (isPercent)  display = `${Number(value).toFixed(2)}%`;
   else if (isRaw) display = `${Number(value).toFixed(1)}`;
-  else            display = `${Number(value).toFixed(2)}M`;
+  else            display = formatCompactCurrency(Number(value) * 1_000_000, currencyContext);
   if (isPercent) absolute = formatAbsolutePercent(value, 2);
   else if (isRaw) absolute = formatAbsoluteNumber(value, 2);
-  else absolute = formatAbsoluteCurrency(Number(value) * 1_000_000, "USD");
+  else absolute = formatAbsoluteCurrencyByContext(Number(value) * 1_000_000, currencyContext);
   return (
     <text x={x + width / 2} y={y - 4} textAnchor="middle"
       fontSize={9} fill="#444" fontFamily="Segoe UI, sans-serif">
@@ -91,7 +92,7 @@ function BarLabel({ x, y, width, value, isPercent, isRaw }) {
 export default function TrendChart({
   title, endpoint, isPercent = false, isRaw = false,
   controlledYears, onYearsChange, controlledGranularity, onAvailableYears, filters = {},
-  rawDataOverride = null
+  rawDataOverride = null, currencyContext = null
 }) {
   const [rawData, setRawData]       = useState([]);
   const [localYears, setLocalYears] = useState([]);
@@ -139,9 +140,22 @@ export default function TrendChart({
       .finally(() => setLoading(false));
   }, [endpoint, JSON.stringify(filters), JSON.stringify(rawDataOverride)]);
 
-  const data    = useMemo(() => buildGroupedData(rawData, granularity, selectedYears), [rawData, granularity, selectedYears]);
+  const data = useMemo(() => {
+    const grouped = buildGroupedData(rawData, granularity, selectedYears);
+    if (isPercent || isRaw) return grouped;
+    return grouped.map((row) => {
+      const out = { ...row };
+      selectedYears.forEach((year) => {
+        if (out[year] == null) return;
+        const usdValue = Number(out[year]) * 1_000_000;
+        const converted = convertUsdToDisplay(usdValue, currencyContext);
+        out[year] = converted == null ? out[year] : Number((converted / 1_000_000).toFixed(4));
+      });
+      return out;
+    });
+  }, [rawData, granularity, selectedYears, isPercent, isRaw, currencyContext]);
   const barSize = granularity === "year" ? 40 : granularity === "quarter" ? 28 : 16;
-  const yTickFmt = v => isPercent ? `${v}%` : isRaw ? `${v}` : `${v}M`;
+  const yTickFmt = v => isPercent ? `${v}%` : isRaw ? `${v}` : formatCompactCurrency(Number(v) * 1_000_000, currencyContext, 1);
   const yDomain  = isPercent ? [0, 80] : [0, "auto"];
 
   return (
@@ -184,7 +198,7 @@ export default function TrendChart({
                     ? formatAbsolutePercent(v, 2)
                     : isRaw
                       ? formatAbsoluteNumber(v, 2)
-                      : formatAbsoluteCurrency(Number(v) * 1_000_000, "USD"),
+                      : formatAbsoluteCurrencyByContext(Number(v) * 1_000_000, currencyContext),
                   name
                 ]}
                 contentStyle={{ fontSize: 11, border: "1px solid #c8d6cd", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
@@ -193,7 +207,7 @@ export default function TrendChart({
                 const color = colorForIndex(i, selectedYears.length);
                 return (
                   <Bar key={y} dataKey={y} fill={color} radius={[2, 2, 0, 0]}>
-                    <LabelList dataKey={y} content={props => <BarLabel {...props} isPercent={isPercent} isRaw={isRaw} />} />
+                    <LabelList dataKey={y} content={props => <BarLabel {...props} isPercent={isPercent} isRaw={isRaw} currencyContext={currencyContext} />} />
                   </Bar>
                 );
               })}

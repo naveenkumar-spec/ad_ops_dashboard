@@ -196,6 +196,11 @@ function toNumber(value, fixed = null) {
   return Number(n.toFixed(fixed));
 }
 
+function formatUsd(value) {
+  const n = toNumber(value, 2);
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function monthYearSeriesFromRows(rows = []) {
   const years = Array.from(new Set((rows || []).map((r) => String(Number(r.year || 0))).filter((y) => y !== "0"))).sort();
   const out = MONTHS.map((m) => {
@@ -367,7 +372,7 @@ async function loadAllRows(_forceRefresh = false) {
     region: r.region,
     revenue: toNumber(r.revenue),
     spend: toNumber(r.spend),
-    grossProfit: toNumber(r.gross_profit),
+    grossProfit: toNumber((Number(r.revenue || 0) - Number(r.spend || 0))),
     grossMarginPct: toNumber(r.gross_margin_pct),
     netMargin: toNumber(r.net_margin),
     netMarginPct: toNumber(r.net_margin_pct),
@@ -396,8 +401,22 @@ async function getKpis(filters = {}) {
         COUNTIF(NULLIF(TRIM(COALESCE(t.campaign_name, '')), '') IS NOT NULL) AS budget_groups,
         SUM(COALESCE(t.revenue, 0)) AS total_revenue,
         SUM(COALESCE(t.spend, 0)) AS total_spend,
-        AVG(COALESCE(t.gross_margin_pct, 0)) AS gross_margin_pct,
-        AVG(COALESCE(t.net_margin_pct, 0)) AS net_margin_pct
+        SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS total_gross_margin,
+        IFNULL(
+          SAFE_DIVIDE(
+            SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)),
+            NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+          ) * 100,
+          0
+        ) AS gross_margin_pct,
+        SUM(COALESCE(t.net_margin, 0)) AS total_net_margin,
+        IFNULL(
+          SAFE_DIVIDE(
+            SUM(COALESCE(t.net_margin, 0)),
+            NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+          ) * 100,
+          0
+        ) AS net_margin_pct
       FROM ${latestMainTableSql()} t
       ${whereSql}
     `,
@@ -409,14 +428,16 @@ async function getKpis(filters = {}) {
   const budgetGroups = Number(row.budget_groups || 0);
   const totalRevenue = Number(row.total_revenue || 0);
   const totalSpend = Number(row.total_spend || 0);
+  const totalGrossMargin = Number(row.total_gross_margin || 0);
+  const totalNetMargin = Number(row.total_net_margin || 0);
   const grossMarginPct = Number(row.gross_margin_pct || 0);
   const netMarginPct = Number(row.net_margin_pct || 0);
 
   return [
     { title: "No of Campaigns", value: campaigns, subtitle: `Budget Groups: ${budgetGroups}` },
-    { title: "Gross Margin %", value: `${grossMarginPct.toFixed(1)}%`, subtitle: `Total Revenue: $${(totalRevenue / 1_000_000).toFixed(2)}M` },
-    { title: "Net Margin %", value: `${netMarginPct.toFixed(1)}%`, subtitle: `Total Spend: $${(totalSpend / 1_000_000).toFixed(2)}M` },
-    { title: "Spend", value: `$${(totalSpend / 1_000_000).toFixed(2)}M`, subtitle: `Booked Revenue: $${(totalRevenue / 1_000_000).toFixed(2)}M` }
+    { title: "Gross Margin %", value: `${grossMarginPct.toFixed(1)}%`, subtitle: `Gross Margin: ${formatUsd(totalGrossMargin)}` },
+    { title: "Net Margin %", value: `${netMarginPct.toFixed(1)}%`, subtitle: `Net Margin: ${formatUsd(totalNetMargin)}` },
+    { title: "Spend", value: formatUsd(totalSpend), subtitle: `Booked Revenue: ${formatUsd(totalRevenue)}` }
   ];
 }
 
@@ -474,11 +495,14 @@ async function getBottomCampaignsSimple(limit = 8, filters = {}) {
         COALESCE(t.status, 'Unknown') AS status,
         COALESCE(t.revenue, 0) AS revenue,
         COALESCE(t.spend, 0) AS spend,
-        COALESCE(t.gross_profit, 0) AS profit,
-        ROUND(COALESCE(t.gross_margin_pct, 0), 2) AS grossMargin
+        COALESCE(t.revenue, 0) - COALESCE(t.spend, 0) AS profit,
+        IFNULL(
+          SAFE_DIVIDE(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0), NULLIF(COALESCE(t.revenue, 0), 0)) * 100,
+          0
+        ) AS grossMargin
       FROM ${latestMainTableSql()} t
       ${whereSql}
-      ORDER BY COALESCE(t.gross_margin_pct, 0) ASC
+      ORDER BY grossMargin ASC
       LIMIT @limit
     `,
     { ...params, limit: safeLimit }
@@ -506,14 +530,17 @@ async function getCampaignsDetailed(limit = 25, filters = {}) {
           COALESCE(t.status, 'Unknown') AS status,
           COALESCE(t.revenue, 0) AS revenue,
           COALESCE(t.spend, 0) AS spend,
-          COALESCE(t.gross_profit, 0) AS grossMargin,
-          ROUND(COALESCE(t.gross_margin_pct, 0), 2) AS grossMarginPct,
+          COALESCE(t.revenue, 0) - COALESCE(t.spend, 0) AS grossMargin,
+          IFNULL(
+            SAFE_DIVIDE(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0), NULLIF(COALESCE(t.revenue, 0), 0)) * 100,
+            0
+          ) AS grossMarginPct,
           COALESCE(t.net_margin, 0) AS netMargin,
           ROUND(COALESCE(t.net_margin_pct, 0), 2) AS netMarginPct,
           COALESCE(t.planned_impressions, 0) AS plannedImpressions
         FROM ${latestMainTableSql()} t
         ${whereSql}
-        ORDER BY COALESCE(t.gross_margin_pct, 0) ASC
+        ORDER BY grossMarginPct ASC
         LIMIT @limit
       )
       SELECT * FROM ranked
@@ -527,14 +554,17 @@ async function getCampaignsDetailed(limit = 25, filters = {}) {
         SELECT
           COALESCE(t.revenue, 0) AS revenue,
           COALESCE(t.spend, 0) AS spend,
-          COALESCE(t.gross_profit, 0) AS grossMargin,
-          ROUND(COALESCE(t.gross_margin_pct, 0), 2) AS grossMarginPct,
+          COALESCE(t.revenue, 0) - COALESCE(t.spend, 0) AS grossMargin,
+          IFNULL(
+            SAFE_DIVIDE(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0), NULLIF(COALESCE(t.revenue, 0), 0)) * 100,
+            0
+          ) AS grossMarginPct,
           COALESCE(t.net_margin, 0) AS netMargin,
           ROUND(COALESCE(t.net_margin_pct, 0), 2) AS netMarginPct,
           COALESCE(t.planned_impressions, 0) AS plannedImpressions
         FROM ${latestMainTableSql()} t
         ${whereSql}
-        ORDER BY COALESCE(t.gross_margin_pct, 0) ASC
+        ORDER BY grossMarginPct ASC
         LIMIT @limit
       )
       SELECT
@@ -580,26 +610,35 @@ async function getRegionTable(filters = {}) {
   const rows = await runQuery(
     `
       SELECT
-        COALESCE(NULLIF(TRIM(t.country), ''), 'Unknown') AS region,
+        COALESCE(NULLIF(TRIM(t.region), ''), 'Unknown') AS parentRegion,
+        COALESCE(NULLIF(TRIM(t.country), ''), 'Unknown') AS country,
         COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS totalCampaigns,
         SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
         SUM(COALESCE(t.revenue, 0)) AS bookedRevenue,
         SUM(COALESCE(t.spend, 0)) AS spend,
         SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
         SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
-        SUM(COALESCE(t.gross_profit, 0)) AS grossMargin,
+        SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossMargin,
         IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
-        IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.gross_profit, 0)), NULLIF(SUM(COALESCE(t.revenue, 0)), 0)) * 100, 0) AS grossMarginPct
+        IFNULL(
+          SAFE_DIVIDE(
+            SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)),
+            NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+          ) * 100,
+          0
+        ) AS grossMarginPct
       FROM ${latestMainTableSql()} t
       ${whereSql}
-      GROUP BY region
+      GROUP BY parentRegion, country
       ORDER BY bookedRevenue DESC
     `,
     params
   );
 
   return rows.map((r) => ({
-    region: r.region,
+    region: r.country,
+    parentRegion: r.parentRegion,
+    country: r.country,
     totalCampaigns: toNumber(r.totalCampaigns),
     budgetGroups: toNumber(r.budgetGroups),
     bookedRevenue: toNumber(r.bookedRevenue),
@@ -626,9 +665,15 @@ async function getCountryWiseTable(filters = {}) {
           SUM(COALESCE(t.spend, 0)) AS spend,
           SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
           SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
-          SUM(COALESCE(t.gross_profit, 0)) AS grossMargin,
+          SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossMargin,
           IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
-          IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.gross_profit, 0)), NULLIF(SUM(COALESCE(t.revenue, 0)), 0)) * 100, 0) AS grossMarginPct
+          IFNULL(
+            SAFE_DIVIDE(
+              SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)),
+              NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+            ) * 100,
+            0
+          ) AS grossMarginPct
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY region
@@ -650,7 +695,7 @@ async function getCountryWiseTable(filters = {}) {
           SUM(COALESCE(t.spend, 0)) AS spend,
           SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
           SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
-          SUM(COALESCE(t.gross_profit, 0)) AS grossMargin
+          SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossMargin
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY COALESCE(NULLIF(TRIM(t.region), ''), 'Unknown')
@@ -781,9 +826,15 @@ async function getProductWiseTable(filters = {}) {
           SUM(COALESCE(t.spend, 0)) AS spend,
           SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
           SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
-          SUM(COALESCE(t.gross_profit, 0)) AS grossProfitLoss,
+          SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossProfitLoss,
           IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
-          IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.gross_profit, 0)), NULLIF(SUM(COALESCE(t.revenue, 0)), 0)) * 100, 0) AS grossMargin
+          IFNULL(
+            SAFE_DIVIDE(
+              SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)),
+              NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+            ) * 100,
+            0
+          ) AS grossMargin
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY product
@@ -805,7 +856,7 @@ async function getProductWiseTable(filters = {}) {
           SUM(COALESCE(t.spend, 0)) AS spend,
           SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
           SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
-          SUM(COALESCE(t.gross_profit, 0)) AS grossProfitLoss
+          SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossProfitLoss
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY COALESCE(NULLIF(TRIM(t.product), ''), 'Unknown')

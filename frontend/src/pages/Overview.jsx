@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import DashboardHeader from "../components/DashboardHeader";
 import AppLayout from "../components/AppLayout";
@@ -11,6 +11,7 @@ import CountryWiseTable from "../components/CountryWiseTable";
 import ProductWiseTable from "../components/ProductWiseTable";
 import CampaignWiseTable from "../components/CampaignWiseTable";
 import { toApiParams } from "../utils/apiFilters";
+import { resolveCurrencyContext } from "../utils/currencyDisplay";
 import "../../styles/Overview.css";
 
 export default function Overview({ currentUser, onLogout }) {
@@ -85,6 +86,16 @@ export default function Overview({ currentUser, onLogout }) {
       .catch(() => setTrendBundle(null));
   }, [refreshTick]);
 
+  const currencyContext = useMemo(
+    () =>
+      resolveCurrencyContext({
+        mode: currency,
+        regionFilter: filters.region,
+        regionTree: filterOptions?.regionTree || []
+      }),
+    [currency, filters.region, JSON.stringify(filterOptions?.regionTree || [])]
+  );
+
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
@@ -117,13 +128,13 @@ export default function Overview({ currentUser, onLogout }) {
             onChange={handleFilterChange}
             onClear={handleClear}
           />
-          <KPICards key={`kpi-${refreshTick}`} filters={filters} />
-          <CombinedTrends key={`ct1-${refreshTick}`} filters={filters} trendBundle={trendBundle} />
-          <CombinedTrendsSecondary key={`ct2-${refreshTick}`} filters={filters} trendBundle={trendBundle} />
+          <KPICards key={`kpi-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
+          <CombinedTrends key={`ct1-${refreshTick}`} filters={filters} trendBundle={trendBundle} currencyContext={currencyContext} />
+          <CombinedTrendsSecondary key={`ct2-${refreshTick}`} filters={filters} trendBundle={trendBundle} currencyContext={currencyContext} />
           <div className="overview-tables-stack">
-            <BottomCampaignsTable key={`btm-${refreshTick}`} filters={filters} />
-            <CountryWiseTable key={`cty-${refreshTick}`} filters={filters} />
-            <ProductWiseTable key={`prd-${refreshTick}`} filters={filters} />
+            <BottomCampaignsTable key={`btm-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
+            <CountryWiseTable key={`cty-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
+            <ProductWiseTable key={`prd-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
             <CampaignWiseTable key={`cpg-${refreshTick}`} filters={filters} />
           </div>
         </div>
@@ -131,5 +142,4 @@ export default function Overview({ currentUser, onLogout }) {
     </AppLayout>
   );
 }
-
 

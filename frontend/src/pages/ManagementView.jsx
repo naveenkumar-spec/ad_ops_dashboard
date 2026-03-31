@@ -7,9 +7,10 @@ import RegionTable from "../components/RegionTable";
 import PerformanceChart from "../components/PerformanceChart";
 import { mockManagementRegions } from "../mockData";
 import "../../styles/ManagementView.css";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { toApiParams } from "../utils/apiFilters";
+import { resolveCurrencyContext } from "../utils/currencyDisplay";
 
 export default function ManagementView({ currentUser, onLogout }) {
   const omitFilterKeys = (obj, keys = []) =>
@@ -34,6 +35,15 @@ export default function ManagementView({ currentUser, onLogout }) {
 
   const [filterOptions, setFilterOptions] = useState({});
   const [currency, setCurrency] = useState("USD");
+  const currencyContext = useMemo(
+    () =>
+      resolveCurrencyContext({
+        mode: currency,
+        regionFilter: filters.region,
+        regionTree: filterOptions?.regionTree || []
+      }),
+    [currency, filters.region, JSON.stringify(filterOptions?.regionTree || [])]
+  );
 
   useEffect(() => {
     Promise.all([
@@ -94,13 +104,13 @@ export default function ManagementView({ currentUser, onLogout }) {
         />
 
         <div className="management-stack">
-          <PerformanceChart title="Ops Performance" variant="ops" filters={filters} />
-          <PerformanceChart title="CS Performance" variant="cs" filters={filters} />
-          <PlatformSpendsTable filters={filters} />
-          <RegionTable title="Region / Country wise data" variant="management" forceData={mockManagementRegions} />
-          <OwnerPerformanceTable title="KPI Performance by Ops Responsible" endpoint="/api/management/ops" filters={filters} />
-          <OwnerPerformanceTable title="KPI Performance by CS Responsible" endpoint="/api/management/cs" filters={filters} />
-          <OwnerPerformanceTable title="KPI Performance by Sales Responsible" endpoint="/api/management/sales" filters={filters} />
+          <PerformanceChart title="Ops Performance" variant="ops" filters={filters} currencyContext={currencyContext} />
+          <PerformanceChart title="CS Performance" variant="cs" filters={filters} currencyContext={currencyContext} />
+          <PlatformSpendsTable filters={filters} currencyContext={currencyContext} />
+          <RegionTable title="Region / Country wise data" variant="management" forceData={mockManagementRegions} currencyContext={currencyContext} />
+          <OwnerPerformanceTable title="KPI Performance by Ops Responsible" endpoint="/api/management/ops" filters={filters} currencyContext={currencyContext} />
+          <OwnerPerformanceTable title="KPI Performance by CS Responsible" endpoint="/api/management/cs" filters={filters} currencyContext={currencyContext} />
+          <OwnerPerformanceTable title="KPI Performance by Sales Responsible" endpoint="/api/management/sales" filters={filters} currencyContext={currencyContext} />
         </div>
         </div>
       </div>

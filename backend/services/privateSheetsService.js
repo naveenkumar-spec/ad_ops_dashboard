@@ -72,7 +72,12 @@ const COUNTRY_CANONICAL = {
   italy: "Italy",
   kenya: "Kenya",
   nigeria: "Nigeria",
-  africa: "Africa"
+  africa: "Africa",
+  uae: "UAE",
+  saudiarabia: "Saudi Arabia",
+  unitedstates: "USA",
+  unitedkingdom: "UK",
+  phillipines: "Philippines"
 };
 
 const FIELD_ALIASES = {
@@ -80,9 +85,11 @@ const FIELD_ALIASES = {
   campaignId: ["Campaign ID"],
   status: ["Status"],
   country: ["Country"],
+  currency: ["Currency", "Currency Code"],
   revenue: ["Revenue"],
   spend: ["Spends"],
   grossProfit: ["Gross Profit"],
+  rebate: ["Rebate"],
   grossMarginPct: ["Gross Profit %"],
   netMarginPct: ["% Net gross margin", "% Net gross margin "],
   netMargin: ["Net gross margin", "Net gross margin ", " Net gross margin "],
@@ -99,6 +106,70 @@ const FIELD_ALIASES = {
   salesOwner: ["Sale Responsible", "Sales Responsible"],
   budgetGroups: ["Budget Groups"],
   cpm: ["Buying CPM"]
+};
+
+const COUNTRY_DEFAULT_CURRENCY = {
+  Thailand: "THB",
+  Philippines: "USD",
+  Singapore: "SGD",
+  Vietnam: "USD",
+  Malaysia: "RM",
+  USA: "USD",
+  Australia: "AUD",
+  "Middle East": "USD",
+  Pakistan: "USD",
+  Indonesia: "IDR",
+  "South Africa": "USD",
+  Kenya: "USD",
+  "New Zealand": "NZD",
+  Japan: "JPY",
+  India: "INR",
+  Canada: "USD",
+  Portugal: "GBP",
+  Netherlands: "GBP",
+  UK: "GBP",
+  France: "GBP",
+  Spain: "GBP",
+  Germany: "GBP",
+  Sweden: "GBP",
+  Italy: "GBP",
+  Africa: "USD",
+  Nigeria: "USD",
+  Zambia: "USD",
+  Switzerland: "GBP",
+  Uganda: "USD",
+  Ghana: "USD",
+  Belgium: "USD",
+  Chile: "USD",
+  Finland: "USD",
+  Denmark: "USD",
+  Cameroon: "USD",
+  Baltics: "USD",
+  Bangladesh: "USD",
+  Brazil: "USD",
+  Cambodia: "USD",
+  Cyprus: "USD",
+  "Hong Kong": "USD",
+  Mozambique: "USD",
+  "South Korea": "USD",
+  "Sri Lanka": "USD",
+  Taiwan: "USD",
+  Turkey: "USD",
+  UAE: "USD",
+  "Saudi Arabia": "USD"
+};
+
+const LOCAL_TO_USD_BY_CURRENCY = {
+  USD: 1,
+  THB: 0.03155,
+  SGD: 0.76564,
+  RM: 0.25,
+  AUD: 0.659318,
+  IDR: 0.00006,
+  NZD: 0.6,
+  JPY: 0.0064,
+  INR: 0.011,
+  GBP: 1.35
 };
 
 const OVERVIEW_RAW_SPENDS_SOURCE = {
@@ -234,6 +305,26 @@ function canonicalCountryName(value) {
   return COUNTRY_CANONICAL[key] || raw;
 }
 
+function normalizeCurrencyCode(value) {
+  const raw = String(value || "").trim().toUpperCase();
+  if (!raw) return "";
+  if (raw === "MYR") return "RM";
+  if (raw === "US$" || raw === "$") return "USD";
+  return raw;
+}
+
+function resolveLocalToUsdRate(country, currencyCode) {
+  const normalizedCurrency = normalizeCurrencyCode(currencyCode);
+  if (normalizedCurrency && Number.isFinite(Number(LOCAL_TO_USD_BY_CURRENCY[normalizedCurrency]))) {
+    return Number(LOCAL_TO_USD_BY_CURRENCY[normalizedCurrency]);
+  }
+  const fallbackCurrency = COUNTRY_DEFAULT_CURRENCY[String(country || "").trim()];
+  if (fallbackCurrency && Number.isFinite(Number(LOCAL_TO_USD_BY_CURRENCY[fallbackCurrency]))) {
+    return Number(LOCAL_TO_USD_BY_CURRENCY[fallbackCurrency]);
+  }
+  return 1;
+}
+
 function mapCountryToRegion(countryValue, fallbackValue = "") {
   const key = normalizeKey(countryValue || fallbackValue);
   if (!key) return "Other";
@@ -329,17 +420,27 @@ function normalizeRow(rowValues, headerMap, source) {
   const sourceCountry = canonicalCountryName(source.country);
   const country = rowCountry || sourceCountry || "Unknown";
 
-  const revenue = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.revenue));
-  const spend = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.spend));
-  const grossProfitRaw = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.grossProfit));
-  const grossProfit = grossProfitRaw || revenue - spend;
-  const netMarginRaw = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.netMargin));
-  const netMargin = netMarginRaw || grossProfit;
+  const currencyRaw = pickField(rowValues, headerMap, FIELD_ALIASES.currency);
+  const currencyCode = normalizeCurrencyCode(currencyRaw || COUNTRY_DEFAULT_CURRENCY[country] || "USD");
+  const localToUsd = resolveLocalToUsdRate(country, currencyCode);
 
-  let grossMarginPct = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.grossMarginPct));
-  let netMarginPct = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.netMarginPct));
-  if (!grossMarginPct && revenue) grossMarginPct = (grossProfit / revenue) * 100;
-  if (!netMarginPct && revenue) netMarginPct = (netMargin / revenue) * 100;
+  const revenueLocal = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.revenue));
+  const spendLocal = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.spend));
+  const revenue = revenueLocal * localToUsd;
+  const spend = spendLocal * localToUsd;
+
+  // Gross margin amount is always derived from revenue and spend.
+  const grossProfit = revenue - spend;
+  // Net margin is derived strictly from gross margin minus rebate amount.
+  const rebateCell = pickField(rowValues, headerMap, FIELD_ALIASES.rebate);
+  const rebateText = String(rebateCell || "").trim();
+  const rebateRaw = parseNumber(rebateCell);
+  const rebateIsPercent = rebateText.includes("%");
+  const rebate = rebateIsPercent ? grossProfit * (rebateRaw / 100) : rebateRaw * localToUsd;
+  const netMargin = grossProfit - rebate;
+
+  const grossMarginPct = revenue ? (grossProfit / revenue) * 100 : 0;
+  const netMarginPct = revenue ? (netMargin / revenue) * 100 : 0;
 
   const plannedImpressions = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.plannedImpressions));
   const deliveredImpressions = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.deliveredImpressions));
@@ -386,7 +487,8 @@ function normalizeRow(rowValues, headerMap, source) {
     _sourceSheetId: source.sheetId,
     _sourceTab: source.tabName,
     _sourceCountry: source.country,
-    _sourceGid: source.gid
+    _sourceGid: source.gid,
+    _sourceCurrency: currencyCode
   };
 
   if (
@@ -490,6 +592,11 @@ function sum(items, valueFn) {
   return items.reduce((acc, item) => acc + (Number(valueFn(item)) || 0), 0);
 }
 
+function formatUsd(value) {
+  const n = Number(value || 0);
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function countDistinctCampaignIds(items) {
   return new Set(
     (items || [])
@@ -524,16 +631,18 @@ async function getKpis() {
   const rows = await loadAllRows();
   const totalRevenue = sum(rows, (r) => r.revenue);
   const totalSpend = sum(rows, (r) => r.spend);
+  const totalGrossMargin = totalRevenue - totalSpend;
+  const totalNetMargin = sum(rows, (r) => r.netMargin);
   const grossMarginPct = average(rows, (r) => r.grossMarginPct);
-  const netMarginPct = average(rows, (r) => r.netMarginPct);
+  const netMarginPct = totalRevenue ? (totalNetMargin / totalRevenue) * 100 : 0;
   const campaigns = countDistinctCampaignIds(rows);
   const budgetGroups = rows.filter((r) => String(r.campaignName || "").trim() !== "").length;
 
   return [
     { title: "No of Campaigns", value: campaigns, subtitle: `Budget Groups: ${budgetGroups}` },
-    { title: "Gross Margin %", value: `${grossMarginPct.toFixed(1)}%`, subtitle: `Total Revenue: $${(totalRevenue / 1_000_000).toFixed(2)}M` },
-    { title: "Net Margin %", value: `${netMarginPct.toFixed(1)}%`, subtitle: `Total Spend: $${(totalSpend / 1_000_000).toFixed(2)}M` },
-    { title: "Spend", value: `$${(totalSpend / 1_000_000).toFixed(2)}M`, subtitle: `Booked Revenue: $${(totalRevenue / 1_000_000).toFixed(2)}M` }
+    { title: "Gross Margin %", value: `${grossMarginPct.toFixed(1)}%`, subtitle: `Gross Margin: ${formatUsd(totalGrossMargin)}` },
+    { title: "Net Margin %", value: `${netMarginPct.toFixed(1)}%`, subtitle: `Net Margin: ${formatUsd(totalNetMargin)}` },
+    { title: "Spend", value: formatUsd(totalSpend), subtitle: `Booked Revenue: ${formatUsd(totalRevenue)}` }
   ];
 }
 

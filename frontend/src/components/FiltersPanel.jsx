@@ -368,18 +368,18 @@ export default function FiltersPanel({
       <div className="filters-currency-corner">
         <div className="filters-currency-toggle">
           <button
-            className={`filters-currency-btn ${currency === "Native" ? "active" : ""}`}
-            type="button"
-            onClick={() => onCurrencyChange?.("Native")}
-          >
-            Native Currency
-          </button>
-          <button
             className={`filters-currency-btn ${currency === "USD" ? "active" : ""}`}
             type="button"
             onClick={() => onCurrencyChange?.("USD")}
           >
             USD
+          </button>
+          <button
+            className={`filters-currency-btn ${currency === "Native" ? "active" : ""}`}
+            type="button"
+            onClick={() => onCurrencyChange?.("Native")}
+          >
+            Native Currency
           </button>
         </div>
       </div>

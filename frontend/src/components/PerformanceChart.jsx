@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -10,7 +10,8 @@ import {
   LabelList
 } from "recharts";
 import axios from "axios";
-import { formatAbsoluteCurrency, formatAbsoluteInteger, safeTitle } from "../utils/absoluteTooltip.js";
+import { formatAbsoluteInteger, safeTitle } from "../utils/absoluteTooltip.js";
+import { convertUsdToDisplay, formatAbsoluteCurrencyByContext } from "../utils/currencyDisplay.js";
 import "../../styles/PerformanceChart.css";
 
 const fallbackOps = [
@@ -58,42 +59,35 @@ const renderBarLabel = (props) => {
   const { x, y, value } = props;
   if (value == null) return null;
   return (
-    <text
-      x={(x ?? 0)  +14}
-      y={(y ?? 0) - 14}
-      textAnchor="midd/*  */le"
-      fontSize={10}
-      fontWeight={700}
-      fill="#0f1f2f"
-    >
+    <text x={(x ?? 0) + 14} y={(y ?? 0) - 14} textAnchor="middle" fontSize={10} fontWeight={700} fill="#0f1f2f">
       <title>{formatAbsoluteInteger(value)}</title>
       {value}
     </text>
   );
 };
 
-const renderLineLabel = (props) => {
+const renderLineLabel = (currencyContext) => (props) => {
   const { x, y, value, payload } = props;
   const txt = valueLabel(value);
   if (!txt) return null;
   const barVal = Number(payload?.budgetGroups);
   const hasBar = Number.isFinite(barVal) && barVal > 0;
-  const lift = hasBar ? -20 : -10; // negative places below the point
+  const lift = hasBar ? -20 : -10;
   const width = Math.max(32, txt.length * 7 + 10);
   const height = 16;
-  const yPos = y - lift; // if lift negative => below point
+  const yPos = y - lift;
   return (
     <g>
       <rect x={x - width / 2} y={yPos} rx={4} ry={4} width={width} height={height} fill="#1b2b44" opacity={0.9} />
       <text x={x} y={yPos + height / 2 + 3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#ffffff">
-        <title>{formatAbsoluteCurrency(value, "USD")}</title>
+        <title>{formatAbsoluteCurrencyByContext(value, currencyContext)}</title>
         {txt}
       </text>
     </g>
   );
 };
 
-export default function PerformanceChart({ title = "Ops Performance", variant = "ops", data, filters = {} }) {
+export default function PerformanceChart({ title = "Ops Performance", variant = "ops", data, filters = {}, currencyContext = null }) {
   const [remoteData, setRemoteData] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -106,7 +100,7 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
           timeout: 6000
         });
         setRemoteData(res.data || []);
-      } catch (err) {
+      } catch (_err) {
         setRemoteData([]);
       } finally {
         setLoading(false);
@@ -116,14 +110,22 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
   }, [variant, JSON.stringify(filters)]);
 
   const chartData = useMemo(() => {
-    if (data && data.length) return data;
-    if (remoteData.length) return remoteData.map(d => ({
-      name: d.owner,
-      budgetGroups: d.budgetGroups ?? d.campaigns,
-      bookedRevenue: d.bookedRevenue ?? d.revenue
+    const source = data && data.length
+      ? data
+      : remoteData.length
+        ? remoteData.map((d) => ({
+          name: d.owner,
+          budgetGroups: d.budgetGroups ?? d.campaigns,
+          bookedRevenue: d.bookedRevenue ?? d.revenue
+        }))
+        : (variant === "cs" ? fallbackCs : fallbackOps);
+
+    return source.map((row) => ({
+      ...row,
+      bookedRevenue: convertUsdToDisplay(row.bookedRevenue, currencyContext)
     }));
-    return variant === "cs" ? fallbackCs : fallbackOps;
-  }, [data, remoteData, variant]);
+  }, [data, remoteData, variant, currencyContext]);
+
   const minWidthPx = Math.max(1400, chartData.length * 90);
 
   return (
@@ -137,52 +139,42 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 30, right: 24, left: 8, bottom: 36 }}>
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#3d4d45" }} interval={0} angle={-20} textAnchor="end" height={50} />
-              <YAxis
-                yAxisId="left"
-                tick={{ fontSize: 10, fill: "#3d4d45" }}
-                domain={[0, (dataMax) => dataMax * 1.15]}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                hide
-                domain={[0, (dataMax) => dataMax * 1.15]}
-              />
+              <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#3d4d45" }} domain={[0, (dataMax) => dataMax * 1.15]} />
+              <YAxis yAxisId="right" orientation="right" hide domain={[0, (dataMax) => dataMax * 1.15]} />
               <Tooltip
                 formatter={(v, name) => {
                   const metricName = String(name || "");
-                  if (metricName.toLowerCase().includes("revenue")) return formatAbsoluteCurrency(v, "USD");
+                  if (metricName.toLowerCase().includes("revenue")) return formatAbsoluteCurrencyByContext(v, currencyContext);
                   return formatAbsoluteInteger(v);
                 }}
               />
-              <Bar yAxisId="left" dataKey="budgetGroups" name="Budget Groups" barSize={32} fill="#3b5e57" radius={[3,3,0,0]}>
+              <Bar yAxisId="left" dataKey="budgetGroups" name="Budget Groups" barSize={32} fill="#3b5e57" radius={[3, 3, 0, 0]}>
                 <LabelList dataKey="budgetGroups" position="top" offset={0} content={renderBarLabel} />
               </Bar>
               <Line
                 yAxisId="right"
                 type="monotone"
                 dataKey="bookedRevenue"
-                name="Booked Revenue (USD)"
+                name={`Booked Revenue (${currencyContext?.currencyCode || "USD"})`}
                 stroke="#1b2b44"
                 strokeWidth={3}
                 dot={{ r: 3.5, strokeWidth: 2, stroke: "#1b2b44", strokeOpacity: 0.55, fill: "#1b2b44", fillOpacity: 0.55 }}
                 activeDot={{ r: 5 }}
               >
-                <LabelList dataKey="bookedRevenue" content={renderLineLabel} />
+                <LabelList dataKey="bookedRevenue" content={renderLineLabel(currencyContext)} />
               </Line>
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
-      {loading && <div className="chart-loading">Loadingâ€¦</div>}
+      {loading && <div className="chart-loading">Loading...</div>}
 
       <div className="perf-legend perf-legend-bottom">
         <span className="legend-dot budget" /> Budget Groups
         <span className="legend-sep" />
-        <span className="legend-line" /> Booked Revenue (USD)
+        <span className="legend-line" /> Booked Revenue ({currencyContext?.currencyCode || "USD"})
       </div>
     </div>
   );
 }
-
 

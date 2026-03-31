@@ -2,7 +2,7 @@
 import TrendChart from "./TrendChart";
 import "../../styles/Charts.css";
 
-export default function CombinedTrends({ filters = {}, trendBundle = null }) {
+export default function CombinedTrends({ filters = {}, trendBundle = null, currencyContext = null }) {
   const [selectedYears, setSelectedYears] = useState([]);
   const [availableYears, setAvailableYears] = useState([]);
   const [granularity, setGranularity] = useState("month");
@@ -94,6 +94,7 @@ export default function CombinedTrends({ filters = {}, trendBundle = null }) {
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}
         onAvailableYears={(years) => setAvailableYears(sortYearsDesc(Array.from(new Set((years || []).map(Number).filter(Boolean)))))}
+        currencyContext={currencyContext}
       />
 
       <TrendChart
@@ -106,6 +107,7 @@ export default function CombinedTrends({ filters = {}, trendBundle = null }) {
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}
         onAvailableYears={(years) => setAvailableYears(sortYearsDesc(Array.from(new Set((years || []).map(Number).filter(Boolean)))))}
+        currencyContext={currencyContext}
       />
     </div>
   );

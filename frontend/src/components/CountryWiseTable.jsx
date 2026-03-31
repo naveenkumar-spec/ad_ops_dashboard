@@ -1,17 +1,11 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { mockCountryData, mockCountryTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
-import { formatAbsoluteCurrency, formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
+import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
+import { convertUsdToDisplay, formatAbsoluteCurrencyByContext, formatCompactCurrency } from "../utils/currencyDisplay.js";
 import "../../styles/Tables.css";
 
-function fmtUSD(v) {
-  if (v == null) return "";
-  const n = Number(v);
-  if (Math.abs(n) >= 1e6)  return `USD ${(n / 1e6).toFixed(2)}M`;
-  if (Math.abs(n) >= 1e3)  return `USD ${(n / 1e3).toFixed(2)}K`;
-  return `USD ${n.toFixed(0)}`;
-}
 function fmtImpr(v) {
   if (v == null) return "";
   const n = Number(v);
@@ -21,80 +15,65 @@ function fmtImpr(v) {
   return String(n);
 }
 
-// Sub-country data for each region
-const REGION_CHILDREN = {
-  "India+SEA": [
-    { country:"Vietnam",     campaigns:34, budgetGroups:447, revenue:3670000,  spend:1240000, plannedImpressions:891860000,  deliveredImpressions:834800000,  deliveredPct:93.60, grossMargin:2440000,  grossMarginPct:66.33 },
-    { country:"Philippines", campaigns:17, budgetGroups:234, revenue:1380000,  spend:363760,  plannedImpressions:530130000,  deliveredImpressions:503170000,  deliveredPct:94.91, grossMargin:1010000,  grossMarginPct:73.61 },
-    { country:"Thailand",    campaigns:26, budgetGroups:198, revenue:748140,   spend:287890,  plannedImpressions:226310000,  deliveredImpressions:206860000,  deliveredPct:91.41, grossMargin:460250,   grossMarginPct:61.52 },
-    { country:"Indonesia",   campaigns:50, budgetGroups:208, revenue:699680,   spend:200520,  plannedImpressions:376330000,  deliveredImpressions:246290000,  deliveredPct:65.45, grossMargin:499150,   grossMarginPct:71.34 },
-    { country:"India",       campaigns:23, budgetGroups:114, revenue:730340,   spend:406970,  plannedImpressions:545630000,  deliveredImpressions:422730000,  deliveredPct:77.48, grossMargin:323370,   grossMarginPct:44.28 },
-    { country:"Malaysia",    campaigns:3,  budgetGroups:15,  revenue:96970,    spend:16930,   plannedImpressions:16480000,   deliveredImpressions:8460000,    deliveredPct:51.33, grossMargin:80040,    grossMarginPct:82.54 },
-  ],
-  "North America": [
-    { country:"United States", campaigns:38, budgetGroups:220, revenue:3800000, spend:2100000, plannedImpressions:890000000,  deliveredImpressions:510000000, deliveredPct:57.30, grossMargin:1580000, grossMarginPct:41.58 },
-    { country:"Canada",        campaigns:10, budgetGroups:75,  revenue:750000,  spend:530000,  plannedImpressions:250000000,  deliveredImpressions:118350000, deliveredPct:47.34, grossMargin:340000,  grossMarginPct:45.33 },
-  ],
-  "Australia": [
-    { country:"Australia",     campaigns:50, budgetGroups:454, revenue:3480000, spend:1120000, plannedImpressions:448890000, deliveredImpressions:397350000, deliveredPct:88.52, grossMargin:2360000, grossMarginPct:67.81 },
-  ],
-  "Europe": [
-    { country:"United Kingdom", campaigns:42, budgetGroups:105, revenue:1400000, spend:680000, plannedImpressions:128000000, deliveredImpressions:104000000, deliveredPct:81.25, grossMargin:720000, grossMarginPct:51.43 },
-    { country:"Germany",        campaigns:28, budgetGroups:88,  revenue:980000,  spend:490000, plannedImpressions:98000000,  deliveredImpressions:79000000,  deliveredPct:80.61, grossMargin:490000, grossMarginPct:50.00 },
-    { country:"France",         campaigns:22, budgetGroups:62,  revenue:640000,  spend:320000, plannedImpressions:64000000,  deliveredImpressions:50040000,  deliveredPct:78.19, grossMargin:320000, grossMarginPct:50.00 },
-    { country:"Netherlands",    campaigns:14, budgetGroups:32,  revenue:290000,  spend:135000, plannedImpressions:29000000,  deliveredImpressions:23000000,  deliveredPct:79.31, grossMargin:155000, grossMarginPct:53.45 },
-    { country:"Other Europe",   campaigns:12, budgetGroups:18,  revenue:90000,   spend:75000,  plannedImpressions:16040000,  deliveredImpressions:11000000,  deliveredPct:68.58, grossMargin:15000,  grossMarginPct:16.67 },
-  ],
-  "Middle East": [
-    { country:"UAE",            campaigns:8,  budgetGroups:80,  revenue:820000,  spend:230000, plannedImpressions:78000000,  deliveredImpressions:70000000,  deliveredPct:89.74, grossMargin:590000, grossMarginPct:71.95 },
-    { country:"Saudi Arabia",   campaigns:4,  budgetGroups:51,  revenue:500000,  spend:152870, plannedImpressions:50310000,  deliveredImpressions:43270000,  deliveredPct:85.99, grossMargin:351110, grossMarginPct:70.22 },
-  ],
-  "Rest of APAC": [
-    { country:"Singapore",      campaigns:5,  budgetGroups:50,  revenue:230000,  spend:80000,  plannedImpressions:30000000, deliveredImpressions:27490000, deliveredPct:91.63, grossMargin:150000, grossMarginPct:65.22 },
-    { country:"New Zealand",    campaigns:6,  budgetGroups:62,  revenue:223160,  spend:80940,  plannedImpressions:29010000, deliveredImpressions:27000000, deliveredPct:93.07, grossMargin:142220, grossMarginPct:63.74 },
-  ],
-  "Japan": [
-    { country:"Japan",          campaigns:12, budgetGroups:58,  revenue:380790, spend:185030, plannedImpressions:44060000, deliveredImpressions:34830000, deliveredPct:79.06, grossMargin:195760, grossMarginPct:51.41 },
-  ],
-  "Africa": [
-    { country:"South Africa",   campaigns:8,  budgetGroups:42,  revenue:130530, spend:56430,  plannedImpressions:18500000, deliveredImpressions:10050000, deliveredPct:54.32, grossMargin:74100,  grossMarginPct:56.77 },
-    { country:"Nigeria",        campaigns:5,  budgetGroups:30,  revenue:80000,  spend:35000,  plannedImpressions:12000000, deliveredImpressions:7000000,  deliveredPct:58.33, grossMargin:45000,  grossMarginPct:56.25 },
-  ],
-};
-
-export default function CountryWiseTable({ filters = {} }) {
-  const [data, setData]         = useState([]);
-  const [totals, setTotals]     = useState(null);
+export default function CountryWiseTable({ filters = {}, currencyContext = null }) {
+  const [data, setData] = useState([]);
+  const [totals, setTotals] = useState(null);
+  const [childrenByRegion, setChildrenByRegion] = useState({});
   const [expanded, setExpanded] = useState({});
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
+  const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   useEffect(() => {
-    axios.get("/api/overview/country-wise", { timeout: 6000, params: toApiParams(filters) })
-      .then(res => {
-        if (res.data?.rows?.length) {
-          setData(res.data.rows);
-          setTotals(res.data.totals);
+    setLoading(true);
+    Promise.all([
+      axios.get("/api/overview/country-wise", { timeout: 12000, params: toApiParams(filters) }),
+      axios.get("/api/overview/regions", { timeout: 12000, params: toApiParams(filters) })
+    ])
+      .then(([countryRes, regionRes]) => {
+        if (countryRes.data?.rows?.length) {
+          setData(countryRes.data.rows);
+          setTotals(countryRes.data.totals);
         } else {
           setData(mockCountryData);
           setTotals(mockCountryTotals);
         }
+
+        const map = {};
+        (regionRes.data || []).forEach((row) => {
+          const parent = String(row.parentRegion || "").trim();
+          if (!parent) return;
+          if (!map[parent]) map[parent] = [];
+          map[parent].push({
+            country: row.country || row.region,
+            campaigns: row.totalCampaigns,
+            budgetGroups: row.budgetGroups,
+            revenue: row.bookedRevenue,
+            spend: row.spend,
+            plannedImpressions: row.plannedImpressions,
+            deliveredImpressions: row.deliveredImpressions,
+            deliveredPct: row.deliveredPct,
+            grossMargin: row.grossMargin,
+            grossMarginPct: row.grossMarginPct
+          });
+        });
+        setChildrenByRegion(map);
       })
       .catch(() => {
         setData(mockCountryData);
         setTotals(mockCountryTotals);
+        setChildrenByRegion({});
       })
       .finally(() => setLoading(false));
   }, [JSON.stringify(filters)]);
 
-  const toggle = region =>
-    setExpanded(prev => ({ ...prev, [region]: !prev[region] }));
+  const toggle = (region) => setExpanded((prev) => ({ ...prev, [region]: !prev[region] }));
 
   const rows = [];
-  data.forEach(r => {
+  data.forEach((r) => {
     rows.push({ type: "region", ...r });
-    if (expanded[r.region]) {
-      const children = REGION_CHILDREN[r.region] || [];
-      children.forEach(c => rows.push({ type: "child", ...c }));
+    const children = childrenByRegion[r.region] || [];
+    if (expanded[r.region] && children.length) {
+      children.forEach((child) => rows.push({ type: "child", ...child }));
     }
   });
 
@@ -105,7 +84,7 @@ export default function CountryWiseTable({ filters = {} }) {
       </div>
 
       {loading ? (
-        <div className="table-loading">Loadingâ€¦</div>
+        <div className="table-loading">Loading...</div>
       ) : (
         <div className="adv-table-scroll">
           <table className="adv-table">
@@ -126,7 +105,7 @@ export default function CountryWiseTable({ filters = {} }) {
               {rows.map((r, i) => {
                 if (r.type === "region") {
                   const isOpen = expanded[r.region];
-                  const hasChildren = (REGION_CHILDREN[r.region] || []).length > 0;
+                  const hasChildren = (childrenByRegion[r.region] || []).length > 0;
                   return (
                     <tr key={`region-${i}`} className="region-row">
                       <td>
@@ -135,48 +114,44 @@ export default function CountryWiseTable({ filters = {} }) {
                           onClick={() => hasChildren && toggle(r.region)}
                           style={{ visibility: hasChildren ? "visible" : "hidden" }}
                         >
-                          {isOpen ? "âˆ’" : "+"}
+                          {isOpen ? "-" : "+"}
                         </button>
                         <span className="region-name" title={safeTitle(r.region)}>{r.region}</span>
                       </td>
                       <td title={formatAbsoluteInteger(r.campaigns)}>{r.campaigns}</td>
                       <td title={formatAbsoluteInteger(r.budgetGroups)}>{r.budgetGroups?.toLocaleString()}</td>
-                      <td title={formatAbsoluteCurrency(r.revenue, "USD")}>{fmtUSD(r.revenue)}</td>
-                      <td title={formatAbsoluteCurrency(r.spend, "USD")}>{fmtUSD(r.spend)}</td>
+                      <td title={formatAbsoluteCurrencyByContext(c(r.revenue), currencyContext)}>{formatCompactCurrency(c(r.revenue), currencyContext)}</td>
+                      <td title={formatAbsoluteCurrencyByContext(c(r.spend), currencyContext)}>{formatCompactCurrency(c(r.spend), currencyContext)}</td>
                       <td title={formatAbsoluteInteger(r.plannedImpressions)}>{fmtImpr(r.plannedImpressions)}</td>
                       <td title={`${formatAbsoluteInteger(r.deliveredImpressions)}${r.deliveredPct != null ? ` (${formatAbsolutePercent(r.deliveredPct, 2)})` : ""}`}>
                         {fmtImpr(r.deliveredImpressions)}
-                        {r.deliveredPct != null && (
-                          <span className="delivered-pct"> ({r.deliveredPct.toFixed(2)}%)</span>
-                        )}
+                        {r.deliveredPct != null && <span className="delivered-pct"> ({r.deliveredPct.toFixed(2)}%)</span>}
                       </td>
-                      <td title={formatAbsoluteCurrency(r.grossMargin, "USD")}>{fmtUSD(r.grossMargin)}</td>
-                      <td title={formatAbsolutePercent(r.grossMarginPct, 2)}>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
-                    </tr>
-                  );
-                } else {
-                  return (
-                    <tr key={`child-${i}`} className="child-row">
-                      <td className="child-name">
-                        <span className="child-bullet">â€¢</span>
-                        <span title={safeTitle(r.country)}>{r.country}</span>
-                      </td>
-                      <td title={formatAbsoluteInteger(r.campaigns)}>{r.campaigns}</td>
-                      <td title={formatAbsoluteInteger(r.budgetGroups)}>{r.budgetGroups?.toLocaleString()}</td>
-                      <td title={formatAbsoluteCurrency(r.revenue, "USD")}>{fmtUSD(r.revenue)}</td>
-                      <td title={formatAbsoluteCurrency(r.spend, "USD")}>{fmtUSD(r.spend)}</td>
-                      <td title={formatAbsoluteInteger(r.plannedImpressions)}>{fmtImpr(r.plannedImpressions)}</td>
-                      <td title={`${formatAbsoluteInteger(r.deliveredImpressions)}${r.deliveredPct != null ? ` (${formatAbsolutePercent(r.deliveredPct, 2)})` : ""}`}>
-                        {fmtImpr(r.deliveredImpressions)}
-                        {r.deliveredPct != null && (
-                          <span className="delivered-pct"> ({r.deliveredPct.toFixed(2)}%)</span>
-                        )}
-                      </td>
-                      <td title={formatAbsoluteCurrency(r.grossMargin, "USD")}>{fmtUSD(r.grossMargin)}</td>
+                      <td title={formatAbsoluteCurrencyByContext(c(r.grossMargin), currencyContext)}>{formatCompactCurrency(c(r.grossMargin), currencyContext)}</td>
                       <td title={formatAbsolutePercent(r.grossMarginPct, 2)}>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
                     </tr>
                   );
                 }
+
+                return (
+                  <tr key={`child-${i}`} className="child-row">
+                    <td className="child-name">
+                      <span className="child-bullet">-</span>
+                      <span title={safeTitle(r.country)}>{r.country}</span>
+                    </td>
+                    <td title={formatAbsoluteInteger(r.campaigns)}>{r.campaigns}</td>
+                    <td title={formatAbsoluteInteger(r.budgetGroups)}>{r.budgetGroups?.toLocaleString()}</td>
+                    <td title={formatAbsoluteCurrencyByContext(c(r.revenue), currencyContext)}>{formatCompactCurrency(c(r.revenue), currencyContext)}</td>
+                    <td title={formatAbsoluteCurrencyByContext(c(r.spend), currencyContext)}>{formatCompactCurrency(c(r.spend), currencyContext)}</td>
+                    <td title={formatAbsoluteInteger(r.plannedImpressions)}>{fmtImpr(r.plannedImpressions)}</td>
+                    <td title={`${formatAbsoluteInteger(r.deliveredImpressions)}${r.deliveredPct != null ? ` (${formatAbsolutePercent(r.deliveredPct, 2)})` : ""}`}>
+                      {fmtImpr(r.deliveredImpressions)}
+                      {r.deliveredPct != null && <span className="delivered-pct"> ({r.deliveredPct.toFixed(2)}%)</span>}
+                    </td>
+                    <td title={formatAbsoluteCurrencyByContext(c(r.grossMargin), currencyContext)}>{formatCompactCurrency(c(r.grossMargin), currencyContext)}</td>
+                    <td title={formatAbsolutePercent(r.grossMarginPct, 2)}>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
+                  </tr>
+                );
               })}
             </tbody>
             {totals && (
@@ -185,16 +160,14 @@ export default function CountryWiseTable({ filters = {} }) {
                   <td><strong>Total</strong></td>
                   <td title={formatAbsoluteInteger(totals.campaigns)}><strong>{totals.campaigns}</strong></td>
                   <td title={formatAbsoluteInteger(totals.budgetGroups)}><strong>{totals.budgetGroups?.toLocaleString()}</strong></td>
-                  <td title={formatAbsoluteCurrency(totals.revenue, "USD")}><strong>{fmtUSD(totals.revenue)}</strong></td>
-                  <td title={formatAbsoluteCurrency(totals.spend, "USD")}><strong>{fmtUSD(totals.spend)}</strong></td>
+                  <td title={formatAbsoluteCurrencyByContext(c(totals.revenue), currencyContext)}><strong>{formatCompactCurrency(c(totals.revenue), currencyContext)}</strong></td>
+                  <td title={formatAbsoluteCurrencyByContext(c(totals.spend), currencyContext)}><strong>{formatCompactCurrency(c(totals.spend), currencyContext)}</strong></td>
                   <td title={formatAbsoluteInteger(totals.plannedImpressions)}><strong>{fmtImpr(totals.plannedImpressions)}</strong></td>
                   <td title={`${formatAbsoluteInteger(totals.deliveredImpressions)}${totals.deliveredPct != null ? ` (${formatAbsolutePercent(totals.deliveredPct, 2)})` : ""}`}>
                     <strong>{fmtImpr(totals.deliveredImpressions)}</strong>
-                    {totals.deliveredPct != null && (
-                      <span className="delivered-pct-total"> ({totals.deliveredPct.toFixed(2)}%)</span>
-                    )}
+                    {totals.deliveredPct != null && <span className="delivered-pct-total"> ({totals.deliveredPct.toFixed(2)}%)</span>}
                   </td>
-                  <td title={formatAbsoluteCurrency(totals.grossMargin, "USD")}><strong>{fmtUSD(totals.grossMargin)}</strong></td>
+                  <td title={formatAbsoluteCurrencyByContext(c(totals.grossMargin), currencyContext)}><strong>{formatCompactCurrency(c(totals.grossMargin), currencyContext)}</strong></td>
                   <td title={formatAbsolutePercent(totals.grossMarginPct, 2)}><strong>{totals.grossMarginPct.toFixed(2)}%</strong></td>
                 </tr>
               </tfoot>
@@ -205,5 +178,4 @@ export default function CountryWiseTable({ filters = {} }) {
     </div>
   );
 }
-
 

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   mockProductData,
@@ -6,16 +6,11 @@ import {
   mockProductChildren,
 } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
-import { formatAbsoluteCurrency, formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
+import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
+import { convertUsdToDisplay, formatAbsoluteCurrencyByContext, formatCompactCurrency } from "../utils/currencyDisplay.js";
 import "../../styles/Tables.css";
 
-function fmtUSD(v) {
-  if (v == null) return "";
-  const n = Number(v);
-  if (Math.abs(n) >= 1e6) return `USD ${(n / 1e6).toFixed(2)}M`;
-  if (Math.abs(n) >= 1e3) return `USD ${(n / 1e3).toFixed(2)}K`;
-  return `USD ${n.toFixed(0)}`;
-}
+
 
 function fmtImpr(v) {
   if (v == null) return "";
@@ -26,11 +21,12 @@ function fmtImpr(v) {
   return String(n);
 }
 
-export default function ProductWiseTable({ filters = {} }) {
+export default function ProductWiseTable({ filters = {}, currencyContext = null }) {
   const [rows, setRows] = useState([]);
   const [totals, setTotals] = useState(null);
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
+  const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   useEffect(() => {
     axios
@@ -112,16 +108,16 @@ export default function ProductWiseTable({ filters = {} }) {
                   return (
                     <tr key={`c-${idx}`} className="child-row">
                       <td className="child-name">
-                        <span className="child-bullet">â€¢</span>
+                        <span className="child-bullet">•</span>
                         <span title={safeTitle(row.product)}>{row.product}</span>
                       </td>
                       <td title={formatAbsoluteInteger(row.totalCampaigns)}>{row.totalCampaigns}</td>
                       <td title={formatAbsoluteInteger(row.budgetGroups)}>{row.budgetGroups?.toLocaleString()}</td>
-                      <td title={formatAbsoluteCurrency(row.bookedRevenue, "USD")}>{fmtUSD(row.bookedRevenue)}</td>
-                      <td title={formatAbsoluteCurrency(row.spend, "USD")}>{fmtUSD(row.spend)}</td>
+                      <td title={formatAbsoluteCurrencyByContext(c(row.bookedRevenue), currencyContext)}>{formatCompactCurrency(c(row.bookedRevenue), currencyContext)}</td>
+                      <td title={formatAbsoluteCurrencyByContext(c(row.spend), currencyContext)}>{formatCompactCurrency(c(row.spend), currencyContext)}</td>
                       <td title={formatAbsoluteInteger(row.plannedImpressions)}>{fmtImpr(row.plannedImpressions)}</td>
                       <td title={`${formatAbsoluteInteger(row.deliveredImpressions)}${row.deliveredPct != null ? ` (${formatAbsolutePercent(row.deliveredPct, 2)})` : ""}`}>{renderDelivered(row)}</td>
-                      <td title={formatAbsoluteCurrency(row.grossProfitLoss, "USD")}>{fmtUSD(row.grossProfitLoss)}</td>
+                      <td title={formatAbsoluteCurrencyByContext(c(row.grossProfitLoss), currencyContext)}>{formatCompactCurrency(c(row.grossProfitLoss), currencyContext)}</td>
                       <td title={formatAbsolutePercent(row.grossMargin, 2)}>
                         {row.grossMargin != null ? `${row.grossMargin.toFixed(2)}%` : ""}
                       </td>
@@ -146,11 +142,11 @@ export default function ProductWiseTable({ filters = {} }) {
                     </td>
                     <td title={formatAbsoluteInteger(row.totalCampaigns)}>{row.totalCampaigns}</td>
                     <td title={formatAbsoluteInteger(row.budgetGroups)}>{row.budgetGroups?.toLocaleString()}</td>
-                    <td title={formatAbsoluteCurrency(row.bookedRevenue, "USD")}>{fmtUSD(row.bookedRevenue)}</td>
-                    <td title={formatAbsoluteCurrency(row.spend, "USD")}>{fmtUSD(row.spend)}</td>
+                    <td title={formatAbsoluteCurrencyByContext(c(row.bookedRevenue), currencyContext)}>{formatCompactCurrency(c(row.bookedRevenue), currencyContext)}</td>
+                    <td title={formatAbsoluteCurrencyByContext(c(row.spend), currencyContext)}>{formatCompactCurrency(c(row.spend), currencyContext)}</td>
                     <td title={formatAbsoluteInteger(row.plannedImpressions)}>{fmtImpr(row.plannedImpressions)}</td>
                     <td title={`${formatAbsoluteInteger(row.deliveredImpressions)}${row.deliveredPct != null ? ` (${formatAbsolutePercent(row.deliveredPct, 2)})` : ""}`}>{renderDelivered(row)}</td>
-                    <td title={formatAbsoluteCurrency(row.grossProfitLoss, "USD")}>{fmtUSD(row.grossProfitLoss)}</td>
+                    <td title={formatAbsoluteCurrencyByContext(c(row.grossProfitLoss), currencyContext)}>{formatCompactCurrency(c(row.grossProfitLoss), currencyContext)}</td>
                     <td title={formatAbsolutePercent(row.grossMargin, 2)}>
                       {row.grossMargin != null ? `${row.grossMargin.toFixed(2)}%` : ""}
                     </td>
@@ -171,10 +167,10 @@ export default function ProductWiseTable({ filters = {} }) {
                     <strong title={formatAbsoluteInteger(totals.budgetGroups)}>{totals.budgetGroups?.toLocaleString()}</strong>
                   </td>
                   <td>
-                    <strong title={formatAbsoluteCurrency(totals.bookedRevenue, "USD")}>{fmtUSD(totals.bookedRevenue)}</strong>
+                    <strong title={formatAbsoluteCurrencyByContext(c(totals.bookedRevenue), currencyContext)}>{formatCompactCurrency(c(totals.bookedRevenue), currencyContext)}</strong>
                   </td>
                   <td>
-                    <strong title={formatAbsoluteCurrency(totals.spend, "USD")}>{fmtUSD(totals.spend)}</strong>
+                    <strong title={formatAbsoluteCurrencyByContext(c(totals.spend), currencyContext)}>{formatCompactCurrency(c(totals.spend), currencyContext)}</strong>
                   </td>
                   <td>
                     <strong title={formatAbsoluteInteger(totals.plannedImpressions)}>{fmtImpr(totals.plannedImpressions)}</strong>
@@ -189,7 +185,7 @@ export default function ProductWiseTable({ filters = {} }) {
                     )}
                   </td>
                   <td>
-                    <strong title={formatAbsoluteCurrency(totals.grossProfitLoss, "USD")}>{fmtUSD(totals.grossProfitLoss)}</strong>
+                    <strong title={formatAbsoluteCurrencyByContext(c(totals.grossProfitLoss), currencyContext)}>{formatCompactCurrency(c(totals.grossProfitLoss), currencyContext)}</strong>
                   </td>
                   <td>
                     <strong title={formatAbsolutePercent(totals.grossMargin, 2)}>{totals.grossMargin.toFixed(2)}%</strong>
@@ -203,5 +199,7 @@ export default function ProductWiseTable({ filters = {} }) {
     </div>
   );
 }
+
+
 
 
