@@ -483,7 +483,7 @@ async function getKpis() {
   const grossMarginPct = average(rows, (r) => r.grossMarginPct);
   const netMarginPct = average(rows, (r) => r.netMarginPct);
   const campaigns = countDistinctCampaignIds(rows);
-  const budgetGroups = sum(rows, (r) => r.budgetGroups);
+  const budgetGroups = rows.filter((r) => String(r.campaignName || "").trim() !== "").length;
 
   return [
     { title: "No of Campaigns", value: campaigns, subtitle: `Budget Groups: ${budgetGroups}` },
