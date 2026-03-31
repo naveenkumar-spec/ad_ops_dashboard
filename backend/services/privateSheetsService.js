@@ -337,7 +337,8 @@ function normalizeRow(rowValues, headerMap, source) {
 
   const startDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.startDate));
   const endDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.endDate));
-  const month = parseMonthName(pickField(rowValues, headerMap, FIELD_ALIASES.month));
+  const monthFromField = parseMonthName(pickField(rowValues, headerMap, FIELD_ALIASES.month));
+  const month = monthFromField || (startDate ? MONTHS[startDate.getMonth()] : null);
 
   const currentYear = new Date().getFullYear();
   const yearRaw = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.year));
