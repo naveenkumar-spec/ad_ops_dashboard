@@ -261,21 +261,24 @@ function getTabCandidates(source = {}) {
   return Array.from(new Set(out.filter(Boolean)));
 }
 
-async function getSheetTitlesById(sheets, spreadsheetId) {
+async function getSheetMetaById(sheets, spreadsheetId) {
   const cacheKey = String(spreadsheetId || "").trim();
   if (!cacheKey) return [];
   if (sheetMetaCache.has(cacheKey)) return sheetMetaCache.get(cacheKey);
 
   const res = await sheets.spreadsheets.get({
     spreadsheetId: cacheKey,
-    fields: "sheets.properties.title"
+    fields: "sheets.properties(title,sheetId)"
   });
-  const titles = (res.data.sheets || [])
-    .map((s) => String(s?.properties?.title || "").trim())
-    .filter(Boolean);
+  const meta = (res.data.sheets || [])
+    .map((s) => ({
+      title: String(s?.properties?.title || "").trim(),
+      sheetId: Number(s?.properties?.sheetId || 0)
+    }))
+    .filter((s) => s.title);
 
-  sheetMetaCache.set(cacheKey, titles);
-  return titles;
+  sheetMetaCache.set(cacheKey, meta);
+  return meta;
 }
 
 async function readTabValues(sheets, spreadsheetId, tabName) {
@@ -289,6 +292,13 @@ async function readTabValues(sheets, spreadsheetId, tabName) {
 
 async function resolveTabName(sheets, source) {
   const candidates = getTabCandidates(source);
+  const gid = Number(source?.gid || 0);
+
+  if (Number.isFinite(gid) && gid > 0) {
+    const meta = await getSheetMetaById(sheets, source.sheetId);
+    const byGid = meta.find((m) => Number(m.sheetId) === gid);
+    if (byGid?.title) return byGid.title;
+  }
 
   for (const candidate of candidates) {
     try {
@@ -299,7 +309,8 @@ async function resolveTabName(sheets, source) {
     }
   }
 
-  const titles = await getSheetTitlesById(sheets, source.sheetId);
+  const meta = await getSheetMetaById(sheets, source.sheetId);
+  const titles = meta.map((m) => m.title);
   if (!titles.length) return String(source.tabName || source.country || "").trim();
 
   const normalizedMap = new Map(titles.map((title) => [normalizeTabName(title), title]));
