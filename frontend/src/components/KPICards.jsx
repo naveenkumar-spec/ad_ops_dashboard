@@ -73,7 +73,19 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
     setError("");
     axios.get("/api/overview/kpis", { timeout: 20000, params: toApiParams(filters) })
       .then((res) => {
-        const ordered = CARD_ORDER.map((t) => (res.data || []).find((i) => i.title === t)).filter(Boolean);
+        const source = Array.isArray(res.data) ? res.data : [];
+        const normalized = source.map((item) => {
+          if (item?.title === "Spend") {
+            return {
+              ...item,
+              title: "Booked Revenue",
+              value: String(item.subtitle || "").replace(/^Booked Revenue:\s*/i, ""),
+              subtitle: `Spend till now: ${String(item.value || "").replace(/^Spend:\s*/i, "")}`
+            };
+          }
+          return item;
+        });
+        const ordered = CARD_ORDER.map((t) => normalized.find((i) => i.title === t)).filter(Boolean);
         setKpis(ordered);
       })
       .catch(() => {
