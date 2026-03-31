@@ -73,6 +73,7 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
   const [kpis, setKpis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -108,6 +109,7 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
         });
         const ordered = CARD_ORDER.map((t) => normalized.find((i) => i.title === t)).filter(Boolean);
         setKpis(ordered);
+        setHasLoadedOnce(true);
       })
       .catch(() => {
         if (ENABLE_MOCK_FALLBACK) {
@@ -115,7 +117,6 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
           setKpis(ordered);
           return;
         }
-        setKpis([]);
         setError("Failed to load KPI data");
       })
       .finally(() => setLoading(false));
@@ -190,20 +191,37 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
     });
   }, [kpis, currencyContext]);
 
-  if (loading) return <div className="kpi-banner">Loading KPI data...</div>;
-  if (error) return <div className="kpi-banner">{error}</div>;
-  if (!display.length) return <div className="kpi-banner">No KPI data available</div>;
+  const fallbackCards = CARD_ORDER.map((title) => ({
+    title,
+    value: "-",
+    subtitleText: title === "No of Campaigns" ? "Budget Groups: -" : "-"
+  }));
+  const visibleCards = display.length ? display : fallbackCards;
+  const showOverlayLoading = loading && hasLoadedOnce;
+  const showInitialLoading = loading && !hasLoadedOnce;
+  const showErrorBanner = !!error && !display.length;
+  if (showErrorBanner) return <div className="kpi-banner">{error}</div>;
+  if (!visibleCards.length) return <div className="kpi-banner">No KPI data available</div>;
 
   return (
-    <div className="kpi-cards-container">
-      {display.map((kpi, i) => (
-        <article className="kpi-card" key={i}>
+    <>
+      <div className="kpi-cards-container">
+      {visibleCards.map((kpi, i) => (
+        <article className={`kpi-card${showOverlayLoading || showInitialLoading ? " kpi-card--loading" : ""}`} key={i}>
           <p className="kpi-title" title={safeTitle(kpi.title)}>{kpi.title}</p>
           <p className="kpi-value" title={kpi.valueTitle || getValueTitle(kpi, currencyContext)}>{kpi.value}</p>
           <div className="kpi-divider" />
           <p className="kpi-subtitle" title={kpi.subtitleTitle || getSubtitleTitle(kpi.subtitleText, currencyContext)}>{kpi.subtitleText}</p>
+          {(showOverlayLoading || showInitialLoading) && (
+            <div className="kpi-loading-overlay" aria-live="polite">
+              <span className="kpi-spinner" />
+              <span className="kpi-loading-text">Loading...</span>
+            </div>
+          )}
         </article>
       ))}
-    </div>
+      </div>
+      {error && display.length ? <div className="kpi-banner kpi-error">{error}</div> : null}
+    </>
   );
 }

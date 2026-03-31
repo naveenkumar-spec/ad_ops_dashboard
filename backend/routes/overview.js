@@ -195,6 +195,10 @@ async function withLegacyOverviewTrend(metric, baseSeries, filters = {}) {
 router.get("/kpis", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
+    const key = cacheKey(_req, "kpis", JSON.stringify(filters || {}));
+    const cached = getCached(key);
+    if (cached) return res.json(cached);
+
     const kpis = DATA_SOURCE === "powerbi"
       ? await powerBiService.getKPIData()
       : await provider.getKpis(filters);
@@ -207,6 +211,7 @@ router.get("/kpis", async (_req, res) => {
         subtitle: kpi?.subtitle ?? ""
       };
     });
+    setCached(key, response);
     res.json(response);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch KPI data", message: error.message });
