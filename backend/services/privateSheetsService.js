@@ -39,6 +39,38 @@ const COUNTRY_TO_REGION = {
   Vietnam: "India+SEA"
 };
 
+const COUNTRY_CANONICAL = {
+  usa: "USA",
+  uk: "UK",
+  ukeurope: "UK",
+  canada: "Canada",
+  india: "India",
+  malaysia: "Malaysia",
+  singapore: "Singapore",
+  australia: "Australia",
+  indonesia: "Indonesia",
+  japan: "Japan",
+  newzealand: "New Zealand",
+  pakistan: "Pakistan",
+  philippines: "Philippines",
+  southafrica: "South Africa",
+  thailand: "Thailand",
+  vietnam: "Vietnam",
+  middleeast: "Middle East",
+  uae: "UAE",
+  saudiarabia: "Saudi Arabia",
+  germany: "Germany",
+  france: "France",
+  netherlands: "Netherlands",
+  portugal: "Portugal",
+  spain: "Spain",
+  sweden: "Sweden",
+  italy: "Italy",
+  kenya: "Kenya",
+  nigeria: "Nigeria",
+  africa: "Africa"
+};
+
 const FIELD_ALIASES = {
   campaignName: ["Campaign Name"],
   campaignId: ["Campaign ID"],
@@ -172,6 +204,13 @@ function normalizeTabName(value) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function canonicalCountryName(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const key = normalizeKey(raw);
+  return COUNTRY_CANONICAL[key] || raw;
+}
+
 function getTabCandidates(source = {}) {
   const country = String(source.country || "").trim();
   const tabName = String(source.tabName || "").trim();
@@ -243,7 +282,9 @@ function normalizeRow(rowValues, headerMap, source) {
   const campaignName = String(pickField(rowValues, headerMap, FIELD_ALIASES.campaignName) || "").trim() || "Unknown Campaign";
   const campaignId = String(pickField(rowValues, headerMap, FIELD_ALIASES.campaignId) || "").trim();
   const status = String(pickField(rowValues, headerMap, FIELD_ALIASES.status) || "Active").trim();
-  const country = String(source.country || pickField(rowValues, headerMap, FIELD_ALIASES.country) || "Unknown").trim();
+  const rowCountry = canonicalCountryName(pickField(rowValues, headerMap, FIELD_ALIASES.country));
+  const sourceCountry = canonicalCountryName(source.country);
+  const country = rowCountry || sourceCountry || "Unknown";
 
   const revenue = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.revenue));
   const spend = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.spend));
@@ -279,7 +320,7 @@ function normalizeRow(rowValues, headerMap, source) {
     campaignId,
     status,
     country,
-    region: COUNTRY_TO_REGION[country] || country,
+    region: COUNTRY_TO_REGION[country] || COUNTRY_TO_REGION[sourceCountry] || country,
     revenue,
     spend,
     grossProfit,
