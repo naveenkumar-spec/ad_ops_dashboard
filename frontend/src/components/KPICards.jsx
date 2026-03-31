@@ -29,6 +29,12 @@ function parseCurrency(label = "") {
   return raw;
 }
 
+function pickAmountByLabel(text = "", labelRegex) {
+  const raw = String(text || "");
+  if (!labelRegex.test(raw)) return null;
+  return parseCurrency(raw);
+}
+
 function getValueTitle(kpi, currencyContext) {
   const raw = String(kpi?.value ?? "");
   if (!raw) return "";
@@ -83,6 +89,21 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
               subtitle: `Spend : ${String(item.value || "").replace(/^Spend:\s*/i, "")}`
             };
           }
+          if (item?.title === "Booked Revenue") {
+            const valueText = String(item.value || "");
+            const subtitleText = String(item.subtitle || "");
+            const labeledRevenue = pickAmountByLabel(subtitleText, /booked\s*revenue/i);
+            const labeledSpend = pickAmountByLabel(subtitleText, /spend/i);
+            if (labeledRevenue != null) {
+              const spendFromValue = parseCurrency(valueText) || labeledSpend || 0;
+              return {
+                ...item,
+                value: formatCompactCurrency(labeledRevenue, null),
+                subtitle: `Spend : ${formatCompactCurrency(spendFromValue, null)}`
+              };
+            }
+            return item;
+          }
           return item;
         });
         const ordered = CARD_ORDER.map((t) => normalized.find((i) => i.title === t)).filter(Boolean);
@@ -127,8 +148,18 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
       }
 
       if (kpi.title === "Booked Revenue") {
-        const revenueUsd = parseCurrency(String(kpi.value || "")) || 0;
-        const spendUsd = parseCurrency(String(kpi.subtitle || "")) || 0;
+        const valueText = String(kpi.value || "");
+        const subtitleText = String(kpi.subtitle || "");
+        const subtitleRevenue = pickAmountByLabel(subtitleText, /booked\s*revenue/i);
+        const subtitleSpend = pickAmountByLabel(subtitleText, /spend/i);
+
+        const revenueUsd = subtitleRevenue != null
+          ? subtitleRevenue
+          : (parseCurrency(valueText) || 0);
+        const spendUsd = subtitleRevenue != null
+          ? (parseCurrency(valueText) || subtitleSpend || 0)
+          : (subtitleSpend != null ? subtitleSpend : (parseCurrency(subtitleText) || 0));
+
         const revenueConverted = toDisplay(revenueUsd) ?? 0;
         const spendConverted = toDisplay(spendUsd) ?? 0;
         const spentPct = revenueConverted > 0 ? (spendConverted / revenueConverted) * 100 : 0;
