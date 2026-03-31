@@ -20,6 +20,8 @@ const MONTHS = [
 const COUNTRY_TO_REGION = {
   USA: "North America",
   UK: "Europe",
+  "UK/Europe": "Europe",
+  Europe: "Europe",
   India: "India+SEA",
   Canada: "North America",
   UAE: "Middle East",
@@ -29,6 +31,7 @@ const COUNTRY_TO_REGION = {
   Indonesia: "India+SEA",
   Japan: "Japan",
   "New Zealand": "Rest of APAC",
+  Newzealand: "Rest of APAC",
   Pakistan: "India+SEA",
   Philippines: "India+SEA",
   "South Africa": "Africa",
@@ -37,38 +40,28 @@ const COUNTRY_TO_REGION = {
 };
 
 const FIELD_ALIASES = {
-  campaignName: [
-    "Campaign Name",
-    "Campaign",
-    "Campaign_Name",
-    "Campaign name"
-  ],
-  status: ["Status", "Campaign Status"],
-  country: ["Country", "Region", "Geo", "Market"],
-  revenue: ["Revenue (USD)", "Revenue(USD)", "Revenue", "Booked Revenue", "Booked Revenue (USD)", "Spend-Total", "Spend Total"],
-  spend: ["Spends (USD)", "Spends(USD)", "Spend", "Total Spend", "Spend (USD)"],
-  grossProfit: ["Gross Profit", "Gross Margin $", "Gross Profit / Loss"],
-  grossMarginPct: ["Gross Profit %", "Gross Margin %", "Gross Margin", "GM %", "Mergin percentage", "Margin percentage"],
-  netMarginPct: ["% Net gross margin", "% Net gross margin ", "Net Margin %", "NM %"],
-  netMargin: ["Net Margin", "Net Profit", "Net gross margin ", "Net Margin $"],
-  plannedImpressions: [
-    "Planned Impressions / Views / Budget / Clicks",
-    "Planned Impressions",
-    "Planned Views",
-    "Planned Clicks"
-  ],
-  deliveredImpressions: ["Delivered Impressions", "Delivered Views", "Delivered Clicks"],
-  month: ["Month", "Campaign Month"],
-  year: ["Year", "Campaign Year"],
-  startDate: ["Start Date", "Campaign Start Date", "Start"],
-  endDate: ["End Date", "Campaign End Date", "End"],
-  product: ["Product", "Format", "Channel"],
-  platform: ["Platform", "Publisher", "Inventory Source"],
-  opsOwner: ["Ops Responsible", "Ops Responible", "Ops Owner", "AdOps", "Ad Ops"],
-  csOwner: ["CS Responsible", "CS Owner"],
-  salesOwner: ["Sales Responsible", "Sales Owner"],
-  budgetGroups: ["Budget Groups", "Budget Group", "Budget Group Count", "No of Budget Groups"],
-  cpm: ["Average Buying CPM", "Buying CPM", "CPM", "Avg CPM", "eCPM"]
+  campaignName: ["Campaign Name"],
+  status: ["Status"],
+  country: ["Country"],
+  revenue: ["Revenue"],
+  spend: ["Spends"],
+  grossProfit: ["Gross Profit"],
+  grossMarginPct: ["Gross Profit %"],
+  netMarginPct: ["% Net gross margin", "% Net gross margin "],
+  netMargin: ["Net gross margin", "Net gross margin ", " Net gross margin "],
+  plannedImpressions: ["Planned Impression"],
+  deliveredImpressions: ["Delivered Impressions"],
+  month: ["Month"],
+  year: ["Year"],
+  startDate: ["Start Date"],
+  endDate: ["End Date"],
+  product: ["Product"],
+  platform: ["Platform"],
+  opsOwner: ["Ops Responsible"],
+  csOwner: ["CS Responsible"],
+  salesOwner: ["Sale Responsible", "Sales Responsible"],
+  budgetGroups: ["Budget Groups"],
+  cpm: ["Buying CPM"]
 };
 
 const OVERVIEW_RAW_SPENDS_SOURCE = {
@@ -85,6 +78,7 @@ const NORMALIZED_HEADER_CANDIDATES = new Set(
 
 let cachedRows = null;
 let lastFetchTime = 0;
+const sheetMetaCache = new Map();
 
 const keyFileFromEnv = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE || "./secrets/google-sa.json";
 const keyFilePath = path.isAbsolute(keyFileFromEnv)
@@ -170,6 +164,61 @@ async function getSheetsClient() {
   return google.sheets({ version: "v4", auth: client });
 }
 
+function normalizeTabName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function getTabCandidates(source = {}) {
+  const country = String(source.country || "").trim();
+  const tabName = String(source.tabName || "").trim();
+  const out = [tabName, country];
+  const normalizedCountry = normalizeTabName(country);
+
+  if (normalizedCountry === "uk" || normalizedCountry === "europe" || normalizedCountry === "ukeurope") {
+    out.push("UK/Europe", "UK Europe");
+  }
+  if (normalizedCountry === "newzealand") {
+    out.push("New Zealand", "Newzealand");
+  }
+  if (normalizedCountry === "middleeast") {
+    out.push("Middle East", "Middleeast");
+  }
+  return Array.from(new Set(out.filter(Boolean)));
+}
+
+async function getSheetTitlesById(sheets, spreadsheetId) {
+  const cacheKey = String(spreadsheetId || "").trim();
+  if (!cacheKey) return [];
+  if (sheetMetaCache.has(cacheKey)) return sheetMetaCache.get(cacheKey);
+
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId: cacheKey,
+    fields: "sheets.properties.title"
+  });
+  const titles = (res.data.sheets || [])
+    .map((s) => String(s?.properties?.title || "").trim())
+    .filter(Boolean);
+
+  sheetMetaCache.set(cacheKey, titles);
+  return titles;
+}
+
+async function resolveTabName(sheets, source) {
+  const titles = await getSheetTitlesById(sheets, source.sheetId);
+  if (!titles.length) return String(source.tabName || source.country || "").trim();
+
+  const normalizedMap = new Map(titles.map((title) => [normalizeTabName(title), title]));
+  const candidates = getTabCandidates(source);
+  for (const candidate of candidates) {
+    const matched = normalizedMap.get(normalizeTabName(candidate));
+    if (matched) return matched;
+  }
+  return titles[0];
+}
+
 function normalizeRow(rowValues, headerMap, source) {
   const campaignName = String(pickField(rowValues, headerMap, FIELD_ALIASES.campaignName) || "").trim() || "Unknown Campaign";
   const status = String(pickField(rowValues, headerMap, FIELD_ALIASES.status) || "Active").trim();
@@ -248,7 +297,9 @@ function normalizeRow(rowValues, headerMap, source) {
 }
 
 async function fetchSourceRows(sheets, source) {
-  const range = `'${source.tabName.replace(/'/g, "''")}'`;
+  const resolvedTab = await resolveTabName(sheets, source);
+  const effectiveSource = { ...source, tabName: resolvedTab };
+  const range = `'${resolvedTab.replace(/'/g, "''")}'`;
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: source.sheetId,
     range
@@ -285,7 +336,7 @@ async function fetchSourceRows(sheets, source) {
   for (let i = headerRowIndex + 1; i < rows.length; i += 1) {
     const rowValues = rows[i];
     if (!rowValues || rowValues.every((cell) => String(cell || "").trim() === "")) continue;
-    const normalized = normalizeRow(rowValues, headerMap, source);
+    const normalized = normalizeRow(rowValues, headerMap, effectiveSource);
     if (normalized) dataRows.push(normalized);
   }
   return dataRows;
