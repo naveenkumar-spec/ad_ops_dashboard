@@ -16,6 +16,23 @@ const MONTHS = [
   "December"
 ];
 const MONTH_INDEX = Object.fromEntries(MONTHS.map((m, i) => [m.toLowerCase(), i]));
+const MONTH_ORDER_CASE = `
+CASE LOWER(TRIM(month))
+  WHEN 'january' THEN 1
+  WHEN 'february' THEN 2
+  WHEN 'march' THEN 3
+  WHEN 'april' THEN 4
+  WHEN 'may' THEN 5
+  WHEN 'june' THEN 6
+  WHEN 'july' THEN 7
+  WHEN 'august' THEN 8
+  WHEN 'september' THEN 9
+  WHEN 'october' THEN 10
+  WHEN 'november' THEN 11
+  WHEN 'december' THEN 12
+  ELSE 99
+END
+`;
 
 const keyFileFromEnv = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE || "./secrets/google-sa.json";
 const keyFilename = path.isAbsolute(keyFileFromEnv)
@@ -35,8 +52,6 @@ const bigquery = new BigQuery({
   keyFilename
 });
 
-let cachedRows = null;
-let lastFetchTime = 0;
 let cachedTransitionRows = null;
 let lastTransitionFetchTime = 0;
 const CACHE_MS = Number(process.env.BIGQUERY_READ_CACHE_MS || 120000);
@@ -44,10 +59,6 @@ const CACHE_MS = Number(process.env.BIGQUERY_READ_CACHE_MS || 120000);
 function normalize(value) {
   if (value === undefined || value === null) return "";
   return String(value).trim().toLowerCase();
-}
-
-function isAll(value) {
-  return normalize(value) === "all" || normalize(value) === "";
 }
 
 function toFilterList(value) {
@@ -62,147 +73,132 @@ function toFilterList(value) {
     .filter((v) => v && v !== "all");
 }
 
-function matchesAny(rowValue, filterValue) {
-  const list = toFilterList(filterValue);
-  if (!list.length) return true;
-  return list.includes(normalize(rowValue));
+function toIntFilterList(value) {
+  return toFilterList(value)
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v));
 }
 
-function applyFilters(rows, filters = {}) {
+function latestMainTableSql() {
+  return `(
+    SELECT *
+    FROM ${tableRef}
+    WHERE sync_id = (
+      SELECT sync_id
+      FROM ${tableRef}
+      ORDER BY synced_at DESC
+      LIMIT 1
+    )
+  )`;
+}
+
+function buildWhereClause(filters = {}, alias = "t") {
   const f = filters || {};
-  const scopeCountries = Array.isArray(f.scopeCountries) ? f.scopeCountries.map(normalize).filter(Boolean) : [];
-  const scopeAdops = Array.isArray(f.scopeAdops) ? f.scopeAdops.map(normalize).filter(Boolean) : [];
+  const conditions = [];
+  const params = {};
+
+  const scopeCountries = Array.isArray(f.scopeCountries)
+    ? f.scopeCountries.map(normalize).filter(Boolean)
+    : [];
+  if (scopeCountries.length) {
+    conditions.push(`(
+      LOWER(TRIM(COALESCE(${alias}.country, ''))) IN UNNEST(@scopeCountries)
+      OR LOWER(TRIM(COALESCE(${alias}.region, ''))) IN UNNEST(@scopeCountries)
+    )`);
+    params.scopeCountries = scopeCountries;
+  }
+
+  const scopeAdops = Array.isArray(f.scopeAdops)
+    ? f.scopeAdops.map(normalize).filter(Boolean)
+    : [];
+  if (scopeAdops.length) {
+    conditions.push(`(
+      LOWER(TRIM(COALESCE(${alias}.ops_owner, ''))) IN UNNEST(@scopeAdops)
+      OR LOWER(TRIM(COALESCE(${alias}.cs_owner, ''))) IN UNNEST(@scopeAdops)
+      OR LOWER(TRIM(COALESCE(${alias}.sales_owner, ''))) IN UNNEST(@scopeAdops)
+    )`);
+    params.scopeAdops = scopeAdops;
+  }
+
   const regionList = toFilterList(f.region);
-  const yearList = toFilterList(f.year);
-  return rows.filter((row) => {
-    if (scopeCountries.length) {
-      const c = normalize(row.country);
-      const r = normalize(row.region);
-      if (!scopeCountries.includes(c) && !scopeCountries.includes(r)) return false;
-    }
-    if (scopeAdops.length) {
-      const owners = [normalize(row.opsOwner), normalize(row.csOwner), normalize(row.salesOwner)];
-      if (!owners.some((owner) => scopeAdops.includes(owner))) return false;
-    }
-    if (regionList.length) {
-      const region = normalize(row.region);
-      const country = normalize(row.country);
-      if (!regionList.includes(region) && !regionList.includes(country)) return false;
-    }
-    if (yearList.length && !yearList.includes(normalize(row.year))) return false;
-    if (!matchesAny(row.month, f.month)) return false;
-    if (!matchesAny(row.status, f.status)) return false;
-    if (!matchesAny(row.product, f.product)) return false;
-    if (!matchesAny(row.platform, f.platform)) return false;
-    if (!matchesAny(row.opsOwner, f.ops)) return false;
-    if (!matchesAny(row.csOwner, f.cs)) return false;
-    if (!matchesAny(row.salesOwner, f.sales)) return false;
-    return true;
+  if (regionList.length) {
+    conditions.push(`(
+      LOWER(TRIM(COALESCE(${alias}.region, ''))) IN UNNEST(@regionFilter)
+      OR LOWER(TRIM(COALESCE(${alias}.country, ''))) IN UNNEST(@regionFilter)
+    )`);
+    params.regionFilter = regionList;
+  }
+
+  const yearList = toIntFilterList(f.year);
+  if (yearList.length) {
+    conditions.push(`SAFE_CAST(${alias}.year AS INT64) IN UNNEST(@yearFilter)`);
+    params.yearFilter = yearList;
+  }
+
+  const simpleStringFilters = [
+    { key: "month", column: `${alias}.month`, param: "monthFilter" },
+    { key: "status", column: `${alias}.status`, param: "statusFilter" },
+    { key: "product", column: `${alias}.product`, param: "productFilter" },
+    { key: "platform", column: `${alias}.platform`, param: "platformFilter" },
+    { key: "ops", column: `${alias}.ops_owner`, param: "opsFilter" },
+    { key: "cs", column: `${alias}.cs_owner`, param: "csFilter" },
+    { key: "sales", column: `${alias}.sales_owner`, param: "salesFilter" }
+  ];
+
+  simpleStringFilters.forEach(({ key, column, param }) => {
+    const list = toFilterList(f[key]);
+    if (!list.length) return;
+    conditions.push(`LOWER(TRIM(COALESCE(${column}, ''))) IN UNNEST(@${param})`);
+    params[param] = list;
   });
+
+  return {
+    whereSql: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "",
+    params
+  };
 }
 
-function sum(items, getter) {
-  return items.reduce((acc, item) => acc + (Number(getter(item)) || 0), 0);
-}
-
-function avg(items, getter) {
-  if (!items.length) return 0;
-  return sum(items, getter) / items.length;
-}
-
-function countDistinctCampaignIds(items) {
-  return new Set(
-    (items || [])
-      .map((item) => String(item?.campaignId || "").trim())
-      .filter(Boolean)
-  ).size;
-}
-
-function groupBy(items, keyFn) {
-  const map = new Map();
-  items.forEach((item) => {
-    const key = keyFn(item);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(item);
-  });
-  return map;
-}
-
-async function queryRows() {
+async function runQuery(query, params = {}) {
   if (!projectId || String(projectId).toLowerCase().includes("your-gcp-project-id")) {
     throw new Error("Set GCP_PROJECT_ID in backend/.env");
   }
-  let rows = [];
-  try {
-    [rows] = await bigquery.query({
-      query: `
-        SELECT
-          campaign_name, campaign_id, status, country, region, revenue, spend, gross_profit, gross_margin_pct,
-          net_margin, net_margin_pct, planned_impressions, delivered_impressions, budget_groups, cpm,
-          start_date, end_date, month, year, product, platform, ops_owner, cs_owner, sales_owner
-        FROM ${tableRef}
-      `,
-      location
-    });
-  } catch (error) {
-    const message = String(error?.message || "").toLowerCase();
-    const missingCampaignIdColumn = message.includes("unrecognized name: campaign_id");
-    if (!missingCampaignIdColumn) throw error;
-    [rows] = await bigquery.query({
-      query: `
-        SELECT
-          campaign_name, status, country, region, revenue, spend, gross_profit, gross_margin_pct,
-          net_margin, net_margin_pct, planned_impressions, delivered_impressions, budget_groups, cpm,
-          start_date, end_date, month, year, product, platform, ops_owner, cs_owner, sales_owner
-        FROM ${tableRef}
-      `,
-      location
-    });
-  }
-
-  return rows.map((r) => ({
-    campaignName: r.campaign_name,
-    campaignId: r.campaign_id,
-    status: r.status,
-    country: r.country,
-    region: r.region,
-    revenue: Number(r.revenue || 0),
-    spend: Number(r.spend || 0),
-    grossProfit: Number(r.gross_profit || 0),
-    grossMarginPct: Number(r.gross_margin_pct || 0),
-    netMargin: Number(r.net_margin || 0),
-    netMarginPct: Number(r.net_margin_pct || 0),
-    plannedImpressions: Number(r.planned_impressions || 0),
-    deliveredImpressions: Number(r.delivered_impressions || 0),
-    budgetGroups: Number(r.budget_groups || 0),
-    cpm: Number(r.cpm || 0),
-    startDate: r.start_date ? String(r.start_date.value || r.start_date) : null,
-    endDate: r.end_date ? String(r.end_date.value || r.end_date) : null,
-    month: r.month,
-    year: Number(r.year || 0),
-    product: r.product,
-    platform: r.platform,
-    opsOwner: r.ops_owner,
-    csOwner: r.cs_owner,
-    salesOwner: r.sales_owner
-  }));
+  const [rows] = await bigquery.query({ query, params, location });
+  return rows;
 }
 
-async function loadAllRows(forceRefresh = false) {
-  const now = Date.now();
-  if (!forceRefresh && cachedRows && now - lastFetchTime < CACHE_MS) return cachedRows;
-  cachedRows = await queryRows();
-  lastFetchTime = now;
-  return cachedRows;
+function toNumber(value, fixed = null) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return 0;
+  if (fixed === null) return n;
+  return Number(n.toFixed(fixed));
+}
+
+function monthYearSeriesFromRows(rows = []) {
+  const years = Array.from(new Set((rows || []).map((r) => String(Number(r.year || 0))).filter((y) => y !== "0"))).sort();
+  const out = MONTHS.map((m) => {
+    const row = { month: m };
+    years.forEach((y) => { row[y] = 0; });
+    return row;
+  });
+
+  (rows || []).forEach((r) => {
+    const monthRaw = String(r.month || "").trim();
+    const year = String(Number(r.year || 0));
+    const value = toNumber(r.value, 2);
+    if (!monthRaw || !year || year === "0") return;
+    const monthIdx = MONTH_INDEX[monthRaw.toLowerCase()];
+    if (monthIdx === undefined) return;
+    if (out[monthIdx][year] === undefined) out[monthIdx][year] = 0;
+    out[monthIdx][year] = value;
+  });
+
+  return out;
 }
 
 async function queryTransitionRows() {
-  if (!projectId || String(projectId).toLowerCase().includes("your-gcp-project-id")) {
-    throw new Error("Set GCP_PROJECT_ID in backend/.env");
-  }
   try {
-    const [rows] = await bigquery.query({
-      query: `
+    const rows = await runQuery(
+      `
         SELECT month, year, quarter, booked_revenue_m, gross_margin_pct, average_buying_cpm
         FROM (
           SELECT
@@ -216,9 +212,8 @@ async function queryTransitionRows() {
           FROM ${transitionTableRef}
         )
         WHERE rn = 1
-      `,
-      location
-    });
+      `
+    );
     return rows.map((r) => ({
       month: r.month,
       year: Number(r.year || 0),
@@ -242,26 +237,6 @@ async function loadTransitionRows(forceRefresh = false) {
   cachedTransitionRows = await queryTransitionRows();
   lastTransitionFetchTime = now;
   return cachedTransitionRows;
-}
-
-function monthYearSeries(rows, getter, mode = "sum") {
-  const years = Array.from(new Set(rows.map((r) => String(r.year)))).filter(Boolean).sort();
-  const out = MONTHS.map((m) => {
-    const row = { month: m };
-    years.forEach((y) => {
-      row[y] = 0;
-    });
-    return row;
-  });
-  const idx = Object.fromEntries(MONTHS.map((m, i) => [m, i]));
-  const buckets = groupBy(rows.filter((r) => r.month && idx[r.month] !== undefined), (r) => `${r.month}__${r.year}`);
-  buckets.forEach((bucket, key) => {
-    const [month, year] = key.split("__");
-    const i = idx[month];
-    if (i === undefined) return;
-    out[i][year] = mode === "avg" ? Number(avg(bucket, getter).toFixed(2)) : Number((sum(bucket, getter) / 1_000_000).toFixed(2));
-  });
-  return out;
 }
 
 function parseMonthYearKeysFromSeries(series = []) {
@@ -346,217 +321,532 @@ async function getMergedOverviewSeries(baseSeries, metric) {
   return mergeSeriesPreserveRecent(baseSeries, legacySeries);
 }
 
+async function loadAllRows(_forceRefresh = false) {
+  const rows = await runQuery(
+    `
+      SELECT
+        campaign_name, campaign_id, status, country, region, revenue, spend, gross_profit, gross_margin_pct,
+        net_margin, net_margin_pct, planned_impressions, delivered_impressions, budget_groups, cpm,
+        start_date, end_date, month, year, product, platform, ops_owner, cs_owner, sales_owner
+      FROM ${latestMainTableSql()}
+    `
+  );
+  return rows.map((r) => ({
+    campaignName: r.campaign_name,
+    campaignId: r.campaign_id,
+    status: r.status,
+    country: r.country,
+    region: r.region,
+    revenue: toNumber(r.revenue),
+    spend: toNumber(r.spend),
+    grossProfit: toNumber(r.gross_profit),
+    grossMarginPct: toNumber(r.gross_margin_pct),
+    netMargin: toNumber(r.net_margin),
+    netMarginPct: toNumber(r.net_margin_pct),
+    plannedImpressions: toNumber(r.planned_impressions),
+    deliveredImpressions: toNumber(r.delivered_impressions),
+    budgetGroups: toNumber(r.budget_groups),
+    cpm: toNumber(r.cpm),
+    startDate: r.start_date ? String(r.start_date.value || r.start_date) : null,
+    endDate: r.end_date ? String(r.end_date.value || r.end_date) : null,
+    month: r.month,
+    year: Number(r.year || 0),
+    product: r.product,
+    platform: r.platform,
+    opsOwner: r.ops_owner,
+    csOwner: r.cs_owner,
+    salesOwner: r.sales_owner
+  }));
+}
+
 async function getKpis(filters = {}) {
-  const rows = applyFilters(await loadAllRows(), filters);
-  const totalRevenue = sum(rows, (r) => r.revenue);
-  const totalSpend = sum(rows, (r) => r.spend);
-  const campaigns = countDistinctCampaignIds(rows);
-  const budgetGroups = sum(rows, (r) => r.budgetGroups);
+  const { whereSql, params } = buildWhereClause(filters, "t");
+  const rows = await runQuery(
+    `
+      SELECT
+        COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS campaigns,
+        SUM(COALESCE(t.budget_groups, 0)) AS budget_groups,
+        SUM(COALESCE(t.revenue, 0)) AS total_revenue,
+        SUM(COALESCE(t.spend, 0)) AS total_spend,
+        AVG(COALESCE(t.gross_margin_pct, 0)) AS gross_margin_pct,
+        AVG(COALESCE(t.net_margin_pct, 0)) AS net_margin_pct
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
+    `,
+    params
+  );
+
+  const row = rows[0] || {};
+  const campaigns = Number(row.campaigns || 0);
+  const budgetGroups = Number(row.budget_groups || 0);
+  const totalRevenue = Number(row.total_revenue || 0);
+  const totalSpend = Number(row.total_spend || 0);
+  const grossMarginPct = Number(row.gross_margin_pct || 0);
+  const netMarginPct = Number(row.net_margin_pct || 0);
+
   return [
     { title: "No of Campaigns", value: campaigns, subtitle: `Budget Groups: ${budgetGroups}` },
-    { title: "Gross Margin %", value: `${avg(rows, (r) => r.grossMarginPct).toFixed(1)}%`, subtitle: `Total Revenue: $${(totalRevenue / 1_000_000).toFixed(2)}M` },
-    { title: "Net Margin %", value: `${avg(rows, (r) => r.netMarginPct).toFixed(1)}%`, subtitle: `Total Spend: $${(totalSpend / 1_000_000).toFixed(2)}M` },
+    { title: "Gross Margin %", value: `${grossMarginPct.toFixed(1)}%`, subtitle: `Total Revenue: $${(totalRevenue / 1_000_000).toFixed(2)}M` },
+    { title: "Net Margin %", value: `${netMarginPct.toFixed(1)}%`, subtitle: `Total Spend: $${(totalSpend / 1_000_000).toFixed(2)}M` },
     { title: "Spend", value: `$${(totalSpend / 1_000_000).toFixed(2)}M`, subtitle: `Booked Revenue: $${(totalRevenue / 1_000_000).toFixed(2)}M` }
   ];
 }
 
+async function getOverviewSeries(metric, filters = {}) {
+  const { whereSql, params } = buildWhereClause(filters, "t");
+
+  let valueExpr = "SUM(COALESCE(t.revenue, 0)) / 1000000";
+  if (metric === "margin") valueExpr = "AVG(COALESCE(t.gross_margin_pct, 0))";
+  if (metric === "net_margin") valueExpr = "AVG(COALESCE(t.net_margin_pct, 0))";
+  if (metric === "cpm") valueExpr = "AVG(COALESCE(t.cpm, 0))";
+
+  const rows = await runQuery(
+    `
+      SELECT
+        t.month AS month,
+        SAFE_CAST(t.year AS INT64) AS year,
+        ROUND(${valueExpr}, 2) AS value
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
+      GROUP BY month, year
+      ORDER BY year ASC, ${MONTH_ORDER_CASE}
+    `,
+    params
+  );
+
+  return monthYearSeriesFromRows(rows);
+}
+
 async function getRevenueTrend(filters = {}) {
-  const base = monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.revenue, "sum");
+  const base = await getOverviewSeries("revenue", filters);
   return getMergedOverviewSeries(base, "revenue");
 }
 
 async function getMarginTrend(filters = {}) {
-  const base = monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.grossMarginPct, "avg");
+  const base = await getOverviewSeries("margin", filters);
   return getMergedOverviewSeries(base, "margin");
 }
 
 async function getNetMarginTrend(filters = {}) {
-  return monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.netMarginPct, "avg");
+  return getOverviewSeries("net_margin", filters);
 }
 
 async function getCpmTrend(filters = {}) {
-  const base = monthYearSeries(applyFilters(await loadAllRows(), filters), (r) => r.cpm, "avg");
+  const base = await getOverviewSeries("cpm", filters);
   return getMergedOverviewSeries(base, "cpm");
 }
 
 async function getBottomCampaignsSimple(limit = 8, filters = {}) {
-  const rows = applyFilters(await loadAllRows(), filters);
-  return rows
-    .slice()
-    .sort((a, b) => a.grossMarginPct - b.grossMarginPct)
-    .slice(0, limit)
-    .map((r) => ({
-      campaignName: r.campaignName,
-      status: r.status,
-      revenue: r.revenue,
-      spend: r.spend,
-      profit: r.grossProfit,
-      grossMargin: Number(r.grossMarginPct.toFixed(2))
-    }));
+  const safeLimit = Math.max(1, Math.min(200, Number(limit || 8)));
+  const { whereSql, params } = buildWhereClause(filters, "t");
+  const rows = await runQuery(
+    `
+      SELECT
+        COALESCE(t.campaign_name, 'Unknown Campaign') AS campaignName,
+        COALESCE(t.status, 'Unknown') AS status,
+        COALESCE(t.revenue, 0) AS revenue,
+        COALESCE(t.spend, 0) AS spend,
+        COALESCE(t.gross_profit, 0) AS profit,
+        ROUND(COALESCE(t.gross_margin_pct, 0), 2) AS grossMargin
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
+      ORDER BY COALESCE(t.gross_margin_pct, 0) ASC
+      LIMIT @limit
+    `,
+    { ...params, limit: safeLimit }
+  );
+
+  return rows.map((r) => ({
+    campaignName: r.campaignName,
+    status: r.status,
+    revenue: toNumber(r.revenue),
+    spend: toNumber(r.spend),
+    profit: toNumber(r.profit),
+    grossMargin: toNumber(r.grossMargin, 2)
+  }));
 }
 
 async function getCampaignsDetailed(limit = 25, filters = {}) {
-  const rows = applyFilters(await loadAllRows(), filters);
-  const out = rows
-    .slice()
-    .sort((a, b) => a.grossMarginPct - b.grossMarginPct)
-    .slice(0, limit)
-    .map((r) => ({
-      name: r.campaignName,
-      status: r.status,
-      revenue: r.revenue,
-      spend: r.spend,
-      grossMargin: r.grossProfit,
-      grossMarginPct: Number(r.grossMarginPct.toFixed(2)),
-      netMargin: r.netMargin,
-      netMarginPct: Number(r.netMarginPct.toFixed(2)),
-      plannedImpressions: r.plannedImpressions
-    }));
+  const safeLimit = Math.max(1, Math.min(500, Number(limit || 25)));
+  const { whereSql, params } = buildWhereClause(filters, "t");
+
+  const rows = await runQuery(
+    `
+      WITH ranked AS (
+        SELECT
+          COALESCE(t.campaign_name, 'Unknown Campaign') AS name,
+          COALESCE(t.status, 'Unknown') AS status,
+          COALESCE(t.revenue, 0) AS revenue,
+          COALESCE(t.spend, 0) AS spend,
+          COALESCE(t.gross_profit, 0) AS grossMargin,
+          ROUND(COALESCE(t.gross_margin_pct, 0), 2) AS grossMarginPct,
+          COALESCE(t.net_margin, 0) AS netMargin,
+          ROUND(COALESCE(t.net_margin_pct, 0), 2) AS netMarginPct,
+          COALESCE(t.planned_impressions, 0) AS plannedImpressions
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        ORDER BY COALESCE(t.gross_margin_pct, 0) ASC
+        LIMIT @limit
+      )
+      SELECT * FROM ranked
+    `,
+    { ...params, limit: safeLimit }
+  );
+
+  const totalsRows = await runQuery(
+    `
+      WITH ranked AS (
+        SELECT
+          COALESCE(t.revenue, 0) AS revenue,
+          COALESCE(t.spend, 0) AS spend,
+          COALESCE(t.gross_profit, 0) AS grossMargin,
+          ROUND(COALESCE(t.gross_margin_pct, 0), 2) AS grossMarginPct,
+          COALESCE(t.net_margin, 0) AS netMargin,
+          ROUND(COALESCE(t.net_margin_pct, 0), 2) AS netMarginPct,
+          COALESCE(t.planned_impressions, 0) AS plannedImpressions
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        ORDER BY COALESCE(t.gross_margin_pct, 0) ASC
+        LIMIT @limit
+      )
+      SELECT
+        SUM(revenue) AS revenue,
+        SUM(spend) AS spend,
+        SUM(grossMargin) AS grossMargin,
+        AVG(grossMarginPct) AS grossMarginPct,
+        SUM(netMargin) AS netMargin,
+        AVG(netMarginPct) AS netMarginPct,
+        SUM(plannedImpressions) AS plannedImpressions
+      FROM ranked
+    `,
+    { ...params, limit: safeLimit }
+  );
+
+  const totals = totalsRows[0] || {};
   return {
-    rows: out,
+    rows: rows.map((r) => ({
+      name: r.name,
+      status: r.status,
+      revenue: toNumber(r.revenue),
+      spend: toNumber(r.spend),
+      grossMargin: toNumber(r.grossMargin),
+      grossMarginPct: toNumber(r.grossMarginPct, 2),
+      netMargin: toNumber(r.netMargin),
+      netMarginPct: toNumber(r.netMarginPct, 2),
+      plannedImpressions: toNumber(r.plannedImpressions)
+    })),
     totals: {
-      revenue: sum(out, (r) => r.revenue),
-      spend: sum(out, (r) => r.spend),
-      grossMargin: sum(out, (r) => r.grossMargin),
-      grossMarginPct: avg(out, (r) => r.grossMarginPct),
-      netMargin: sum(out, (r) => r.netMargin),
-      netMarginPct: avg(out, (r) => r.netMarginPct),
-      plannedImpressions: sum(out, (r) => r.plannedImpressions)
+      revenue: toNumber(totals.revenue),
+      spend: toNumber(totals.spend),
+      grossMargin: toNumber(totals.grossMargin),
+      grossMarginPct: toNumber(totals.grossMarginPct, 2),
+      netMargin: toNumber(totals.netMargin),
+      netMarginPct: toNumber(totals.netMarginPct, 2),
+      plannedImpressions: toNumber(totals.plannedImpressions)
     }
   };
 }
 
 async function getRegionTable(filters = {}) {
-  const rows = applyFilters(await loadAllRows(), filters);
-  const grouped = groupBy(rows, (r) => r.country || "Unknown");
-  const out = [];
-  grouped.forEach((bucket, country) => {
-    const bookedRevenue = sum(bucket, (r) => r.revenue);
-    const spend = sum(bucket, (r) => r.spend);
-    const grossMargin = sum(bucket, (r) => r.grossProfit);
-    const plannedImpressions = sum(bucket, (r) => r.plannedImpressions);
-    const deliveredImpressions = sum(bucket, (r) => r.deliveredImpressions);
-    out.push({
-      region: country,
-      totalCampaigns: countDistinctCampaignIds(bucket),
-      budgetGroups: sum(bucket, (r) => r.budgetGroups),
-      bookedRevenue,
-      spend,
-      plannedImpressions,
-      deliveredImpressions,
-      deliveredPct: plannedImpressions ? Number(((deliveredImpressions / plannedImpressions) * 100).toFixed(2)) : 0,
-      grossMargin,
-      grossMarginPct: bookedRevenue ? Number(((grossMargin / bookedRevenue) * 100).toFixed(2)) : 0
-    });
-  });
-  return out.sort((a, b) => b.bookedRevenue - a.bookedRevenue);
+  const { whereSql, params } = buildWhereClause(filters, "t");
+  const rows = await runQuery(
+    `
+      SELECT
+        COALESCE(NULLIF(TRIM(t.country), ''), 'Unknown') AS region,
+        COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS totalCampaigns,
+        SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+        SUM(COALESCE(t.revenue, 0)) AS bookedRevenue,
+        SUM(COALESCE(t.spend, 0)) AS spend,
+        SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
+        SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
+        SUM(COALESCE(t.gross_profit, 0)) AS grossMargin,
+        IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
+        IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.gross_profit, 0)), NULLIF(SUM(COALESCE(t.revenue, 0)), 0)) * 100, 0) AS grossMarginPct
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
+      GROUP BY region
+      ORDER BY bookedRevenue DESC
+    `,
+    params
+  );
+
+  return rows.map((r) => ({
+    region: r.region,
+    totalCampaigns: toNumber(r.totalCampaigns),
+    budgetGroups: toNumber(r.budgetGroups),
+    bookedRevenue: toNumber(r.bookedRevenue),
+    spend: toNumber(r.spend),
+    plannedImpressions: toNumber(r.plannedImpressions),
+    deliveredImpressions: toNumber(r.deliveredImpressions),
+    deliveredPct: toNumber(r.deliveredPct, 2),
+    grossMargin: toNumber(r.grossMargin),
+    grossMarginPct: toNumber(r.grossMarginPct, 2)
+  }));
 }
 
 async function getCountryWiseTable(filters = {}) {
-  const rows = applyFilters(await loadAllRows(), filters);
-  const grouped = groupBy(rows, (r) => r.region || "Unknown");
-  const out = [];
-  grouped.forEach((bucket, region) => {
-    const revenue = sum(bucket, (r) => r.revenue);
-    const spend = sum(bucket, (r) => r.spend);
-    const grossMargin = sum(bucket, (r) => r.grossProfit);
-    const plannedImpressions = sum(bucket, (r) => r.plannedImpressions);
-    const deliveredImpressions = sum(bucket, (r) => r.deliveredImpressions);
-    out.push({
-      region,
-      campaigns: countDistinctCampaignIds(bucket),
-      budgetGroups: sum(bucket, (r) => r.budgetGroups),
-      revenue,
-      spend,
-      plannedImpressions,
-      deliveredImpressions,
-      deliveredPct: plannedImpressions ? Number(((deliveredImpressions / plannedImpressions) * 100).toFixed(2)) : 0,
-      grossMargin,
-      grossMarginPct: revenue ? Number(((grossMargin / revenue) * 100).toFixed(2)) : 0
-    });
-  });
-  const totals = {
-    campaigns: sum(out, (r) => r.campaigns),
-    budgetGroups: sum(out, (r) => r.budgetGroups),
-    revenue: sum(out, (r) => r.revenue),
-    spend: sum(out, (r) => r.spend),
-    plannedImpressions: sum(out, (r) => r.plannedImpressions),
-    deliveredImpressions: sum(out, (r) => r.deliveredImpressions),
-    grossMargin: sum(out, (r) => r.grossMargin)
+  const { whereSql, params } = buildWhereClause(filters, "t");
+
+  const rows = await runQuery(
+    `
+      WITH grouped AS (
+        SELECT
+          COALESCE(NULLIF(TRIM(t.region), ''), 'Unknown') AS region,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS campaigns,
+          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+          SUM(COALESCE(t.revenue, 0)) AS revenue,
+          SUM(COALESCE(t.spend, 0)) AS spend,
+          SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
+          SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
+          SUM(COALESCE(t.gross_profit, 0)) AS grossMargin,
+          IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
+          IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.gross_profit, 0)), NULLIF(SUM(COALESCE(t.revenue, 0)), 0)) * 100, 0) AS grossMarginPct
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        GROUP BY region
+      )
+      SELECT *
+      FROM grouped
+      ORDER BY revenue DESC
+    `,
+    params
+  );
+
+  const totalsRows = await runQuery(
+    `
+      WITH grouped AS (
+        SELECT
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS campaigns,
+          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+          SUM(COALESCE(t.revenue, 0)) AS revenue,
+          SUM(COALESCE(t.spend, 0)) AS spend,
+          SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
+          SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
+          SUM(COALESCE(t.gross_profit, 0)) AS grossMargin
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        GROUP BY COALESCE(NULLIF(TRIM(t.region), ''), 'Unknown')
+      )
+      SELECT
+        SUM(campaigns) AS campaigns,
+        SUM(budgetGroups) AS budgetGroups,
+        SUM(revenue) AS revenue,
+        SUM(spend) AS spend,
+        SUM(plannedImpressions) AS plannedImpressions,
+        SUM(deliveredImpressions) AS deliveredImpressions,
+        SUM(grossMargin) AS grossMargin,
+        IFNULL(SAFE_DIVIDE(SUM(deliveredImpressions), NULLIF(SUM(plannedImpressions), 0)) * 100, 0) AS deliveredPct,
+        IFNULL(SAFE_DIVIDE(SUM(grossMargin), NULLIF(SUM(revenue), 0)) * 100, 0) AS grossMarginPct
+      FROM grouped
+    `,
+    params
+  );
+
+  const totals = totalsRows[0] || {};
+  return {
+    rows: rows.map((r) => ({
+      region: r.region,
+      campaigns: toNumber(r.campaigns),
+      budgetGroups: toNumber(r.budgetGroups),
+      revenue: toNumber(r.revenue),
+      spend: toNumber(r.spend),
+      plannedImpressions: toNumber(r.plannedImpressions),
+      deliveredImpressions: toNumber(r.deliveredImpressions),
+      deliveredPct: toNumber(r.deliveredPct, 2),
+      grossMargin: toNumber(r.grossMargin),
+      grossMarginPct: toNumber(r.grossMarginPct, 2)
+    })),
+    totals: {
+      campaigns: toNumber(totals.campaigns),
+      budgetGroups: toNumber(totals.budgetGroups),
+      revenue: toNumber(totals.revenue),
+      spend: toNumber(totals.spend),
+      plannedImpressions: toNumber(totals.plannedImpressions),
+      deliveredImpressions: toNumber(totals.deliveredImpressions),
+      deliveredPct: toNumber(totals.deliveredPct, 2),
+      grossMargin: toNumber(totals.grossMargin),
+      grossMarginPct: toNumber(totals.grossMarginPct, 2)
+    }
   };
-  totals.deliveredPct = totals.plannedImpressions ? Number(((totals.deliveredImpressions / totals.plannedImpressions) * 100).toFixed(2)) : 0;
-  totals.grossMarginPct = totals.revenue ? Number(((totals.grossMargin / totals.revenue) * 100).toFixed(2)) : 0;
-  return { rows: out.sort((a, b) => b.revenue - a.revenue), totals };
 }
 
 async function getCampaignWiseTable(limit = 50, filters = {}) {
-  const rows = applyFilters(await loadAllRows(), filters);
-  const grouped = groupBy(rows, (r) => r.campaignName || "Unknown");
-  const out = [];
-  grouped.forEach((bucket, name) => {
-    const starts = bucket.map((r) => r.startDate).filter(Boolean).sort();
-    const ends = bucket.map((r) => r.endDate).filter(Boolean).sort();
-    out.push({
-      name,
-      budgetGroups: sum(bucket, (r) => r.budgetGroups),
-      startDate: starts[0] || null,
-      endDate: ends[ends.length - 1] || null,
-      plannedImpressions: sum(bucket, (r) => r.plannedImpressions)
-    });
-  });
-  const rowsOut = out.sort((a, b) => b.plannedImpressions - a.plannedImpressions).slice(0, limit);
+  const safeLimit = Math.max(1, Math.min(1000, Number(limit || 50)));
+  const { whereSql, params } = buildWhereClause(filters, "t");
+
+  const rows = await runQuery(
+    `
+      WITH grouped AS (
+        SELECT
+          COALESCE(NULLIF(TRIM(t.campaign_name), ''), 'Unknown Campaign') AS name,
+          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+          MIN(t.start_date) AS startDate,
+          MAX(t.end_date) AS endDate,
+          SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        GROUP BY name
+      )
+      SELECT *
+      FROM grouped
+      ORDER BY plannedImpressions DESC
+      LIMIT @limit
+    `,
+    { ...params, limit: safeLimit }
+  );
+
+  const totalsRows = await runQuery(
+    `
+      WITH grouped AS (
+        SELECT
+          COALESCE(NULLIF(TRIM(t.campaign_name), ''), 'Unknown Campaign') AS name,
+          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+          SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        GROUP BY name
+      ),
+      top_rows AS (
+        SELECT *
+        FROM grouped
+        ORDER BY plannedImpressions DESC
+        LIMIT @limit
+      )
+      SELECT
+        SUM(budgetGroups) AS budgetGroups,
+        SUM(plannedImpressions) AS plannedImpressions
+      FROM top_rows
+    `,
+    { ...params, limit: safeLimit }
+  );
+
+  const totals = totalsRows[0] || {};
   return {
-    rows: rowsOut,
+    rows: rows.map((r) => ({
+      name: r.name,
+      budgetGroups: toNumber(r.budgetGroups),
+      startDate: r.startDate ? String(r.startDate.value || r.startDate) : null,
+      endDate: r.endDate ? String(r.endDate.value || r.endDate) : null,
+      plannedImpressions: toNumber(r.plannedImpressions)
+    })),
     totals: {
-      budgetGroups: sum(rowsOut, (r) => r.budgetGroups),
+      budgetGroups: toNumber(totals.budgetGroups),
       duration: 0,
       daysRemaining: 0,
       avgPctPassed: 0,
-      plannedImpressions: sum(rowsOut, (r) => r.plannedImpressions)
+      plannedImpressions: toNumber(totals.plannedImpressions)
     }
   };
 }
 
 async function getProductWiseTable(filters = {}) {
-  const rows = applyFilters(await loadAllRows(), filters);
-  const grouped = groupBy(rows, (r) => r.product || "Unknown");
-  const out = [];
-  grouped.forEach((bucket, product) => {
-    const bookedRevenue = sum(bucket, (r) => r.revenue);
-    const spend = sum(bucket, (r) => r.spend);
-    const grossProfitLoss = sum(bucket, (r) => r.grossProfit);
-    const plannedImpressions = sum(bucket, (r) => r.plannedImpressions);
-    const deliveredImpressions = sum(bucket, (r) => r.deliveredImpressions);
-    out.push({
-      product,
-      totalCampaigns: countDistinctCampaignIds(bucket),
-      budgetGroups: sum(bucket, (r) => r.budgetGroups),
-      bookedRevenue,
-      spend,
-      plannedImpressions,
-      deliveredImpressions,
-      deliveredPct: plannedImpressions ? Number(((deliveredImpressions / plannedImpressions) * 100).toFixed(2)) : 0,
-      grossProfitLoss,
-      grossMargin: bookedRevenue ? Number(((grossProfitLoss / bookedRevenue) * 100).toFixed(2)) : 0
-    });
-  });
-  const totals = {
-    totalCampaigns: sum(out, (r) => r.totalCampaigns),
-    budgetGroups: sum(out, (r) => r.budgetGroups),
-    bookedRevenue: sum(out, (r) => r.bookedRevenue),
-    spend: sum(out, (r) => r.spend),
-    plannedImpressions: sum(out, (r) => r.plannedImpressions),
-    deliveredImpressions: sum(out, (r) => r.deliveredImpressions),
-    grossProfitLoss: sum(out, (r) => r.grossProfitLoss)
+  const { whereSql, params } = buildWhereClause(filters, "t");
+
+  const rows = await runQuery(
+    `
+      WITH grouped AS (
+        SELECT
+          COALESCE(NULLIF(TRIM(t.product), ''), 'Unknown') AS product,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS totalCampaigns,
+          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+          SUM(COALESCE(t.revenue, 0)) AS bookedRevenue,
+          SUM(COALESCE(t.spend, 0)) AS spend,
+          SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
+          SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
+          SUM(COALESCE(t.gross_profit, 0)) AS grossProfitLoss,
+          IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
+          IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.gross_profit, 0)), NULLIF(SUM(COALESCE(t.revenue, 0)), 0)) * 100, 0) AS grossMargin
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        GROUP BY product
+      )
+      SELECT *
+      FROM grouped
+      ORDER BY bookedRevenue DESC
+    `,
+    params
+  );
+
+  const totalsRows = await runQuery(
+    `
+      WITH grouped AS (
+        SELECT
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS totalCampaigns,
+          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+          SUM(COALESCE(t.revenue, 0)) AS bookedRevenue,
+          SUM(COALESCE(t.spend, 0)) AS spend,
+          SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
+          SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
+          SUM(COALESCE(t.gross_profit, 0)) AS grossProfitLoss
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        GROUP BY COALESCE(NULLIF(TRIM(t.product), ''), 'Unknown')
+      )
+      SELECT
+        SUM(totalCampaigns) AS totalCampaigns,
+        SUM(budgetGroups) AS budgetGroups,
+        SUM(bookedRevenue) AS bookedRevenue,
+        SUM(spend) AS spend,
+        SUM(plannedImpressions) AS plannedImpressions,
+        SUM(deliveredImpressions) AS deliveredImpressions,
+        SUM(grossProfitLoss) AS grossProfitLoss,
+        IFNULL(SAFE_DIVIDE(SUM(deliveredImpressions), NULLIF(SUM(plannedImpressions), 0)) * 100, 0) AS deliveredPct,
+        IFNULL(SAFE_DIVIDE(SUM(grossProfitLoss), NULLIF(SUM(bookedRevenue), 0)) * 100, 0) AS grossMargin
+      FROM grouped
+    `,
+    params
+  );
+
+  const totals = totalsRows[0] || {};
+  return {
+    rows: rows.map((r) => ({
+      product: r.product,
+      totalCampaigns: toNumber(r.totalCampaigns),
+      budgetGroups: toNumber(r.budgetGroups),
+      bookedRevenue: toNumber(r.bookedRevenue),
+      spend: toNumber(r.spend),
+      plannedImpressions: toNumber(r.plannedImpressions),
+      deliveredImpressions: toNumber(r.deliveredImpressions),
+      deliveredPct: toNumber(r.deliveredPct, 2),
+      grossProfitLoss: toNumber(r.grossProfitLoss),
+      grossMargin: toNumber(r.grossMargin, 2)
+    })),
+    totals: {
+      totalCampaigns: toNumber(totals.totalCampaigns),
+      budgetGroups: toNumber(totals.budgetGroups),
+      bookedRevenue: toNumber(totals.bookedRevenue),
+      spend: toNumber(totals.spend),
+      plannedImpressions: toNumber(totals.plannedImpressions),
+      deliveredImpressions: toNumber(totals.deliveredImpressions),
+      deliveredPct: toNumber(totals.deliveredPct, 2),
+      grossProfitLoss: toNumber(totals.grossProfitLoss),
+      grossMargin: toNumber(totals.grossMargin, 2)
+    }
   };
-  totals.deliveredPct = totals.plannedImpressions ? Number(((totals.deliveredImpressions / totals.plannedImpressions) * 100).toFixed(2)) : 0;
-  totals.grossMargin = totals.bookedRevenue ? Number(((totals.grossProfitLoss / totals.bookedRevenue) * 100).toFixed(2)) : 0;
-  return { rows: out.sort((a, b) => b.bookedRevenue - a.bookedRevenue), totals };
 }
 
 async function getFilterOptions(filters = {}) {
-  const rows = applyFilters(await loadAllRows(), filters);
-  const uniq = (arr) => Array.from(new Set(arr.filter(Boolean))).sort();
+  const { whereSql, params } = buildWhereClause(filters, "t");
+  const rows = await runQuery(
+    `
+      SELECT DISTINCT
+        t.region,
+        t.country,
+        SAFE_CAST(t.year AS INT64) AS year,
+        t.month,
+        t.status,
+        t.product,
+        t.platform,
+        t.ops_owner,
+        t.cs_owner,
+        t.sales_owner
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
+    `,
+    params
+  );
+
+  const uniq = (arr) => Array.from(new Set(arr.filter((x) => x !== null && x !== undefined && String(x).trim() !== ""))).sort();
   const regionMap = new Map();
   const yearMonthMap = new Map();
 
@@ -594,26 +884,37 @@ async function getFilterOptions(filters = {}) {
 
   return {
     region: uniq(rows.map((r) => r.region)),
-    year: uniq(rows.map((r) => r.year)),
-    month: uniq(rows.map((r) => r.month)),
+    year: uniq(rows.map((r) => Number(r.year || 0)).filter((y) => y > 0)),
+    month: uniq(rows.map((r) => r.month)).sort((a, b) => (MONTH_INDEX[String(a).toLowerCase()] ?? 999) - (MONTH_INDEX[String(b).toLowerCase()] ?? 999)),
     status: uniq(rows.map((r) => r.status)),
     product: uniq(rows.map((r) => r.product)),
     platform: uniq(rows.map((r) => r.platform)),
-    ops: uniq(rows.map((r) => r.opsOwner)),
-    cs: uniq(rows.map((r) => r.csOwner)),
-    sales: uniq(rows.map((r) => r.salesOwner)),
+    ops: uniq(rows.map((r) => r.ops_owner)),
+    cs: uniq(rows.map((r) => r.cs_owner)),
+    sales: uniq(rows.map((r) => r.sales_owner)),
     regionTree,
     yearMonthTree
   };
 }
 
-async function getAdminOptions(filters = {}) {
-  const rows = applyFilters(await loadAllRows(), filters);
-  const uniq = (arr) => Array.from(new Set(arr.filter(Boolean))).sort();
+async function getAdminOptions() {
+  const rows = await runQuery(
+    `
+      SELECT DISTINCT
+        country,
+        region,
+        ops_owner,
+        cs_owner,
+        sales_owner
+      FROM ${latestMainTableSql()}
+    `
+  );
+
+  const uniq = (arr) => Array.from(new Set(arr.filter((x) => x !== null && x !== undefined && String(x).trim() !== ""))).sort();
   return {
     countries: uniq(rows.map((r) => r.country)),
     regions: uniq(rows.map((r) => r.region)),
-    adops: uniq(rows.flatMap((r) => [r.opsOwner, r.csOwner, r.salesOwner]))
+    adops: uniq(rows.flatMap((r) => [r.ops_owner, r.cs_owner, r.sales_owner]))
   };
 }
 
