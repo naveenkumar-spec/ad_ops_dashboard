@@ -206,12 +206,31 @@ async function getSheetTitlesById(sheets, spreadsheetId) {
   return titles;
 }
 
+async function readTabValues(sheets, spreadsheetId, tabName) {
+  const range = `'${String(tabName || "").replace(/'/g, "''")}'`;
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range
+  });
+  return res.data.values || [];
+}
+
 async function resolveTabName(sheets, source) {
+  const candidates = getTabCandidates(source);
+
+  for (const candidate of candidates) {
+    try {
+      await readTabValues(sheets, source.sheetId, candidate);
+      return String(candidate).trim();
+    } catch (_error) {
+      // Try next candidate.
+    }
+  }
+
   const titles = await getSheetTitlesById(sheets, source.sheetId);
   if (!titles.length) return String(source.tabName || source.country || "").trim();
 
   const normalizedMap = new Map(titles.map((title) => [normalizeTabName(title), title]));
-  const candidates = getTabCandidates(source);
   for (const candidate of candidates) {
     const matched = normalizedMap.get(normalizeTabName(candidate));
     if (matched) return matched;
@@ -299,13 +318,7 @@ function normalizeRow(rowValues, headerMap, source) {
 async function fetchSourceRows(sheets, source) {
   const resolvedTab = await resolveTabName(sheets, source);
   const effectiveSource = { ...source, tabName: resolvedTab };
-  const range = `'${resolvedTab.replace(/'/g, "''")}'`;
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: source.sheetId,
-    range
-  });
-
-  const rows = res.data.values || [];
+  const rows = await readTabValues(sheets, source.sheetId, resolvedTab);
   if (rows.length <= 1) return [];
 
   let headerRowIndex = 0;
