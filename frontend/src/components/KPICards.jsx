@@ -80,7 +80,7 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
               ...item,
               title: "Booked Revenue",
               value: String(item.subtitle || "").replace(/^Booked Revenue:\s*/i, ""),
-              subtitle: `Spend till now: ${String(item.value || "").replace(/^Spend:\s*/i, "")}`
+              subtitle: `Spend : ${String(item.value || "").replace(/^Spend:\s*/i, "")}`
             };
           }
           return item;
@@ -132,10 +132,10 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
         const revenueConverted = toDisplay(revenueUsd) ?? 0;
         const spendConverted = toDisplay(spendUsd) ?? 0;
         const spentPct = revenueConverted > 0 ? (spendConverted / revenueConverted) * 100 : 0;
-        sub = `Spend till now: ${formatCompactCurrency(spendConverted, currencyContext)}`;
+        sub = `Spend : ${formatCompactCurrency(spendConverted, currencyContext)}`;
         return {
           ...kpi,
-          value: `${formatCompactCurrency(revenueConverted, currencyContext)} (${spentPct.toFixed(2)}% spent so far)`,
+          value: `${formatCompactCurrency(revenueConverted, currencyContext)} (${spentPct.toFixed(2)}%)`,
           subtitleText: sub
         };
       }
