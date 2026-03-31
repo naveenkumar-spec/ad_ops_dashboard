@@ -385,12 +385,6 @@ async function resolveTabName(sheets, source) {
   const candidates = getTabCandidates(source);
   const gid = Number(source?.gid || 0);
 
-  if (Number.isFinite(gid) && gid > 0) {
-    const meta = await getSheetMetaById(sheets, source.sheetId);
-    const byGid = meta.find((m) => Number(m.sheetId) === gid);
-    if (byGid?.title) return byGid.title;
-  }
-
   for (const candidate of candidates) {
     try {
       await readTabValues(sheets, source.sheetId, candidate);
@@ -398,6 +392,13 @@ async function resolveTabName(sheets, source) {
     } catch (_error) {
       // Try next candidate.
     }
+  }
+
+  // Use gid as a fallback only if configured tab candidates cannot be read.
+  if (Number.isFinite(gid) && gid > 0) {
+    const meta = await getSheetMetaById(sheets, source.sheetId);
+    const byGid = meta.find((m) => Number(m.sheetId) === gid);
+    if (byGid?.title) return byGid.title;
   }
 
   const meta = await getSheetMetaById(sheets, source.sheetId);
