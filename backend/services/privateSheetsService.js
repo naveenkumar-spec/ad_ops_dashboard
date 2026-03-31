@@ -512,6 +512,7 @@ async function fetchSourceRows(sheets, source, options = {}) {
   const issueSink = Array.isArray(options.issues) ? options.issues : null;
   const issueLimit = Number(options.issueLimit || 500);
   const onSourceStatus = typeof options.onSourceStatus === "function" ? options.onSourceStatus : null;
+  const shouldAbort = typeof options.shouldAbort === "function" ? options.shouldAbort : null;
   const pushIssue = (issue) => {
     if (!issueSink) return;
     if (issueSink.length >= issueLimit) return;
@@ -532,6 +533,11 @@ async function fetchSourceRows(sheets, source, options = {}) {
   };
 
   const resolvedTab = await resolveTabName(sheets, source);
+  if (shouldAbort && shouldAbort()) {
+    const stopError = new Error("Sync stopped by admin");
+    stopError.code = "SYNC_STOPPED";
+    throw stopError;
+  }
   notify({ status: "in_progress", resolvedTab });
   const candidates = getTabCandidates(source).map((v) => normalizeTabName(v));
   if (resolvedTab && candidates.length && !candidates.includes(normalizeTabName(resolvedTab))) {
@@ -626,6 +632,11 @@ async function fetchSourceRows(sheets, source, options = {}) {
   const dataRows = [];
   const errorTokenPattern = /^#(value!?|div\/0!?|ref!?|n\/a|name\?|num!?|error!?)/i;
   for (let i = headerRowIndex + 1; i < rows.length; i += 1) {
+    if (shouldAbort && shouldAbort()) {
+      const stopError = new Error("Sync stopped by admin");
+      stopError.code = "SYNC_STOPPED";
+      throw stopError;
+    }
     const rowValues = rows[i];
     if (!rowValues || rowValues.every((cell) => String(cell || "").trim() === "")) continue;
 
@@ -665,6 +676,7 @@ async function loadAllRows(forceRefresh = false, options = {}) {
   const issueSink = Array.isArray(options.issues) ? options.issues : null;
   const issueLimit = Number(options.issueLimit || 500);
   const onSourceStatus = typeof options.onSourceStatus === "function" ? options.onSourceStatus : null;
+  const shouldAbort = typeof options.shouldAbort === "function" ? options.shouldAbort : null;
   if (!forceRefresh && cachedRows && now - lastFetchTime < cacheDuration) {
     return cachedRows;
   }
@@ -672,51 +684,57 @@ async function loadAllRows(forceRefresh = false, options = {}) {
   const sheets = await getSheetsClient();
   const enabledSources = (config.sources || []).filter((s) => s.enabled !== false);
 
-  const results = await Promise.all(
-    enabledSources.map(async (source) => {
-      try {
-        if (onSourceStatus) {
-          onSourceStatus({
-            sourceCountry: source.country || null,
-            sourceSheetId: source.sheetId || null,
-            configuredTab: source.tabName || null,
-            status: "in_progress"
-          });
-        }
-        const rows = await fetchSourceRows(sheets, source, {
-          issues: issueSink,
-          issueLimit,
-          onSourceStatus
+  const results = [];
+  for (const source of enabledSources) {
+    if (shouldAbort && shouldAbort()) {
+      const stopError = new Error("Sync stopped by admin");
+      stopError.code = "SYNC_STOPPED";
+      throw stopError;
+    }
+    try {
+      if (onSourceStatus) {
+        onSourceStatus({
+          sourceCountry: source.country || null,
+          sourceSheetId: source.sheetId || null,
+          configuredTab: source.tabName || null,
+          status: "in_progress"
         });
-        return rows;
-      } catch (error) {
-        console.warn(`Failed to read ${source.country} (${source.tabName}): ${error.message}`);
-        if (onSourceStatus) {
-          onSourceStatus({
-            sourceCountry: source.country || null,
-            sourceSheetId: source.sheetId || null,
-            configuredTab: source.tabName || null,
-            status: "failed",
-            detail: error.message
-          });
-        }
-        if (issueSink && issueSink.length < issueLimit) {
-          issueSink.push({
-            type: "source_read_error",
-            severity: "error",
-            sourceCountry: source.country || null,
-            sourceSheetId: source.sheetId || null,
-            configuredTab: source.tabName || null,
-            resolvedTab: null,
-            column: null,
-            row: null,
-            detail: error.message
-          });
-        }
-        return [];
       }
-    })
-  );
+      const rows = await fetchSourceRows(sheets, source, {
+        issues: issueSink,
+        issueLimit,
+        onSourceStatus,
+        shouldAbort
+      });
+      results.push(rows);
+    } catch (error) {
+      if (error?.code === "SYNC_STOPPED") throw error;
+      console.warn(`Failed to read ${source.country} (${source.tabName}): ${error.message}`);
+      if (onSourceStatus) {
+        onSourceStatus({
+          sourceCountry: source.country || null,
+          sourceSheetId: source.sheetId || null,
+          configuredTab: source.tabName || null,
+          status: "failed",
+          detail: error.message
+        });
+      }
+      if (issueSink && issueSink.length < issueLimit) {
+        issueSink.push({
+          type: "source_read_error",
+          severity: "error",
+          sourceCountry: source.country || null,
+          sourceSheetId: source.sheetId || null,
+          configuredTab: source.tabName || null,
+          resolvedTab: null,
+          column: null,
+          row: null,
+          detail: error.message
+        });
+      }
+      results.push([]);
+    }
+  }
 
   cachedRows = results.flat();
   lastFetchTime = now;

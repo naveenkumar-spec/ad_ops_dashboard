@@ -84,6 +84,7 @@ export default function AdminSetup({ currentUser, onLogout }) {
   const [msg, setMsg] = useState("");
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncBusy, setSyncBusy] = useState(false);
+  const [stopBusy, setStopBusy] = useState(false);
 
   const loadAll = async () => {
     const [u, o] = await Promise.all([
@@ -112,9 +113,8 @@ export default function AdminSetup({ currentUser, onLogout }) {
     let timer = null;
     loadSyncStatus();
     timer = setInterval(async () => {
-      const status = await loadSyncStatus();
-      if (!status || status.status !== "running") return;
-    }, 3000);
+      await loadSyncStatus();
+    }, 1200);
     return () => {
       if (timer) clearInterval(timer);
     };
@@ -182,14 +182,28 @@ export default function AdminSetup({ currentUser, onLogout }) {
     setMsg("");
     setSyncBusy(true);
     try {
-      await axios.post("/api/overview/sync/bigquery?fullRefresh=true&forceRefresh=true&skipIfUnchanged=false", {}, { timeout: 15 * 60 * 1000 });
+      const res = await axios.post("/api/overview/sync/bigquery?async=true&fullRefresh=true&forceRefresh=true&skipIfUnchanged=false", {}, { timeout: 30000 });
       await loadSyncStatus();
-      setMsg("Manual sync completed");
+      setMsg(res.data?.message || "Manual sync started");
     } catch (err) {
       setMsg(err.response?.data?.error || err.response?.data?.message || err.message || "Failed to start sync");
       await loadSyncStatus();
     } finally {
       setSyncBusy(false);
+    }
+  };
+
+  const stopManualSync = async () => {
+    setStopBusy(true);
+    setMsg("");
+    try {
+      const res = await axios.post("/api/overview/sync/bigquery/stop", {}, { timeout: 20000 });
+      setMsg(res.data?.message || "Stop requested");
+      await loadSyncStatus();
+    } catch (err) {
+      setMsg(err.response?.data?.error || err.response?.data?.message || err.message || "Failed to stop sync");
+    } finally {
+      setStopBusy(false);
     }
   };
 
@@ -298,6 +312,14 @@ export default function AdminSetup({ currentUser, onLogout }) {
           <p className="admin-sync-help">Admin-only manual refresh from Sheets to BigQuery.</p>
           <button type="button" className="admin-btn primary" onClick={triggerManualSync} disabled={syncBusy || syncStatus?.status === "running"}>
             {syncStatus?.status === "running" ? "Sync In Progress..." : (syncBusy ? "Starting..." : "Run Manual Sync")}
+          </button>
+          <button
+            type="button"
+            className="admin-btn danger"
+            onClick={stopManualSync}
+            disabled={stopBusy || syncStatus?.status !== "running"}
+          >
+            {stopBusy ? "Stopping..." : "Stop Sync"}
           </button>
           <div className="admin-sync-status">
             <div><strong>Status:</strong> {syncStatus?.status || "idle"}</div>

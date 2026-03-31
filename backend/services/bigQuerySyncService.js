@@ -22,6 +22,7 @@ const bigquery = new BigQuery({
 
 let lastSyncResult = null;
 let activeSyncStatus = null;
+let currentSyncPromise = null;
 
 function sourceKey(source = {}) {
   return `${source.sourceSheetId || source.sheetId || ""}::${source.configuredTab || source.tabName || ""}::${source.sourceCountry || source.country || ""}`;
@@ -54,6 +55,17 @@ function updateActiveSource(partial = {}) {
   activeSyncStatus.completedSources = statuses.filter((s) => s === "success").length;
   activeSyncStatus.failedSources = statuses.filter((s) => s === "failed").length;
   activeSyncStatus.inProgressSources = statuses.filter((s) => s === "in_progress").length;
+}
+
+function isStopRequested() {
+  return Boolean(activeSyncStatus?.cancelRequested);
+}
+
+function throwIfStopRequested() {
+  if (!isStopRequested()) return;
+  const error = new Error("Sync stopped by admin");
+  error.code = "SYNC_STOPPED";
+  throw error;
 }
 
 function buildIssueSignature(issueReport = {}) {
@@ -476,12 +488,14 @@ async function syncToBigQuery(options = {}) {
     completedSources: 0,
     failedSources: 0,
     inProgressSources: 0,
+    cancelRequested: false,
     rowCount: 0,
     transitionRowCount: 0,
     issueCount: 0,
     message: "Sync started"
   };
   try {
+    throwIfStopRequested();
     activeSyncStatus.step = "ensuring_bigquery_tables";
     const table = await ensureTable();
     const transitionTable = await ensureTransitionTable();
@@ -493,11 +507,13 @@ async function syncToBigQuery(options = {}) {
     const rows = await privateSheetsService.loadAllRows(Boolean(options.forceRefresh), {
       issues: syncIssues,
       issueLimit,
+      shouldAbort: () => isStopRequested(),
       onSourceStatus: (sourceUpdate) => {
         updateActiveSource(sourceUpdate);
         activeSyncStatus.message = "Reading tracker sheets";
       }
     });
+    throwIfStopRequested();
     activeSyncStatus.rowCount = rows.length;
     activeSyncStatus.issueCount = syncIssues.length;
     activeSyncStatus.step = "building_transition_metrics";
@@ -507,6 +523,7 @@ async function syncToBigQuery(options = {}) {
       cpm: await privateSheetsService.getOverviewLegacyTrend("cpm")
     };
     const transitionRows = toTransitionRows(syncId, syncedAtIso, seriesByMetric);
+    throwIfStopRequested();
     activeSyncStatus.transitionRowCount = transitionRows.length;
     activeSyncStatus.step = "preparing_bigquery_load";
     const checksum = computeChecksum(rows, transitionRows);
@@ -570,6 +587,7 @@ async function syncToBigQuery(options = {}) {
     const bqRows = toBigQueryRows(rows, syncId, syncedAtIso);
     activeSyncStatus.step = "writing_bigquery";
     activeSyncStatus.message = "Writing data to BigQuery";
+    throwIfStopRequested();
 
     if (fullRefresh) {
       await bigquery.query({
@@ -584,12 +602,14 @@ async function syncToBigQuery(options = {}) {
 
     const batchSize = 500;
     for (let i = 0; i < bqRows.length; i += batchSize) {
+      throwIfStopRequested();
       const batch = bqRows.slice(i, i + batchSize);
       if (batch.length) await table.insert(batch);
       activeSyncStatus.rowCount = Math.min(bqRows.length, i + batch.length);
     }
     activeSyncStatus.step = "writing_transition_table";
     for (let i = 0; i < transitionRows.length; i += batchSize) {
+      throwIfStopRequested();
       const batch = transitionRows.slice(i, i + batchSize);
       if (batch.length) await transitionTable.insert(batch);
       activeSyncStatus.transitionRowCount = Math.min(transitionRows.length, i + batch.length);
@@ -646,6 +666,46 @@ async function syncToBigQuery(options = {}) {
     };
     return result;
   } catch (error) {
+    if (error?.code === "SYNC_STOPPED") {
+      const stopped = {
+        ok: false,
+        stopped: true,
+        syncId,
+        mode: fullRefresh ? "full_refresh" : "append",
+        rowCount: Number(activeSyncStatus?.rowCount || 0),
+        transitionRowCount: Number(activeSyncStatus?.transitionRowCount || 0),
+        datasetId,
+        tableId,
+        transitionTableId,
+        projectId,
+        syncedAt: syncedAtIso,
+        message: "Sync stopped by admin"
+      };
+      try {
+        await writeState({
+          sync_id: syncId,
+          synced_at: new Date().toISOString(),
+          status: "stopped",
+          mode: stopped.mode,
+          row_count: stopped.rowCount + stopped.transitionRowCount,
+          checksum: null,
+          message: stopped.message
+        });
+      } catch (_ignored) {
+        // no-op
+      }
+      lastSyncResult = stopped;
+      activeSyncStatus = {
+        ...activeSyncStatus,
+        ok: false,
+        status: "stopped",
+        step: "stopped",
+        message: stopped.message,
+        finishedAt: new Date().toISOString(),
+        result: stopped
+      };
+      return stopped;
+    }
     const message = `BigQuery sync failed (${syncId}): ${error.message}`;
     try {
       await writeState({
@@ -688,8 +748,42 @@ function getSyncStatus() {
   return lastSyncResult || { ok: true, status: "idle", message: "No sync has run yet" };
 }
 
+function startSync(options = {}) {
+  if (activeSyncStatus?.status === "running") {
+    return {
+      ok: false,
+      status: "running",
+      message: "A sync is already in progress",
+      syncId: activeSyncStatus.syncId
+    };
+  }
+  currentSyncPromise = syncToBigQuery(options)
+    .catch(() => null)
+    .finally(() => {
+      currentSyncPromise = null;
+    });
+  return {
+    ok: true,
+    status: "started",
+    syncId: activeSyncStatus?.syncId || null,
+    message: "Sync started"
+  };
+}
+
+function requestStopSync() {
+  if (!activeSyncStatus || activeSyncStatus.status !== "running") {
+    return { ok: false, status: "idle", message: "No active sync to stop" };
+  }
+  activeSyncStatus.cancelRequested = true;
+  activeSyncStatus.message = "Stop requested by admin";
+  activeSyncStatus.step = "stopping";
+  return { ok: true, status: "stopping", syncId: activeSyncStatus.syncId, message: "Stop request accepted" };
+}
+
 module.exports = {
   syncToBigQuery,
   getLastSyncResult,
-  getSyncStatus
+  getSyncStatus,
+  startSync,
+  requestStopSync
 };

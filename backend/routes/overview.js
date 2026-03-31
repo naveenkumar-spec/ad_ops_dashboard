@@ -419,10 +419,27 @@ router.post("/sync/bigquery", async (req, res) => {
     const fullRefresh = req.query.fullRefresh !== "false";
     const forceRefresh = req.query.forceRefresh === "true";
     const skipIfUnchanged = req.query.skipIfUnchanged !== "false";
+    const runAsync = req.query.async !== "false";
+    if (runAsync) {
+      const started = bigQuerySyncService.startSync({ fullRefresh, forceRefresh, skipIfUnchanged });
+      return res.status(started.ok ? 202 : 409).json(started);
+    }
     const result = await bigQuerySyncService.syncToBigQuery({ fullRefresh, forceRefresh, skipIfUnchanged });
-    res.json(result);
+    return res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Failed to sync BigQuery", message: error.message });
+  }
+});
+
+router.post("/sync/bigquery/stop", (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    const result = bigQuerySyncService.requestStopSync();
+    return res.status(result.ok ? 200 : 409).json(result);
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to stop sync", message: error.message });
   }
 });
 
