@@ -94,7 +94,7 @@ function latestMainTableSql() {
 
 function buildWhereClause(filters = {}, alias = "t") {
   const f = filters || {};
-  const conditions = [];
+  const conditions = [`NULLIF(TRIM(COALESCE(${alias}.month, '')), '') IS NOT NULL`];
   const params = {};
 
   const scopeCountries = Array.isArray(f.scopeCountries)

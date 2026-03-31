@@ -337,8 +337,7 @@ function normalizeRow(rowValues, headerMap, source) {
 
   const startDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.startDate));
   const endDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.endDate));
-  const monthFromField = parseMonthName(pickField(rowValues, headerMap, FIELD_ALIASES.month));
-  const month = monthFromField || (startDate ? MONTHS[startDate.getMonth()] : null);
+  const month = parseMonthName(pickField(rowValues, headerMap, FIELD_ALIASES.month));
 
   const currentYear = new Date().getFullYear();
   const yearRaw = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.year));
@@ -379,6 +378,7 @@ function normalizeRow(rowValues, headerMap, source) {
   };
 
   if (
+    !normalized.month ||
     normalized.campaignName === "Unknown Campaign" &&
     normalized.revenue === 0 &&
     normalized.spend === 0 &&
