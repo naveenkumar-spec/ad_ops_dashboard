@@ -105,6 +105,14 @@ const OVERVIEW_RAW_SPENDS_SOURCE = {
   enabled: true
 };
 
+const OVERVIEW_RAW_ALIASES = {
+  month: ["Month"],
+  year: ["Year"],
+  salesValueUsd: ["Sales Value in USD"],
+  mediaSpendUsd: ["Media Spend in USD"],
+  ecpm: ["eCPM", "ECPM"]
+};
+
 const NORMALIZED_HEADER_CANDIDATES = new Set(
   Object.values(FIELD_ALIASES).flat().map((value) => normalizeKey(value))
 );
@@ -178,6 +186,17 @@ function parseMonthName(value) {
   if (exact) return exact;
   const short = MONTHS.find((m) => m.slice(0, 3).toLowerCase() === lower.slice(0, 3));
   return short || null;
+}
+
+function parseYearValue(value) {
+  const n = parseInt(String(value || "").trim(), 10);
+  if (Number.isFinite(n) && n >= 2000 && n <= 2100) return n;
+  const text = String(value || "");
+  const fullYear = text.match(/\b(20\d{2})\b/);
+  if (fullYear) return Number(fullYear[1]);
+  const shortYear = text.match(/(?:^|[^0-9])(\d{2})(?:[^0-9]|$)/);
+  if (shortYear) return 2000 + Number(shortYear[1]);
+  return 0;
 }
 
 function pickField(rowValues, headerMap, aliases) {
@@ -515,10 +534,78 @@ async function getCpmTrend() {
 
 async function getOverviewLegacyTrend(metric = "revenue") {
   const sheets = await getSheetsClient();
-  const rows = await fetchSourceRows(sheets, OVERVIEW_RAW_SPENDS_SOURCE);
-  if (metric === "cpm") return buildMonthYearSeries(rows, (r) => r.cpm, "avg");
-  if (metric === "margin") return buildMonthYearSeries(rows, (r) => r.grossMarginPct, "avg");
-  return buildMonthYearSeries(rows, (r) => r.revenue, "sum");
+  const resolvedTab = await resolveTabName(sheets, OVERVIEW_RAW_SPENDS_SOURCE);
+  const rows = await readTabValues(sheets, OVERVIEW_RAW_SPENDS_SOURCE.sheetId, resolvedTab);
+  if (rows.length <= 1) return [];
+
+  let headerRowIndex = 0;
+  let bestScore = -1;
+  const aliasKeys = new Set(
+    Object.values(OVERVIEW_RAW_ALIASES).flat().map((v) => normalizeKey(v))
+  );
+  for (let i = 0; i < Math.min(rows.length, 120); i += 1) {
+    const row = rows[i] || [];
+    const nonEmpty = row.filter((cell) => String(cell || "").trim() !== "").length;
+    if (!nonEmpty) continue;
+    const score = row.reduce((acc, cell) => {
+      const key = normalizeKey(cell);
+      if (aliasKeys.has(key)) return acc + 1;
+      return acc;
+    }, 0);
+    if (score > bestScore || (score === bestScore && nonEmpty > (rows[headerRowIndex] || []).length)) {
+      bestScore = score;
+      headerRowIndex = i;
+    }
+  }
+
+  const headers = rows[headerRowIndex].map((h) => String(h || "").trim());
+  const headerMap = {};
+  headers.forEach((header, idx) => {
+    const key = normalizeKey(header);
+    if (key && headerMap[key] === undefined) headerMap[key] = idx;
+  });
+
+  const parsed = [];
+  for (let i = headerRowIndex + 1; i < rows.length; i += 1) {
+    const row = rows[i] || [];
+    if (!row.length || row.every((cell) => String(cell || "").trim() === "")) continue;
+
+    const monthRaw = pickField(row, headerMap, OVERVIEW_RAW_ALIASES.month);
+    const yearRaw = pickField(row, headerMap, OVERVIEW_RAW_ALIASES.year);
+    const month = parseMonthName(monthRaw);
+    const year = parseYearValue(yearRaw) || parseYearValue(monthRaw);
+    if (!month || !year) continue;
+
+    const salesValueUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.salesValueUsd));
+    const mediaSpendUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.mediaSpendUsd));
+    const ecpm = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.ecpm));
+    const grossMarginPct = salesValueUsd ? ((salesValueUsd - mediaSpendUsd) / salesValueUsd) * 100 : 0;
+
+    parsed.push({
+      month,
+      year,
+      bookedRevenueM: salesValueUsd / 1_000_000,
+      grossMarginPct,
+      averageBuyingCpm: ecpm
+    });
+  }
+
+  const years = Array.from(new Set(parsed.map((r) => String(r.year)).filter(Boolean))).sort();
+  const byMonth = {};
+  MONTHS.forEach((m) => {
+    byMonth[m] = { month: m };
+    years.forEach((y) => { byMonth[m][y] = 0; });
+  });
+
+  parsed.forEach((r) => {
+    const yearKey = String(r.year);
+    if (!byMonth[r.month]) return;
+    if (metric === "cpm") byMonth[r.month][yearKey] = Number((r.averageBuyingCpm || 0).toFixed(2));
+    else if (metric === "margin") byMonth[r.month][yearKey] = Number((r.grossMarginPct || 0).toFixed(2));
+    else byMonth[r.month][yearKey] = Number((r.bookedRevenueM || 0).toFixed(2));
+  });
+
+  return MONTHS.map((m) => byMonth[m]);
 }
 
 async function getBottomCampaignsSimple(limit = 8) {

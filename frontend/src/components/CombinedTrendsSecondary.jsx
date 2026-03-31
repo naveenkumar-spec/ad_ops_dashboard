@@ -2,7 +2,7 @@
 import TrendChart from "./TrendChart";
 import "../../styles/Charts.css";
 
-export default function CombinedTrendsSecondary({ filters = {} }) {
+export default function CombinedTrendsSecondary({ filters = {}, trendBundle = null }) {
   const [selectedYears, setSelectedYears] = useState([]);
   const [availableYears, setAvailableYears] = useState([]);
   const [granularity, setGranularity] = useState("month");
@@ -86,6 +86,7 @@ export default function CombinedTrendsSecondary({ filters = {} }) {
         isPercent={false}
         isRaw={true}
         filters={{}}
+        rawDataOverride={trendBundle?.cpm || null}
         controlledYears={selectedYears}
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}
@@ -96,7 +97,8 @@ export default function CombinedTrendsSecondary({ filters = {} }) {
         title="Net Margin Trend ( Tracker Sheet )"
         endpoint="/api/overview/net-margin-trend"
         isPercent={true}
-        filters={filters}
+        filters={{}}
+        rawDataOverride={trendBundle?.netMargin || null}
         controlledYears={selectedYears}
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}

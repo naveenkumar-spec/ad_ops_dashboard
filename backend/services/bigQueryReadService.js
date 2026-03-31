@@ -239,57 +239,62 @@ async function loadTransitionRows(forceRefresh = false) {
   return cachedTransitionRows;
 }
 
-function parseMonthYearKeysFromSeries(series = []) {
-  const keys = [];
-  (series || []).forEach((row) => {
-    const month = String(row?.month || "").trim();
-    const monthIdx = MONTH_INDEX[month.toLowerCase()];
-    if (monthIdx === undefined) return;
-    Object.keys(row || {}).forEach((k) => {
-      if (k === "month") return;
-      const year = Number(k);
-      const value = Number(row[k] || 0);
-      if (!Number.isFinite(year) || !Number.isFinite(value)) return;
-      if (Math.abs(value) <= 0) return;
-      keys.push({ key: `${year}__${month}`, year, month, monthIdx });
-    });
-  });
-  return keys.sort((a, b) => (a.year - b.year) || (a.monthIdx - b.monthIdx));
+function recentTrackerKeys() {
+  const now = new Date();
+  const currentMonthIdx = now.getMonth();
+  const currentYear = now.getFullYear();
+  const previousMonthIdx = currentMonthIdx === 0 ? 11 : currentMonthIdx - 1;
+  const previousYear = currentMonthIdx === 0 ? currentYear - 1 : currentYear;
+  return new Set([
+    `${currentYear}__${MONTHS[currentMonthIdx]}`,
+    `${previousYear}__${MONTHS[previousMonthIdx]}`
+  ]);
 }
 
-function mergeSeriesPreserveRecent(baseSeries = [], legacySeries = []) {
-  const base = (baseSeries || []).map((row) => ({ ...row }));
-  if (!base.length || !legacySeries?.length) return base;
+function mergeSeriesUseLegacyExceptRecentTrackerMonths(trackerSeries = [], legacySeries = []) {
+  const tracker = (trackerSeries || []).map((row) => ({ ...row }));
+  const legacy = (legacySeries || []).map((row) => ({ ...row }));
+  if (!tracker.length) return legacy;
+  if (!legacy.length) return tracker;
 
-  const activeKeys = parseMonthYearKeysFromSeries(base);
-  if (!activeKeys.length) return base;
-  const preserveRecent = new Set(activeKeys.slice(-2).map((x) => x.key));
-
+  const protectedKeys = recentTrackerKeys();
   const allYears = new Set();
-  base.forEach((row) => Object.keys(row || {}).forEach((k) => { if (k !== "month") allYears.add(String(k)); }));
-  legacySeries.forEach((row) => Object.keys(row || {}).forEach((k) => { if (k !== "month") allYears.add(String(k)); }));
+  tracker.forEach((row) => Object.keys(row || {}).forEach((k) => { if (k !== "month") allYears.add(String(k)); }));
+  legacy.forEach((row) => Object.keys(row || {}).forEach((k) => { if (k !== "month") allYears.add(String(k)); }));
 
-  base.forEach((row) => {
-    allYears.forEach((year) => {
-      if (row[year] === undefined) row[year] = 0;
-    });
+  const merged = MONTHS.map((month) => {
+    const row = { month };
+    allYears.forEach((year) => { row[year] = 0; });
+    return row;
   });
+  const mergedMap = new Map(merged.map((row) => [row.month, row]));
 
-  const monthMap = new Map(base.map((row) => [row.month, row]));
-  legacySeries.forEach((legacyRow) => {
-    const month = legacyRow?.month;
-    const target = monthMap.get(month);
+  legacy.forEach((legacyRow) => {
+    const target = mergedMap.get(legacyRow?.month);
     if (!target) return;
     Object.keys(legacyRow || {}).forEach((year) => {
       if (year === "month") return;
       const value = Number(legacyRow[year]);
       if (!Number.isFinite(value)) return;
-      const key = `${Number(year)}__${month}`;
-      if (preserveRecent.has(key)) return;
       target[year] = value;
     });
   });
-  return base;
+
+  tracker.forEach((trackerRow) => {
+    const month = trackerRow?.month;
+    const target = mergedMap.get(month);
+    if (!target) return;
+    Object.keys(trackerRow || {}).forEach((year) => {
+      if (year === "month") return;
+      const value = Number(trackerRow[year]);
+      if (!Number.isFinite(value)) return;
+      const key = `${Number(year)}__${month}`;
+      if (!protectedKeys.has(key)) return;
+      target[year] = value;
+    });
+  });
+
+  return merged;
 }
 
 function transitionSeries(rows, metric) {
@@ -318,7 +323,7 @@ async function getMergedOverviewSeries(baseSeries, metric) {
   const legacyRows = await loadTransitionRows();
   if (!legacyRows.length) return baseSeries;
   const legacySeries = transitionSeries(legacyRows, metric);
-  return mergeSeriesPreserveRecent(baseSeries, legacySeries);
+  return mergeSeriesUseLegacyExceptRecentTrackerMonths(baseSeries, legacySeries);
 }
 
 async function loadAllRows(_forceRefresh = false) {

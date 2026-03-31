@@ -65,6 +65,29 @@ function getDataProvider() {
 }
 
 const provider = getDataProvider();
+const RESPONSE_CACHE_MS = Number(process.env.OVERVIEW_CACHE_MS || 60000);
+const responseCache = new Map();
+
+function cacheKey(req, name, extra = "") {
+  const user = req.user || {};
+  const countries = Array.isArray(user.allowedCountries) ? user.allowedCountries.slice().sort().join(",") : "";
+  const adops = Array.isArray(user.allowedAdops) ? user.allowedAdops.slice().sort().join(",") : "";
+  return `${name}|${user.email || "anon"}|${user.role || "none"}|${countries}|${adops}|${extra}`;
+}
+
+function getCached(key) {
+  const hit = responseCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.ts > RESPONSE_CACHE_MS) {
+    responseCache.delete(key);
+    return null;
+  }
+  return hit.data;
+}
+
+function setCached(key, data) {
+  responseCache.set(key, { ts: Date.now(), data });
+}
 
 function parseMonthYearKeysFromSeries(series = []) {
   const keys = [];
@@ -252,14 +275,50 @@ router.get("/summary", async (_req, res) => {
 
 router.get("/filter-options", async (_req, res) => {
   try {
+    const key = cacheKey(_req, "filter-options", JSON.stringify(_req.query || {}));
+    const cached = getCached(key);
+    if (cached) return res.json(cached);
     const filters = withUserScope(parseFilters(_req.query), _req.user);
     if (DATA_SOURCE === "powerbi") {
-      return res.json(dummyService.getFilterOptions());
+      const payload = dummyService.getFilterOptions();
+      setCached(key, payload);
+      return res.json(payload);
     }
     const options = await provider.getFilterOptions(filters);
+    setCached(key, options);
     return res.json(options);
   } catch (error) {
     return res.status(500).json({ error: "Failed to fetch filter options", message: error.message });
+  }
+});
+
+router.get("/trends", async (_req, res) => {
+  try {
+    const key = cacheKey(_req, "trends", "v1");
+    const cached = getCached(key);
+    if (cached) return res.json(cached);
+
+    const trendFilters = {};
+    const netMarginFilters = {};
+    const revenueBase = DATA_SOURCE === "powerbi"
+      ? await powerBiService.getRevenueTrendData()
+      : await provider.getRevenueTrend(trendFilters);
+    const marginBase = DATA_SOURCE === "powerbi"
+      ? await powerBiService.getRevenueTrendData()
+      : await provider.getMarginTrend(trendFilters);
+    const cpmBase = await provider.getCpmTrend(trendFilters);
+    const netMarginBase = await provider.getNetMarginTrend(netMarginFilters);
+
+    const payload = {
+      revenue: clampFutureMonths(await withLegacyOverviewTrend("revenue", revenueBase, trendFilters)),
+      margin: clampFutureMonths(await withLegacyOverviewTrend("margin", marginBase, trendFilters)),
+      cpm: clampFutureMonths(await withLegacyOverviewTrend("cpm", cpmBase, trendFilters)),
+      netMargin: clampFutureMonths(netMarginBase)
+    };
+    setCached(key, payload);
+    return res.json(payload);
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to fetch trends", message: error.message });
   }
 });
 

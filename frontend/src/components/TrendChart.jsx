@@ -90,7 +90,8 @@ function BarLabel({ x, y, width, value, isPercent, isRaw }) {
 
 export default function TrendChart({
   title, endpoint, isPercent = false, isRaw = false,
-  controlledYears, onYearsChange, controlledGranularity, onAvailableYears, filters = {}
+  controlledYears, onYearsChange, controlledGranularity, onAvailableYears, filters = {},
+  rawDataOverride = null
 }) {
   const [rawData, setRawData]       = useState([]);
   const [localYears, setLocalYears] = useState([]);
@@ -102,6 +103,16 @@ export default function TrendChart({
   const granularity   = controlledGranularity ?? "month";
 
   useEffect(() => {
+    if (Array.isArray(rawDataOverride)) {
+      setError("");
+      setLoading(false);
+      setRawData(rawDataOverride);
+      const years = extractYears(rawDataOverride);
+      if (!controlledYears?.length && years.length) setYears(years);
+      if (onAvailableYears) onAvailableYears(years);
+      return;
+    }
+
     const fallback = getFallback(endpoint, isPercent, isRaw);
     setLoading(true);
     setError("");
@@ -126,7 +137,7 @@ export default function TrendChart({
         setError("Failed to load trend data");
       })
       .finally(() => setLoading(false));
-  }, [endpoint, JSON.stringify(filters)]);
+  }, [endpoint, JSON.stringify(filters), JSON.stringify(rawDataOverride)]);
 
   const data    = useMemo(() => buildGroupedData(rawData, granularity, selectedYears), [rawData, granularity, selectedYears]);
   const barSize = granularity === "year" ? 40 : granularity === "quarter" ? 28 : 16;

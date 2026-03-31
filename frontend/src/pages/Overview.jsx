@@ -37,6 +37,7 @@ export default function Overview({ currentUser, onLogout }) {
   });
 
   const [filterOptions, setFilterOptions] = useState({});
+  const [trendBundle, setTrendBundle] = useState(null);
   const [currency, setCurrency] = useState("USD");
 
   useEffect(() => {
@@ -44,6 +45,13 @@ export default function Overview({ currentUser, onLogout }) {
       .get("/api/overview/filter-options", { timeout: 20000 })
       .then((res) => setFilterOptions(res.data || {}))
       .catch(() => setFilterOptions({}));
+  }, []);
+
+  useEffect(() => {
+    axios
+      .get("/api/overview/trends", { timeout: 20000 })
+      .then((res) => setTrendBundle(res.data || null))
+      .catch(() => setTrendBundle(null));
   }, []);
 
   const handleFilterChange = (name, value) => {
@@ -79,8 +87,8 @@ export default function Overview({ currentUser, onLogout }) {
             onClear={handleClear}
           />
           <KPICards filters={filters} />
-          <CombinedTrends filters={filters} />
-          <CombinedTrendsSecondary filters={filters} />
+          <CombinedTrends filters={filters} trendBundle={trendBundle} />
+          <CombinedTrendsSecondary filters={filters} trendBundle={trendBundle} />
           <div className="overview-tables-stack">
             <BottomCampaignsTable filters={filters} />
             <CountryWiseTable filters={filters} />
