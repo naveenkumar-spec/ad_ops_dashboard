@@ -9,6 +9,7 @@ import { mockManagementRegions } from "../mockData";
 import "../../styles/ManagementView.css";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { toApiParams } from "../utils/apiFilters";
 
 export default function ManagementView({ currentUser, onLogout }) {
   const managementFilters = [
@@ -33,10 +34,10 @@ export default function ManagementView({ currentUser, onLogout }) {
 
   useEffect(() => {
     axios
-      .get("/api/management/filter-options", { timeout: 20000 })
+      .get("/api/management/filter-options", { timeout: 20000, params: toApiParams(filters) })
       .then((res) => setFilterOptions(res.data || {}))
       .catch(() => setFilterOptions({}));
-  }, []);
+  }, [JSON.stringify(filters)]);
 
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({ ...prev, [name]: value }));

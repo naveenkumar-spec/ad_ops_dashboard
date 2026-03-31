@@ -59,8 +59,18 @@
 }
 
 .hierarchy-caret {
-  font-size: 10px;
-  color: #4f6158;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #4f6158;
+  border-bottom: 2px solid #4f6158;
+  transform: rotate(45deg);
+  transition: transform 0.18s ease, border-color 0.18s ease;
+  margin-right: 2px;
+}
+
+.hierarchy-caret.open {
+  transform: rotate(-135deg) translateY(-1px);
+  border-color: #20423b;
 }
 
 .hierarchy-menu {
@@ -76,6 +86,33 @@
   box-shadow: 0 10px 22px rgba(15, 31, 47, 0.14);
   z-index: 20;
   padding: 4px;
+}
+
+.hierarchy-search-wrap {
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  padding: 4px;
+  z-index: 2;
+  border-bottom: 1px solid #e7eeea;
+  margin: -4px -4px 4px;
+}
+
+.hierarchy-search {
+  width: 100%;
+  height: 30px;
+  border: 1px solid #cfded6;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #1f2f2a;
+  background: #f8fbf9;
+}
+
+.hierarchy-search:focus {
+  outline: none;
+  border-color: #7aaa8a;
+  background: #ffffff;
 }
 
 .hierarchy-group {
@@ -144,14 +181,32 @@
 
 .hierarchy-parent {
   font-weight: 700;
+  background: #eef6f2;
+  border: 1px solid #ddebe3;
 }
 
 .hierarchy-children {
   padding-left: 26px;
+  border-left: 1px dashed #d3e1d9;
+  margin-left: 10px;
 }
 
 .hierarchy-child {
   font-weight: 500;
+  color: #385046;
+}
+
+.hierarchy-node-type {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: #5f746a;
+  background: #e4eee8;
+  border: 1px solid #d4e2da;
+  border-radius: 10px;
+  padding: 1px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
 }
 
 .clear-filters {

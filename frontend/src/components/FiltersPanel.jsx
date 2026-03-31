@@ -13,6 +13,7 @@ export default function FiltersPanel({
   const [openMenu, setOpenMenu] = useState(null);
   const [expandedRegions, setExpandedRegions] = useState({});
   const [expandedYears, setExpandedYears] = useState({});
+  const [searchByFilter, setSearchByFilter] = useState({});
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -84,6 +85,9 @@ export default function FiltersPanel({
   }, [selectedYears, selectedMonths]);
 
   const getOptions = (name) => (Array.isArray(options?.[name]) ? options[name] : []);
+  const getSearchValue = (name) => String(searchByFilter?.[name] || "");
+  const updateSearchValue = (name, value) =>
+    setSearchByFilter((prev) => ({ ...prev, [name]: value }));
 
   const getSummaryLabel = (name) => {
     const selected = toList(values?.[name]);
@@ -91,6 +95,42 @@ export default function FiltersPanel({
     if (selected.length === 1) return selected[0];
     return `${selected.length} selected`;
   };
+
+  const regionSearch = getSearchValue("region").toLowerCase();
+  const filteredRegionTree = useMemo(() => {
+    if (!regionSearch) return regionTree;
+    return regionTree
+      .map((node) => {
+        const region = String(node.region || "");
+        const countries = Array.isArray(node.countries) ? node.countries : [];
+        const regionMatch = region.toLowerCase().includes(regionSearch);
+        const matchedCountries = countries.filter((country) =>
+          String(country || "").toLowerCase().includes(regionSearch)
+        );
+        if (regionMatch) return { ...node, countries };
+        if (matchedCountries.length) return { ...node, countries: matchedCountries };
+        return null;
+      })
+      .filter(Boolean);
+  }, [regionTree, regionSearch]);
+
+  const yearSearch = getSearchValue("year").toLowerCase();
+  const filteredYearMonthTree = useMemo(() => {
+    if (!yearSearch) return yearMonthTree;
+    return yearMonthTree
+      .map((node) => {
+        const year = String(node.year || "");
+        const months = Array.isArray(node.months) ? node.months : [];
+        const yearMatch = year.toLowerCase().includes(yearSearch);
+        const matchedMonths = months.filter((month) =>
+          String(month || "").toLowerCase().includes(yearSearch)
+        );
+        if (yearMatch) return { ...node, months };
+        if (matchedMonths.length) return { ...node, months: matchedMonths };
+        return null;
+      })
+      .filter(Boolean);
+  }, [yearMonthTree, yearSearch]);
 
   return (
     <div className="filters-section" ref={menuRef}>
@@ -106,11 +146,20 @@ export default function FiltersPanel({
                 onClick={() => setOpenMenu(openMenu === "region" ? null : "region")}
               >
                 <span>{selectedRegionLabel}</span>
-                <span className="hierarchy-caret">{openMenu === "region" ? "^" : "v"}</span>
+                <span className={`hierarchy-caret ${openMenu === "region" ? "open" : ""}`} />
               </button>
 
               {openMenu === "region" && (
                 <div className="hierarchy-menu">
+                  <div className="hierarchy-search-wrap">
+                    <input
+                      type="text"
+                      className="hierarchy-search"
+                      placeholder="Search region or country"
+                      value={getSearchValue("region")}
+                      onChange={(e) => updateSearchValue("region", e.target.value)}
+                    />
+                  </div>
                   <label className="hierarchy-check-row">
                     <input
                       type="checkbox"
@@ -120,7 +169,7 @@ export default function FiltersPanel({
                     <span>All</span>
                   </label>
 
-                  {regionTree.map((node) => {
+                  {filteredRegionTree.map((node) => {
                     const region = String(node.region || "");
                     const countries = Array.isArray(node.countries) ? node.countries : [];
                     const expanded = !!expandedRegions[region];
@@ -144,6 +193,7 @@ export default function FiltersPanel({
                               onChange={() => emitFilter("region", toggleListValue(selectedRegions, regionToken))}
                             />
                             <span>{region}</span>
+                            <span className="hierarchy-node-type">Region</span>
                           </label>
                         </div>
 
@@ -159,6 +209,7 @@ export default function FiltersPanel({
                                     onChange={() => emitFilter("region", toggleListValue(selectedRegions, countryToken))}
                                   />
                                   <span>{country}</span>
+                                  <span className="hierarchy-node-type">Country</span>
                                 </label>
                               );
                             })}
@@ -178,11 +229,20 @@ export default function FiltersPanel({
                 onClick={() => setOpenMenu(openMenu === "year" ? null : "year")}
               >
                 <span>{selectedYearLabel}</span>
-                <span className="hierarchy-caret">{openMenu === "year" ? "^" : "v"}</span>
+                <span className={`hierarchy-caret ${openMenu === "year" ? "open" : ""}`} />
               </button>
 
               {openMenu === "year" && (
                 <div className="hierarchy-menu">
+                  <div className="hierarchy-search-wrap">
+                    <input
+                      type="text"
+                      className="hierarchy-search"
+                      placeholder="Search year or month"
+                      value={getSearchValue("year")}
+                      onChange={(e) => updateSearchValue("year", e.target.value)}
+                    />
+                  </div>
                   <label className="hierarchy-check-row">
                     <input
                       type="checkbox"
@@ -195,7 +255,7 @@ export default function FiltersPanel({
                     <span>All</span>
                   </label>
 
-                  {yearMonthTree.map((node) => {
+                  {filteredYearMonthTree.map((node) => {
                     const year = String(node.year || "");
                     const months = Array.isArray(node.months) ? node.months : [];
                     const expanded = !!expandedYears[year];
@@ -218,6 +278,7 @@ export default function FiltersPanel({
                               onChange={() => emitFilter("year", toggleListValue(selectedYears, year))}
                             />
                             <span>{year}</span>
+                            <span className="hierarchy-node-type">Year</span>
                           </label>
                         </div>
 
@@ -234,6 +295,7 @@ export default function FiltersPanel({
                                   }}
                                 />
                                 <span>{month}</span>
+                                <span className="hierarchy-node-type">Month</span>
                               </label>
                             ))}
                           </div>
@@ -252,11 +314,20 @@ export default function FiltersPanel({
                 onClick={() => setOpenMenu(openMenu === filter.name ? null : filter.name)}
               >
                 <span>{getSummaryLabel(filter.name)}</span>
-                <span className="hierarchy-caret">{openMenu === filter.name ? "^" : "v"}</span>
+                <span className={`hierarchy-caret ${openMenu === filter.name ? "open" : ""}`} />
               </button>
 
               {openMenu === filter.name && (
                 <div className="hierarchy-menu">
+                  <div className="hierarchy-search-wrap">
+                    <input
+                      type="text"
+                      className="hierarchy-search"
+                      placeholder={`Search ${filter.label}`}
+                      value={getSearchValue(filter.name)}
+                      onChange={(e) => updateSearchValue(filter.name, e.target.value)}
+                    />
+                  </div>
                   <label className="hierarchy-check-row">
                     <input
                       type="checkbox"
@@ -266,7 +337,9 @@ export default function FiltersPanel({
                     <span>All</span>
                   </label>
 
-                  {getOptions(filter.name).map((opt) => {
+                  {getOptions(filter.name)
+                    .filter((opt) => String(opt).toLowerCase().includes(getSearchValue(filter.name).toLowerCase()))
+                    .map((opt) => {
                     const selected = toList(values?.[filter.name]);
                     return (
                       <label key={String(opt)} className="hierarchy-check-row">

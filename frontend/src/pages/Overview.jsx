@@ -10,6 +10,7 @@ import BottomCampaignsTable from "../components/BottomCampaignsTable";
 import CountryWiseTable from "../components/CountryWiseTable";
 import ProductWiseTable from "../components/ProductWiseTable";
 import CampaignWiseTable from "../components/CampaignWiseTable";
+import { toApiParams } from "../utils/apiFilters";
 import "../../styles/Overview.css";
 
 export default function Overview({ currentUser, onLogout }) {
@@ -48,10 +49,10 @@ export default function Overview({ currentUser, onLogout }) {
 
   useEffect(() => {
     axios
-      .get("/api/overview/filter-options", { timeout: 20000 })
+      .get("/api/overview/filter-options", { timeout: 20000, params: toApiParams(filters) })
       .then((res) => setFilterOptions(res.data || {}))
       .catch(() => setFilterOptions({}));
-  }, [refreshTick]);
+  }, [refreshTick, JSON.stringify(filters)]);
 
   useEffect(() => {
     axios
