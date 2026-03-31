@@ -22,6 +22,48 @@ const bigquery = new BigQuery({
 
 let lastSyncResult = null;
 
+function buildIssueSignature(issueReport = {}) {
+  const issues = Array.isArray(issueReport.issues) ? issueReport.issues : [];
+  const issueCount = Number(issueReport.issueCount || issues.length || 0);
+  const canonical = issues
+    .slice(0, 150)
+    .map((issue) => [
+      issue?.type || "",
+      issue?.severity || "",
+      issue?.sourceSheetId || "",
+      issue?.resolvedTab || issue?.configuredTab || "",
+      issue?.column || "",
+      String(issue?.row || ""),
+      String(issue?.value || ""),
+      issue?.detail || ""
+    ].join("|"))
+    .sort()
+    .join("\n");
+  return crypto.createHash("sha256").update(`${issueCount}\n${canonical}`).digest("hex");
+}
+
+async function wasAlertSentRecently(signature, cooldownMinutes) {
+  if (!signature || !Number.isFinite(cooldownMinutes) || cooldownMinutes <= 0) return false;
+  const [rows] = await bigquery.query({
+    query: `
+      SELECT synced_at
+      FROM \`${projectId}.${datasetId}.${stateTableId}\`
+      WHERE status = 'alert_sent'
+        AND checksum = @signature
+      ORDER BY synced_at DESC
+      LIMIT 1
+    `,
+    params: { signature },
+    location: process.env.BIGQUERY_LOCATION || "US"
+  });
+  const last = rows[0]?.synced_at?.value || rows[0]?.synced_at || null;
+  if (!last) return false;
+  const lastMs = new Date(last).getTime();
+  if (!Number.isFinite(lastMs)) return false;
+  const elapsedMinutes = (Date.now() - lastMs) / 60000;
+  return elapsedMinutes < cooldownMinutes;
+}
+
 function formatDataQualityIssue(issue, index) {
   const parts = [
     `${index + 1}. [${String(issue?.severity || "info").toUpperCase()}] ${issue?.type || "issue"}`,
@@ -40,7 +82,13 @@ function formatDataQualityIssue(issue, index) {
 async function sendDataQualityAlert({ syncId, syncedAtIso, issueReport = {}, mode = "full_refresh", rowCount = 0, transitionRowCount = 0 }) {
   const issues = Array.isArray(issueReport.issues) ? issueReport.issues : [];
   const issueCount = Number(issueReport.issueCount || issues.length || 0);
-  if (!issueCount) return;
+  if (!issueCount) return { sent: false, reason: "no_issues" };
+
+  const cooldownMinutes = Number(process.env.SYNC_ALERT_COOLDOWN_MINUTES || 180);
+  const signature = buildIssueSignature({ issueCount, issues });
+  if (await wasAlertSentRecently(signature, cooldownMinutes)) {
+    return { sent: false, reason: "cooldown", signature, cooldownMinutes };
+  }
 
   const maxLines = Number(process.env.SYNC_ALERT_MAX_ISSUES || 120);
   const shown = issues.slice(0, Math.max(1, maxLines));
@@ -63,7 +111,24 @@ async function sendDataQualityAlert({ syncId, syncedAtIso, issueReport = {}, mod
     lines + remaining
   ].join("\n");
 
-  await alertService.sendAlert("AdOps BigQuery Sync Data Quality Alert", body);
+  const alertResult = await alertService.sendAlert("AdOps BigQuery Sync Data Quality Alert", body);
+  if (!alertResult?.sent) {
+    return { sent: false, reason: alertResult?.reason || "disabled", signature, issueCount };
+  }
+  try {
+    await writeState({
+      sync_id: `${syncId}_alert`,
+      synced_at: syncedAtIso,
+      status: "alert_sent",
+      mode,
+      row_count: issueCount,
+      checksum: signature,
+      message: `Data-quality alert sent. issueCount=${issueCount}`
+    });
+  } catch (_ignored) {
+    // no-op
+  }
+  return { sent: true, signature, issueCount };
 }
 
 const TABLE_SCHEMA = [
@@ -404,8 +469,9 @@ async function syncToBigQuery(options = {}) {
         checksum,
         message: skipped.message
       });
+      let dataQualityAlert = null;
       try {
-        await sendDataQualityAlert({
+        dataQualityAlert = await sendDataQualityAlert({
           syncId,
           syncedAtIso,
           issueReport: skipped.dataQuality,
@@ -416,6 +482,7 @@ async function syncToBigQuery(options = {}) {
       } catch (_ignored) {
         // no-op
       }
+      skipped.dataQualityAlert = dataQualityAlert || { sent: false, reason: "error" };
       lastSyncResult = skipped;
       return skipped;
     }
@@ -469,8 +536,9 @@ async function syncToBigQuery(options = {}) {
       checksum,
       message: "Sync completed"
     });
+    let dataQualityAlert = null;
     try {
-      await sendDataQualityAlert({
+      dataQualityAlert = await sendDataQualityAlert({
         syncId,
         syncedAtIso,
         issueReport: result.dataQuality,
@@ -481,6 +549,7 @@ async function syncToBigQuery(options = {}) {
     } catch (_ignored) {
       // no-op
     }
+    result.dataQualityAlert = dataQualityAlert || { sent: false, reason: "error" };
     lastSyncResult = result;
     return result;
   } catch (error) {
