@@ -12,6 +12,9 @@ import axios from "axios";
 import { toApiParams } from "../utils/apiFilters";
 
 export default function ManagementView({ currentUser, onLogout }) {
+  const omitFilterKeys = (obj, keys = []) =>
+    Object.fromEntries(Object.entries(obj || {}).filter(([k]) => !keys.includes(k)));
+
   const managementFilters = [
     { label: "Region / Country", name: "region" },
     { label: "Year/Month", name: "year" },
@@ -33,9 +36,30 @@ export default function ManagementView({ currentUser, onLogout }) {
   const [currency, setCurrency] = useState("USD");
 
   useEffect(() => {
-    axios
-      .get("/api/management/filter-options", { timeout: 20000, params: toApiParams(filters) })
-      .then((res) => setFilterOptions(res.data || {}))
+    Promise.all([
+      axios.get("/api/management/filter-options", { timeout: 20000, params: toApiParams(filters) }),
+      axios.get("/api/management/filter-options", {
+        timeout: 20000,
+        params: toApiParams(omitFilterKeys(filters, ["region"]))
+      }),
+      axios.get("/api/management/filter-options", {
+        timeout: 20000,
+        params: toApiParams(omitFilterKeys(filters, ["year", "month"]))
+      })
+    ])
+      .then(([allRes, regionRes, yearRes]) => {
+        const all = allRes.data || {};
+        const regionOnly = regionRes.data || {};
+        const yearOnly = yearRes.data || {};
+        setFilterOptions({
+          ...all,
+          region: regionOnly.region || all.region || [],
+          regionTree: regionOnly.regionTree || all.regionTree || [],
+          year: yearOnly.year || all.year || [],
+          month: yearOnly.month || all.month || [],
+          yearMonthTree: yearOnly.yearMonthTree || all.yearMonthTree || []
+        });
+      })
       .catch(() => setFilterOptions({}));
   }, [JSON.stringify(filters)]);
 

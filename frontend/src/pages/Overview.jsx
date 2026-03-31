@@ -14,6 +14,9 @@ import { toApiParams } from "../utils/apiFilters";
 import "../../styles/Overview.css";
 
 export default function Overview({ currentUser, onLogout }) {
+  const omitFilterKeys = (obj, keys = []) =>
+    Object.fromEntries(Object.entries(obj || {}).filter(([k]) => !keys.includes(k)));
+
   const overviewFilters = [
     { label: "Region / Country", name: "region" },
     { label: "Year/Month", name: "year" },
@@ -48,9 +51,30 @@ export default function Overview({ currentUser, onLogout }) {
   }, []);
 
   useEffect(() => {
-    axios
-      .get("/api/overview/filter-options", { timeout: 20000, params: toApiParams(filters) })
-      .then((res) => setFilterOptions(res.data || {}))
+    Promise.all([
+      axios.get("/api/overview/filter-options", { timeout: 20000, params: toApiParams(filters) }),
+      axios.get("/api/overview/filter-options", {
+        timeout: 20000,
+        params: toApiParams(omitFilterKeys(filters, ["region"]))
+      }),
+      axios.get("/api/overview/filter-options", {
+        timeout: 20000,
+        params: toApiParams(omitFilterKeys(filters, ["year", "month"]))
+      })
+    ])
+      .then(([allRes, regionRes, yearRes]) => {
+        const all = allRes.data || {};
+        const regionOnly = regionRes.data || {};
+        const yearOnly = yearRes.data || {};
+        setFilterOptions({
+          ...all,
+          region: regionOnly.region || all.region || [],
+          regionTree: regionOnly.regionTree || all.regionTree || [],
+          year: yearOnly.year || all.year || [],
+          month: yearOnly.month || all.month || [],
+          yearMonthTree: yearOnly.yearMonthTree || all.yearMonthTree || []
+        });
+      })
       .catch(() => setFilterOptions({}));
   }, [refreshTick, JSON.stringify(filters)]);
 
