@@ -43,6 +43,14 @@ export default function FiltersPanel({
     return Array.isArray(value) ? value.map((v) => String(v)) : [String(value)];
   };
 
+  const encodeRegionToken = (kind, value) => `${kind}::${String(value || "").trim()}`;
+  const decodeRegionToken = (value) => {
+    const text = String(value || "");
+    if (text.startsWith("region::")) return text.slice("region::".length);
+    if (text.startsWith("country::")) return text.slice("country::".length);
+    return text;
+  };
+
   const includesValue = (list, value) =>
     list.some((item) => String(item).toLowerCase() === String(value).toLowerCase());
 
@@ -63,7 +71,7 @@ export default function FiltersPanel({
 
   const selectedRegionLabel = useMemo(() => {
     if (!selectedRegions.length) return "All";
-    if (selectedRegions.length === 1) return selectedRegions[0];
+    if (selectedRegions.length === 1) return decodeRegionToken(selectedRegions[0]);
     return `${selectedRegions.length} selected`;
   }, [selectedRegions]);
 
@@ -116,6 +124,7 @@ export default function FiltersPanel({
                     const region = String(node.region || "");
                     const countries = Array.isArray(node.countries) ? node.countries : [];
                     const expanded = !!expandedRegions[region];
+                    const regionToken = encodeRegionToken("region", region);
 
                     return (
                       <div key={region} className="hierarchy-group">
@@ -131,8 +140,8 @@ export default function FiltersPanel({
                           <label className="hierarchy-check-row hierarchy-parent">
                             <input
                               type="checkbox"
-                              checked={includesValue(selectedRegions, region)}
-                              onChange={() => emitFilter("region", toggleListValue(selectedRegions, region))}
+                              checked={includesValue(selectedRegions, regionToken)}
+                              onChange={() => emitFilter("region", toggleListValue(selectedRegions, regionToken))}
                             />
                             <span>{region}</span>
                           </label>
@@ -140,16 +149,19 @@ export default function FiltersPanel({
 
                         {expanded && countries.length > 0 && (
                           <div className="hierarchy-children">
-                            {countries.map((country) => (
-                              <label key={`${region}-${country}`} className="hierarchy-check-row hierarchy-child">
-                                <input
-                                  type="checkbox"
-                                  checked={includesValue(selectedRegions, country)}
-                                  onChange={() => emitFilter("region", toggleListValue(selectedRegions, country))}
-                                />
-                                <span>{country}</span>
-                              </label>
-                            ))}
+                            {countries.map((country) => {
+                              const countryToken = encodeRegionToken("country", country);
+                              return (
+                                <label key={`${region}-${country}`} className="hierarchy-check-row hierarchy-child">
+                                  <input
+                                    type="checkbox"
+                                    checked={includesValue(selectedRegions, countryToken)}
+                                    onChange={() => emitFilter("region", toggleListValue(selectedRegions, countryToken))}
+                                  />
+                                  <span>{country}</span>
+                                </label>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

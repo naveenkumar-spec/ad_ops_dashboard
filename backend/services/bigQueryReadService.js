@@ -122,11 +122,34 @@ function buildWhereClause(filters = {}, alias = "t") {
 
   const regionList = toFilterList(f.region);
   if (regionList.length) {
-    conditions.push(`(
-      LOWER(TRIM(COALESCE(${alias}.region, ''))) IN UNNEST(@regionFilter)
-      OR LOWER(TRIM(COALESCE(${alias}.country, ''))) IN UNNEST(@regionFilter)
-    )`);
-    params.regionFilter = regionList;
+    const tokenized = regionList.filter((v) => v.includes("::"));
+    const plain = regionList.filter((v) => !v.includes("::"));
+    const regionOnly = tokenized
+      .filter((v) => v.startsWith("region::"))
+      .map((v) => v.slice("region::".length))
+      .filter(Boolean);
+    const countryOnly = tokenized
+      .filter((v) => v.startsWith("country::"))
+      .map((v) => v.slice("country::".length))
+      .filter(Boolean);
+
+    const parts = [];
+    if (regionOnly.length) {
+      parts.push(`LOWER(TRIM(COALESCE(${alias}.region, ''))) IN UNNEST(@regionOnlyFilter)`);
+      params.regionOnlyFilter = regionOnly;
+    }
+    if (countryOnly.length) {
+      parts.push(`LOWER(TRIM(COALESCE(${alias}.country, ''))) IN UNNEST(@countryOnlyFilter)`);
+      params.countryOnlyFilter = countryOnly;
+    }
+    if (plain.length) {
+      parts.push(`(
+        LOWER(TRIM(COALESCE(${alias}.region, ''))) IN UNNEST(@regionFilter)
+        OR LOWER(TRIM(COALESCE(${alias}.country, ''))) IN UNNEST(@regionFilter)
+      )`);
+      params.regionFilter = plain;
+    }
+    if (parts.length) conditions.push(`(${parts.join(" OR ")})`);
   }
 
   const yearList = toIntFilterList(f.year);
