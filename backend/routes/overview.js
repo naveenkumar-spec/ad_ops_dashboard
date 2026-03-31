@@ -199,12 +199,14 @@ router.get("/kpis", async (_req, res) => {
       ? await powerBiService.getKPIData()
       : await provider.getKpis(filters);
 
-    const response = [
-      { title: "No of Campaigns", value: kpis[0].value, subtitle: kpis[0].subtitle },
-      { title: "Gross Margin %", value: kpis[1].value, subtitle: kpis[1].subtitle },
-      { title: "Net Margin %", value: kpis[2].value, subtitle: kpis[2].subtitle },
-      { title: "Spend", value: kpis[3].value, subtitle: kpis[3].subtitle }
-    ];
+    const response = (kpis || []).slice(0, 4).map((kpi, idx) => {
+      const fallbackTitles = ["No of Campaigns", "Gross Margin %", "Net Margin %", "Booked Revenue"];
+      return {
+        title: kpi?.title || fallbackTitles[idx] || `KPI ${idx + 1}`,
+        value: kpi?.value ?? 0,
+        subtitle: kpi?.subtitle ?? ""
+      };
+    });
     res.json(response);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch KPI data", message: error.message });
