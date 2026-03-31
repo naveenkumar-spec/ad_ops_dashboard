@@ -41,7 +41,7 @@ export default function Overview({ currentUser, onLogout }) {
 
   useEffect(() => {
     axios
-      .get("/api/overview/filter-options", { timeout: 5000 })
+      .get("/api/overview/filter-options", { timeout: 20000 })
       .then((res) => setFilterOptions(res.data || {}))
       .catch(() => setFilterOptions({}));
   }, []);

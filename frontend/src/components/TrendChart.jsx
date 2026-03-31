@@ -105,7 +105,7 @@ export default function TrendChart({
     const fallback = getFallback(endpoint, isPercent, isRaw);
     setLoading(true);
     setError("");
-    axios.get(endpoint, { timeout: 5000, params: toApiParams(filters) })
+    axios.get(endpoint, { timeout: 20000, params: toApiParams(filters) })
       .then(res => {
         const d = res.data?.length ? res.data : fallback;
         setRawData(d);

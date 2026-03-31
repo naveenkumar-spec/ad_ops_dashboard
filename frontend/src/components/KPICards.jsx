@@ -61,7 +61,7 @@ export default function KPICards({ filters = {} }) {
   useEffect(() => {
     setLoading(true);
     setError("");
-    axios.get("/api/overview/kpis", { timeout: 5000, params: toApiParams(filters) })
+    axios.get("/api/overview/kpis", { timeout: 20000, params: toApiParams(filters) })
       .then(res => {
         const ordered = CARD_ORDER.map(t=>(res.data||[]).find(i=>i.title===t)).filter(Boolean);
         setKpis(ordered);
