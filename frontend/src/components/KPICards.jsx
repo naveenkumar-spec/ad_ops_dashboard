@@ -132,15 +132,21 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
     return kpis.map((kpi) => {
       const valueNum = parseNumber(String(kpi.value));
       let sub = kpi.subtitle || "";
+      let subtitleTitle = "";
 
       if (kpi.title === "No of Campaigns") {
         sub = `Budget Groups: ${String(kpi.subtitle || "").replace(/\D/g, "")}`;
-        return { ...kpi, subtitleText: sub };
+        subtitleTitle = sub;
+        return { ...kpi, subtitleText: sub, subtitleTitle };
       }
 
       const subtitleCurrency = parseCurrency(String(kpi.subtitle || ""));
       if (subtitleCurrency != null && /margin|revenue|spend/i.test(String(kpi.subtitle || ""))) {
         const convertedSubtitle = toDisplay(subtitleCurrency) ?? subtitleCurrency;
+        subtitleTitle = String(kpi.subtitle || "").replace(
+          /(?:[A-Z]{2,4}|\$)?\s*[\d.,]+\s*[MBK]?/i,
+          formatAbsoluteCurrencyByContext(convertedSubtitle, currencyContext)
+        );
         sub = String(kpi.subtitle || "").replace(
           /(?:[A-Z]{2,4}|\$)?\s*[\d.,]+\s*[MBK]?/i,
           formatCompactCurrency(convertedSubtitle, currencyContext)
@@ -164,10 +170,13 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
         const spendConverted = toDisplay(spendUsd) ?? 0;
         const spentPct = revenueConverted > 0 ? (spendConverted / revenueConverted) * 100 : 0;
         sub = `Spend : ${formatCompactCurrency(spendConverted, currencyContext)}`;
+        subtitleTitle = `Spend : ${formatAbsoluteCurrencyByContext(spendConverted, currencyContext)}`;
         return {
           ...kpi,
           value: `${formatCompactCurrency(revenueConverted, currencyContext)} (${spentPct.toFixed(2)}%)`,
-          subtitleText: sub
+          valueTitle: `${formatAbsoluteCurrencyByContext(revenueConverted, currencyContext)} (${spentPct.toFixed(2)}%)`,
+          subtitleText: sub,
+          subtitleTitle
         };
       }
 
@@ -177,7 +186,7 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
       if (kpi.title === "Net Margin %" && totalRevenueConverted && valueNum != null && !/Net Margin/i.test(sub)) {
         sub = `Net Margin: ${formatCompactCurrency((totalRevenueConverted * valueNum) / 100, currencyContext)}`;
       }
-      return { ...kpi, subtitleText: sub };
+      return { ...kpi, subtitleText: sub, subtitleTitle: subtitleTitle || undefined };
     });
   }, [kpis, currencyContext]);
 
@@ -190,9 +199,9 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
       {display.map((kpi, i) => (
         <article className="kpi-card" key={i}>
           <p className="kpi-title" title={safeTitle(kpi.title)}>{kpi.title}</p>
-          <p className="kpi-value" title={getValueTitle(kpi, currencyContext)}>{kpi.value}</p>
+          <p className="kpi-value" title={kpi.valueTitle || getValueTitle(kpi, currencyContext)}>{kpi.value}</p>
           <div className="kpi-divider" />
-          <p className="kpi-subtitle" title={getSubtitleTitle(kpi.subtitleText, currencyContext)}>{kpi.subtitleText}</p>
+          <p className="kpi-subtitle" title={kpi.subtitleTitle || getSubtitleTitle(kpi.subtitleText, currencyContext)}>{kpi.subtitleText}</p>
         </article>
       ))}
     </div>
