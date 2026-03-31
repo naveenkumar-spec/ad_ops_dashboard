@@ -39,20 +39,26 @@ export default function Overview({ currentUser, onLogout }) {
   const [filterOptions, setFilterOptions] = useState({});
   const [trendBundle, setTrendBundle] = useState(null);
   const [currency, setCurrency] = useState("USD");
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setRefreshTick((v) => v + 1), 5 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     axios
       .get("/api/overview/filter-options", { timeout: 20000 })
       .then((res) => setFilterOptions(res.data || {}))
       .catch(() => setFilterOptions({}));
-  }, []);
+  }, [refreshTick]);
 
   useEffect(() => {
     axios
       .get("/api/overview/trends", { timeout: 20000 })
       .then((res) => setTrendBundle(res.data || null))
       .catch(() => setTrendBundle(null));
-  }, []);
+  }, [refreshTick]);
 
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({ ...prev, [name]: value }));
@@ -86,14 +92,14 @@ export default function Overview({ currentUser, onLogout }) {
             onChange={handleFilterChange}
             onClear={handleClear}
           />
-          <KPICards filters={filters} />
-          <CombinedTrends filters={filters} trendBundle={trendBundle} />
-          <CombinedTrendsSecondary filters={filters} trendBundle={trendBundle} />
+          <KPICards key={`kpi-${refreshTick}`} filters={filters} />
+          <CombinedTrends key={`ct1-${refreshTick}`} filters={filters} trendBundle={trendBundle} />
+          <CombinedTrendsSecondary key={`ct2-${refreshTick}`} filters={filters} trendBundle={trendBundle} />
           <div className="overview-tables-stack">
-            <BottomCampaignsTable filters={filters} />
-            <CountryWiseTable filters={filters} />
-            <ProductWiseTable filters={filters} />
-            <CampaignWiseTable filters={filters} />
+            <BottomCampaignsTable key={`btm-${refreshTick}`} filters={filters} />
+            <CountryWiseTable key={`cty-${refreshTick}`} filters={filters} />
+            <ProductWiseTable key={`prd-${refreshTick}`} filters={filters} />
+            <CampaignWiseTable key={`cpg-${refreshTick}`} filters={filters} />
           </div>
         </div>
       </div>

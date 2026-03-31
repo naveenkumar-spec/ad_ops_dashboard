@@ -5,12 +5,13 @@ let scheduledTask = null;
 let lastScheduledRun = null;
 
 function startBigQueryScheduler() {
-  const enabled = String(process.env.BIGQUERY_SYNC_ENABLED || "false").toLowerCase() === "true";
+  const enabledEnv = String(process.env.BIGQUERY_SYNC_ENABLED ?? "true").toLowerCase();
+  const enabled = enabledEnv !== "false";
   if (!enabled) {
     return { enabled: false, reason: "BIGQUERY_SYNC_ENABLED is false" };
   }
 
-  const cronExpr = process.env.BIGQUERY_SYNC_CRON || "*/30 * * * *";
+  const cronExpr = process.env.BIGQUERY_SYNC_CRON || "0 * * * *";
   if (!cron.validate(cronExpr)) {
     return { enabled: false, reason: `Invalid cron expression: ${cronExpr}` };
   }
