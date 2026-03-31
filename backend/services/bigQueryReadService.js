@@ -437,7 +437,7 @@ async function getKpis(filters = {}) {
     { title: "No of Campaigns", value: campaigns, subtitle: `Budget Groups: ${budgetGroups}` },
     { title: "Gross Margin %", value: `${grossMarginPct.toFixed(1)}%`, subtitle: `Gross Margin: ${formatUsd(totalGrossMargin)}` },
     { title: "Net Margin %", value: `${netMarginPct.toFixed(1)}%`, subtitle: `Net Margin: ${formatUsd(totalNetMargin)}` },
-    { title: "Spend", value: formatUsd(totalSpend), subtitle: `Booked Revenue: ${formatUsd(totalRevenue)}` }
+    { title: "Booked Revenue", value: formatUsd(totalRevenue), subtitle: `Spend till now: ${formatUsd(totalSpend)}` }
   ];
 }
 

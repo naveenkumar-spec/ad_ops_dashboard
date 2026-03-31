@@ -10,7 +10,7 @@ import {
 } from "../utils/currencyDisplay.js";
 import "../../styles/KPICards.css";
 
-const CARD_ORDER = ["No of Campaigns", "Gross Margin %", "Net Margin %", "Spend"];
+const CARD_ORDER = ["No of Campaigns", "Gross Margin %", "Net Margin %", "Booked Revenue"];
 const ENABLE_MOCK_FALLBACK = String(import.meta.env.VITE_ENABLE_MOCK_FALLBACK || "").toLowerCase() === "true";
 
 function parseNumber(val = "") {
@@ -33,6 +33,16 @@ function getValueTitle(kpi, currencyContext) {
   const raw = String(kpi?.value ?? "");
   if (!raw) return "";
   if (kpi?.title === "No of Campaigns") return formatAbsoluteInteger(raw);
+  if (kpi?.title === "Booked Revenue") {
+    const revenue = parseCurrency(raw);
+    const spentPctMatch = raw.match(/\(([-\d.]+)%/);
+    const spentPct = spentPctMatch ? Number(spentPctMatch[1]) : null;
+    if (revenue != null) {
+      const absRevenue = formatAbsoluteCurrencyByContext(revenue, currencyContext);
+      if (spentPct != null && Number.isFinite(spentPct)) return `${absRevenue} (${spentPct.toFixed(2)}% spent so far)`;
+      return absRevenue;
+    }
+  }
   if (raw.includes("%")) return formatAbsolutePercent(parseNumber(raw), 2);
   const asCurrency = parseCurrency(raw);
   if (asCurrency != null) return formatAbsoluteCurrencyByContext(asCurrency, currencyContext);
@@ -82,8 +92,8 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
     if (!kpis.length) return [];
     const toDisplay = (value) => convertUsdToDisplay(value, currencyContext);
 
-    const spendCard = kpis.find((k) => k.title === "Spend");
-    const totalRevenueUsd = parseCurrency(spendCard?.subtitle || "") || 0;
+    const bookedRevenueCard = kpis.find((k) => k.title === "Booked Revenue");
+    const totalRevenueUsd = parseCurrency(bookedRevenueCard?.value || "") || 0;
     const totalRevenueConverted = toDisplay(totalRevenueUsd) ?? 0;
 
     return kpis.map((kpi) => {
@@ -104,15 +114,16 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
         );
       }
 
-      if (kpi.title === "Spend") {
-        const spendUsd = parseCurrency(String(kpi.value || "")) || 0;
+      if (kpi.title === "Booked Revenue") {
+        const revenueUsd = parseCurrency(String(kpi.value || "")) || 0;
+        const spendUsd = parseCurrency(String(kpi.subtitle || "")) || 0;
+        const revenueConverted = toDisplay(revenueUsd) ?? 0;
         const spendConverted = toDisplay(spendUsd) ?? 0;
-        if (totalRevenueConverted && !/Booked Revenue/i.test(sub)) {
-          sub = `Booked Revenue: ${formatCompactCurrency(totalRevenueConverted, currencyContext)}`;
-        }
+        const spentPct = revenueConverted > 0 ? (spendConverted / revenueConverted) * 100 : 0;
+        sub = `Spend till now: ${formatCompactCurrency(spendConverted, currencyContext)}`;
         return {
           ...kpi,
-          value: formatCompactCurrency(spendConverted, currencyContext),
+          value: `${formatCompactCurrency(revenueConverted, currencyContext)} (${spentPct.toFixed(2)}% spent so far)`,
           subtitleText: sub
         };
       }
