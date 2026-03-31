@@ -26,6 +26,7 @@ const TABLE_SCHEMA = [
   { name: "sync_id", type: "STRING" },
   { name: "synced_at", type: "TIMESTAMP" },
   { name: "campaign_name", type: "STRING" },
+  { name: "campaign_id", type: "STRING" },
   { name: "status", type: "STRING" },
   { name: "country", type: "STRING" },
   { name: "region", type: "STRING" },
@@ -148,6 +149,7 @@ function computeChecksum(rows, transitionRows = []) {
   const canonicalMain = rows
     .map((r) => [
       r.campaignName || "",
+      r.campaignId || "",
       r.country || "",
       r.status || "",
       Number(r.revenue || 0).toFixed(4),
@@ -212,6 +214,7 @@ function toBigQueryRows(rows, syncId, syncedAtIso) {
     sync_id: syncId,
     synced_at: syncedAtIso,
     campaign_name: row.campaignName || null,
+    campaign_id: row.campaignId || null,
     status: row.status || null,
     country: row.country || null,
     region: row.region || null,

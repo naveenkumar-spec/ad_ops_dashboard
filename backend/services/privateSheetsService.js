@@ -41,6 +41,7 @@ const COUNTRY_TO_REGION = {
 
 const FIELD_ALIASES = {
   campaignName: ["Campaign Name"],
+  campaignId: ["Campaign ID"],
   status: ["Status"],
   country: ["Country"],
   revenue: ["Revenue"],
@@ -240,6 +241,7 @@ async function resolveTabName(sheets, source) {
 
 function normalizeRow(rowValues, headerMap, source) {
   const campaignName = String(pickField(rowValues, headerMap, FIELD_ALIASES.campaignName) || "").trim() || "Unknown Campaign";
+  const campaignId = String(pickField(rowValues, headerMap, FIELD_ALIASES.campaignId) || "").trim();
   const status = String(pickField(rowValues, headerMap, FIELD_ALIASES.status) || "Active").trim();
   const country = String(source.country || pickField(rowValues, headerMap, FIELD_ALIASES.country) || "Unknown").trim();
 
@@ -274,6 +276,7 @@ function normalizeRow(rowValues, headerMap, source) {
 
   const normalized = {
     campaignName,
+    campaignId,
     status,
     country,
     region: COUNTRY_TO_REGION[country] || country,
@@ -402,6 +405,14 @@ function sum(items, valueFn) {
   return items.reduce((acc, item) => acc + (Number(valueFn(item)) || 0), 0);
 }
 
+function countDistinctCampaignIds(items) {
+  return new Set(
+    (items || [])
+      .map((item) => String(item?.campaignId || "").trim())
+      .filter(Boolean)
+  ).size;
+}
+
 function buildMonthYearSeries(rows, metricFn, mode = "sum") {
   const yearSet = new Set(rows.map((r) => String(r.year || new Date().getFullYear())));
   const years = Array.from(yearSet).sort();
@@ -430,7 +441,7 @@ async function getKpis() {
   const totalSpend = sum(rows, (r) => r.spend);
   const grossMarginPct = average(rows, (r) => r.grossMarginPct);
   const netMarginPct = average(rows, (r) => r.netMarginPct);
-  const campaigns = new Set(rows.map((r) => r.campaignName)).size;
+  const campaigns = countDistinctCampaignIds(rows);
   const budgetGroups = sum(rows, (r) => r.budgetGroups);
 
   return [
@@ -532,7 +543,7 @@ async function getRegionTable() {
 
     result.push({
       region: country,
-      totalCampaigns: new Set(bucket.map((r) => r.campaignName)).size,
+      totalCampaigns: countDistinctCampaignIds(bucket),
       budgetGroups: sum(bucket, (r) => r.budgetGroups),
       bookedRevenue,
       spend,
@@ -563,7 +574,7 @@ async function getCountryWiseTable() {
 
     result.push({
       region,
-      campaigns: new Set(bucket.map((r) => r.campaignName)).size,
+      campaigns: countDistinctCampaignIds(bucket),
       budgetGroups: sum(bucket, (r) => r.budgetGroups),
       revenue,
       spend,
@@ -635,7 +646,7 @@ async function getProductWiseTable() {
     const grossProfitLoss = sum(bucket, (r) => r.grossProfit);
     out.push({
       product,
-      totalCampaigns: new Set(bucket.map((r) => r.campaignName)).size,
+      totalCampaigns: countDistinctCampaignIds(bucket),
       budgetGroups: sum(bucket, (r) => r.budgetGroups),
       bookedRevenue,
       spend,

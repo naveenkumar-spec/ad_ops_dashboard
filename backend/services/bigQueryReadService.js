@@ -110,6 +110,14 @@ function avg(items, getter) {
   return sum(items, getter) / items.length;
 }
 
+function countDistinctCampaignIds(items) {
+  return new Set(
+    (items || [])
+      .map((item) => String(item?.campaignId || "").trim())
+      .filter(Boolean)
+  ).size;
+}
+
 function groupBy(items, keyFn) {
   const map = new Map();
   items.forEach((item) => {
@@ -124,19 +132,37 @@ async function queryRows() {
   if (!projectId || String(projectId).toLowerCase().includes("your-gcp-project-id")) {
     throw new Error("Set GCP_PROJECT_ID in backend/.env");
   }
-  const [rows] = await bigquery.query({
-    query: `
-      SELECT
-        campaign_name, status, country, region, revenue, spend, gross_profit, gross_margin_pct,
-        net_margin, net_margin_pct, planned_impressions, delivered_impressions, budget_groups, cpm,
-        start_date, end_date, month, year, product, platform, ops_owner, cs_owner, sales_owner
-      FROM ${tableRef}
-    `,
-    location
-  });
+  let rows = [];
+  try {
+    [rows] = await bigquery.query({
+      query: `
+        SELECT
+          campaign_name, campaign_id, status, country, region, revenue, spend, gross_profit, gross_margin_pct,
+          net_margin, net_margin_pct, planned_impressions, delivered_impressions, budget_groups, cpm,
+          start_date, end_date, month, year, product, platform, ops_owner, cs_owner, sales_owner
+        FROM ${tableRef}
+      `,
+      location
+    });
+  } catch (error) {
+    const message = String(error?.message || "").toLowerCase();
+    const missingCampaignIdColumn = message.includes("unrecognized name: campaign_id");
+    if (!missingCampaignIdColumn) throw error;
+    [rows] = await bigquery.query({
+      query: `
+        SELECT
+          campaign_name, status, country, region, revenue, spend, gross_profit, gross_margin_pct,
+          net_margin, net_margin_pct, planned_impressions, delivered_impressions, budget_groups, cpm,
+          start_date, end_date, month, year, product, platform, ops_owner, cs_owner, sales_owner
+        FROM ${tableRef}
+      `,
+      location
+    });
+  }
 
   return rows.map((r) => ({
     campaignName: r.campaign_name,
+    campaignId: r.campaign_id,
     status: r.status,
     country: r.country,
     region: r.region,
@@ -324,7 +350,7 @@ async function getKpis(filters = {}) {
   const rows = applyFilters(await loadAllRows(), filters);
   const totalRevenue = sum(rows, (r) => r.revenue);
   const totalSpend = sum(rows, (r) => r.spend);
-  const campaigns = new Set(rows.map((r) => r.campaignName)).size;
+  const campaigns = countDistinctCampaignIds(rows);
   const budgetGroups = sum(rows, (r) => r.budgetGroups);
   return [
     { title: "No of Campaigns", value: campaigns, subtitle: `Budget Groups: ${budgetGroups}` },
@@ -412,7 +438,7 @@ async function getRegionTable(filters = {}) {
     const deliveredImpressions = sum(bucket, (r) => r.deliveredImpressions);
     out.push({
       region: country,
-      totalCampaigns: new Set(bucket.map((r) => r.campaignName)).size,
+      totalCampaigns: countDistinctCampaignIds(bucket),
       budgetGroups: sum(bucket, (r) => r.budgetGroups),
       bookedRevenue,
       spend,
@@ -438,7 +464,7 @@ async function getCountryWiseTable(filters = {}) {
     const deliveredImpressions = sum(bucket, (r) => r.deliveredImpressions);
     out.push({
       region,
-      campaigns: new Set(bucket.map((r) => r.campaignName)).size,
+      campaigns: countDistinctCampaignIds(bucket),
       budgetGroups: sum(bucket, (r) => r.budgetGroups),
       revenue,
       spend,
@@ -503,7 +529,7 @@ async function getProductWiseTable(filters = {}) {
     const deliveredImpressions = sum(bucket, (r) => r.deliveredImpressions);
     out.push({
       product,
-      totalCampaigns: new Set(bucket.map((r) => r.campaignName)).size,
+      totalCampaigns: countDistinctCampaignIds(bucket),
       budgetGroups: sum(bucket, (r) => r.budgetGroups),
       bookedRevenue,
       spend,
