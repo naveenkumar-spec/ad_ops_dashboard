@@ -21,6 +21,40 @@ const bigquery = new BigQuery({
 });
 
 let lastSyncResult = null;
+let activeSyncStatus = null;
+
+function sourceKey(source = {}) {
+  return `${source.sourceSheetId || source.sheetId || ""}::${source.configuredTab || source.tabName || ""}::${source.sourceCountry || source.country || ""}`;
+}
+
+function createInitialSources() {
+  const configured = (privateSheetsService.getSourceConfig() || []).filter((s) => s.enabled !== false);
+  return configured.map((s) => ({
+    sourceCountry: s.country || null,
+    sourceSheetId: s.sheetId || null,
+    configuredTab: s.tabName || null,
+    resolvedTab: null,
+    status: "pending",
+    rowCount: 0,
+    columns: [],
+    detail: null
+  }));
+}
+
+function updateActiveSource(partial = {}) {
+  if (!activeSyncStatus || !Array.isArray(activeSyncStatus.sources)) return;
+  const key = sourceKey(partial);
+  const idx = activeSyncStatus.sources.findIndex((s) => sourceKey(s) === key);
+  if (idx < 0) return;
+  activeSyncStatus.sources[idx] = {
+    ...activeSyncStatus.sources[idx],
+    ...partial
+  };
+  const statuses = activeSyncStatus.sources.map((s) => s.status);
+  activeSyncStatus.completedSources = statuses.filter((s) => s === "success").length;
+  activeSyncStatus.failedSources = statuses.filter((s) => s === "failed").length;
+  activeSyncStatus.inProgressSources = statuses.filter((s) => s === "in_progress").length;
+}
 
 function buildIssueSignature(issueReport = {}) {
   const issues = Array.isArray(issueReport.issues) ? issueReport.issues : [];
@@ -419,24 +453,62 @@ function toTransitionRows(syncId, syncedAtIso, seriesByMetric) {
 async function syncToBigQuery(options = {}) {
   const fullRefresh = options.fullRefresh !== false;
   const skipIfUnchanged = options.skipIfUnchanged !== false;
+  if (activeSyncStatus?.status === "running") {
+    return {
+      ok: false,
+      status: "running",
+      message: "A sync is already in progress",
+      syncId: activeSyncStatus.syncId
+    };
+  }
   const syncId = `sync_${Date.now()}`;
   const syncedAtIso = new Date().toISOString();
+  const initialSources = createInitialSources();
+  activeSyncStatus = {
+    ok: true,
+    status: "running",
+    syncId,
+    startedAt: syncedAtIso,
+    mode: fullRefresh ? "full_refresh" : "append",
+    step: "initializing",
+    sources: initialSources,
+    totalSources: initialSources.length,
+    completedSources: 0,
+    failedSources: 0,
+    inProgressSources: 0,
+    rowCount: 0,
+    transitionRowCount: 0,
+    issueCount: 0,
+    message: "Sync started"
+  };
   try {
+    activeSyncStatus.step = "ensuring_bigquery_tables";
     const table = await ensureTable();
     const transitionTable = await ensureTransitionTable();
     await ensureStateTable();
     const issueLimit = Number(process.env.SYNC_VALIDATION_MAX_ISSUES || 500);
     const syncIssues = [];
+    activeSyncStatus.step = "reading_sheets";
+    activeSyncStatus.message = "Reading tracker sheets";
     const rows = await privateSheetsService.loadAllRows(Boolean(options.forceRefresh), {
       issues: syncIssues,
-      issueLimit
+      issueLimit,
+      onSourceStatus: (sourceUpdate) => {
+        updateActiveSource(sourceUpdate);
+        activeSyncStatus.message = "Reading tracker sheets";
+      }
     });
+    activeSyncStatus.rowCount = rows.length;
+    activeSyncStatus.issueCount = syncIssues.length;
+    activeSyncStatus.step = "building_transition_metrics";
     const seriesByMetric = {
       revenue: await privateSheetsService.getOverviewLegacyTrend("revenue"),
       margin: await privateSheetsService.getOverviewLegacyTrend("margin"),
       cpm: await privateSheetsService.getOverviewLegacyTrend("cpm")
     };
     const transitionRows = toTransitionRows(syncId, syncedAtIso, seriesByMetric);
+    activeSyncStatus.transitionRowCount = transitionRows.length;
+    activeSyncStatus.step = "preparing_bigquery_load";
     const checksum = computeChecksum(rows, transitionRows);
     const previousChecksum = await getLastChecksum();
 
@@ -484,10 +556,20 @@ async function syncToBigQuery(options = {}) {
       }
       skipped.dataQualityAlert = dataQualityAlert || { sent: false, reason: "error" };
       lastSyncResult = skipped;
+      activeSyncStatus = {
+        ...activeSyncStatus,
+        status: "completed",
+        step: "completed",
+        message: skipped.message,
+        finishedAt: new Date().toISOString(),
+        result: skipped
+      };
       return skipped;
     }
 
     const bqRows = toBigQueryRows(rows, syncId, syncedAtIso);
+    activeSyncStatus.step = "writing_bigquery";
+    activeSyncStatus.message = "Writing data to BigQuery";
 
     if (fullRefresh) {
       await bigquery.query({
@@ -504,10 +586,13 @@ async function syncToBigQuery(options = {}) {
     for (let i = 0; i < bqRows.length; i += batchSize) {
       const batch = bqRows.slice(i, i + batchSize);
       if (batch.length) await table.insert(batch);
+      activeSyncStatus.rowCount = Math.min(bqRows.length, i + batch.length);
     }
+    activeSyncStatus.step = "writing_transition_table";
     for (let i = 0; i < transitionRows.length; i += batchSize) {
       const batch = transitionRows.slice(i, i + batchSize);
       if (batch.length) await transitionTable.insert(batch);
+      activeSyncStatus.transitionRowCount = Math.min(transitionRows.length, i + batch.length);
     }
 
     const result = {
@@ -551,6 +636,14 @@ async function syncToBigQuery(options = {}) {
     }
     result.dataQualityAlert = dataQualityAlert || { sent: false, reason: "error" };
     lastSyncResult = result;
+    activeSyncStatus = {
+      ...activeSyncStatus,
+      status: "completed",
+      step: "completed",
+      message: "Sync completed",
+      finishedAt: new Date().toISOString(),
+      result
+    };
     return result;
   } catch (error) {
     const message = `BigQuery sync failed (${syncId}): ${error.message}`;
@@ -572,6 +665,15 @@ async function syncToBigQuery(options = {}) {
     } catch (_ignored) {
       // no-op
     }
+    activeSyncStatus = {
+      ...activeSyncStatus,
+      ok: false,
+      status: "failed",
+      step: "failed",
+      message: error.message,
+      finishedAt: new Date().toISOString(),
+      error: error.message
+    };
     throw error;
   }
 }
@@ -580,7 +682,14 @@ function getLastSyncResult() {
   return lastSyncResult;
 }
 
+function getSyncStatus() {
+  if (activeSyncStatus?.status === "running") return activeSyncStatus;
+  if (activeSyncStatus) return activeSyncStatus;
+  return lastSyncResult || { ok: true, status: "idle", message: "No sync has run yet" };
+}
+
 module.exports = {
   syncToBigQuery,
-  getLastSyncResult
+  getLastSyncResult,
+  getSyncStatus
 };

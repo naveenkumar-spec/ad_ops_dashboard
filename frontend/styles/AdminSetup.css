@@ -22,6 +22,37 @@
   border: 1px solid #bfdbfe;
 }
 
+.admin-sync-help {
+  margin: 4px 0 10px;
+  color: #475569;
+}
+
+.admin-sync-status {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  background: #f8fbff;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 6px 12px;
+}
+
+.admin-sync-table-wrap {
+  margin-top: 12px;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.admin-sync-columns {
+  max-width: 420px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .admin-card {
   margin-top: 16px;
   border-radius: 14px;

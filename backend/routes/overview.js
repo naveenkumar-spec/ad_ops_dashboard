@@ -401,7 +401,10 @@ router.get("/sources", (_req, res) => {
 
 router.get("/sync/bigquery/status", (_req, res) => {
   try {
-    const status = bigQuerySyncService.getLastSyncResult();
+    if (!_req.user || _req.user.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    const status = bigQuerySyncService.getSyncStatus();
     res.json(status || { ok: true, status: "idle", message: "No sync has run yet" });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch sync status", message: error.message });
@@ -410,6 +413,9 @@ router.get("/sync/bigquery/status", (_req, res) => {
 
 router.post("/sync/bigquery", async (req, res) => {
   try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
     const fullRefresh = req.query.fullRefresh !== "false";
     const forceRefresh = req.query.forceRefresh === "true";
     const skipIfUnchanged = req.query.skipIfUnchanged !== "false";

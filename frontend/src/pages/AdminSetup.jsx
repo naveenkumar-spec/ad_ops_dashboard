@@ -82,6 +82,8 @@ export default function AdminSetup({ currentUser, onLogout }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingEmail, setEditingEmail] = useState("");
   const [msg, setMsg] = useState("");
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [syncBusy, setSyncBusy] = useState(false);
 
   const loadAll = async () => {
     const [u, o] = await Promise.all([
@@ -94,6 +96,28 @@ export default function AdminSetup({ currentUser, onLogout }) {
 
   useEffect(() => {
     loadAll().catch(() => setMsg("Failed to load admin data"));
+  }, []);
+
+  const loadSyncStatus = async () => {
+    try {
+      const res = await axios.get("/api/overview/sync/bigquery/status", { timeout: 10000 });
+      setSyncStatus(res.data || null);
+      return res.data || null;
+    } catch (_err) {
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    let timer = null;
+    loadSyncStatus();
+    timer = setInterval(async () => {
+      const status = await loadSyncStatus();
+      if (!status || status.status !== "running") return;
+    }, 3000);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, []);
 
   const tabsList = useMemo(() => ["overview", "management", "admin"], []);
@@ -152,6 +176,21 @@ export default function AdminSetup({ currentUser, onLogout }) {
       const next = has ? prev.allowedTabs.filter((t) => t !== tab) : [...prev.allowedTabs, tab];
       return { ...prev, allowedTabs: next.length ? next : ["overview"] };
     });
+  };
+
+  const triggerManualSync = async () => {
+    setMsg("");
+    setSyncBusy(true);
+    try {
+      await axios.post("/api/overview/sync/bigquery?fullRefresh=true&forceRefresh=true&skipIfUnchanged=false", {}, { timeout: 15 * 60 * 1000 });
+      await loadSyncStatus();
+      setMsg("Manual sync completed");
+    } catch (err) {
+      setMsg(err.response?.data?.error || err.response?.data?.message || err.message || "Failed to start sync");
+      await loadSyncStatus();
+    } finally {
+      setSyncBusy(false);
+    }
   };
 
   return (
@@ -253,6 +292,50 @@ export default function AdminSetup({ currentUser, onLogout }) {
             </button>
           ) : null}
         </form>
+
+        <div className="admin-card">
+          <h3>BigQuery Manual Sync</h3>
+          <p className="admin-sync-help">Admin-only manual refresh from Sheets to BigQuery.</p>
+          <button type="button" className="admin-btn primary" onClick={triggerManualSync} disabled={syncBusy || syncStatus?.status === "running"}>
+            {syncStatus?.status === "running" ? "Sync In Progress..." : (syncBusy ? "Starting..." : "Run Manual Sync")}
+          </button>
+          <div className="admin-sync-status">
+            <div><strong>Status:</strong> {syncStatus?.status || "idle"}</div>
+            <div><strong>Step:</strong> {syncStatus?.step || "-"}</div>
+            <div><strong>Message:</strong> {syncStatus?.message || "-"}</div>
+            <div><strong>Sources:</strong> {(syncStatus?.completedSources || 0)}/{(syncStatus?.totalSources || 0)} completed</div>
+            <div><strong>Issues:</strong> {syncStatus?.issueCount ?? syncStatus?.dataQuality?.issueCount ?? 0}</div>
+          </div>
+          <div className="admin-sync-table-wrap">
+            <table className="admin-table admin-sync-table">
+              <thead>
+                <tr>
+                  <th align="left">Sheet</th>
+                  <th align="left">Configured Tab</th>
+                  <th align="left">Resolved Tab</th>
+                  <th align="left">Columns</th>
+                  <th align="left">Rows</th>
+                  <th align="left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(syncStatus?.sources || []).map((s, idx) => (
+                  <tr key={`${s.sourceSheetId}-${s.configuredTab}-${idx}`}>
+                    <td>{s.sourceCountry || "-"}</td>
+                    <td>{s.configuredTab || "-"}</td>
+                    <td>{s.resolvedTab || "-"}</td>
+                    <td className="admin-sync-columns">{Array.isArray(s.columns) && s.columns.length ? s.columns.join(", ") : "-"}</td>
+                    <td>{s.rowCount ?? 0}</td>
+                    <td>{s.status || "pending"}</td>
+                  </tr>
+                ))}
+                {(!syncStatus?.sources || !syncStatus.sources.length) ? (
+                  <tr><td colSpan={6}>No source-level sync details yet.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         <div className="admin-card">
           <h3>Allowed Emails</h3>

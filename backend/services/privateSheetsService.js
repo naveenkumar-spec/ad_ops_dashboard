@@ -508,16 +508,31 @@ function normalizeRow(rowValues, headerMap, source) {
   return normalized;
 }
 
-async function fetchSourceRows(sheets, source) {
-  const issueSink = Array.isArray(arguments[2]) ? arguments[2] : null;
-  const issueLimit = Number(arguments[3] || 500);
+async function fetchSourceRows(sheets, source, options = {}) {
+  const issueSink = Array.isArray(options.issues) ? options.issues : null;
+  const issueLimit = Number(options.issueLimit || 500);
+  const onSourceStatus = typeof options.onSourceStatus === "function" ? options.onSourceStatus : null;
   const pushIssue = (issue) => {
     if (!issueSink) return;
     if (issueSink.length >= issueLimit) return;
     issueSink.push(issue);
   };
+  const notify = (payload) => {
+    if (!onSourceStatus) return;
+    try {
+      onSourceStatus({
+        sourceCountry: source.country || null,
+        sourceSheetId: source.sheetId || null,
+        configuredTab: source.tabName || null,
+        ...payload
+      });
+    } catch (_ignored) {
+      // no-op
+    }
+  };
 
   const resolvedTab = await resolveTabName(sheets, source);
+  notify({ status: "in_progress", resolvedTab });
   const candidates = getTabCandidates(source).map((v) => normalizeTabName(v));
   if (resolvedTab && candidates.length && !candidates.includes(normalizeTabName(resolvedTab))) {
     pushIssue({
@@ -555,7 +570,12 @@ async function fetchSourceRows(sheets, source) {
   }
 
   const headers = rows[headerRowIndex].map((h) => String(h || "").trim());
-  const normalizedHeaders = headers.map((h) => normalizeKey(h));
+  notify({
+    status: "in_progress",
+    resolvedTab,
+    headerRow: headerRowIndex + 1,
+    columns: headers.filter((h) => String(h || "").trim() !== "")
+  });
   const headerMap = {};
   const headerCounts = {};
   headers.forEach((header, idx) => {
@@ -629,6 +649,13 @@ async function fetchSourceRows(sheets, source) {
     const normalized = normalizeRow(rowValues, headerMap, effectiveSource);
     if (normalized) dataRows.push(normalized);
   }
+  notify({
+    status: "success",
+    resolvedTab,
+    headerRow: headerRowIndex + 1,
+    columns: headers.filter((h) => String(h || "").trim() !== ""),
+    rowCount: dataRows.length
+  });
   return dataRows;
 }
 
@@ -637,6 +664,7 @@ async function loadAllRows(forceRefresh = false, options = {}) {
   const now = Date.now();
   const issueSink = Array.isArray(options.issues) ? options.issues : null;
   const issueLimit = Number(options.issueLimit || 500);
+  const onSourceStatus = typeof options.onSourceStatus === "function" ? options.onSourceStatus : null;
   if (!forceRefresh && cachedRows && now - lastFetchTime < cacheDuration) {
     return cachedRows;
   }
@@ -647,10 +675,31 @@ async function loadAllRows(forceRefresh = false, options = {}) {
   const results = await Promise.all(
     enabledSources.map(async (source) => {
       try {
-        const rows = await fetchSourceRows(sheets, source, issueSink, issueLimit);
+        if (onSourceStatus) {
+          onSourceStatus({
+            sourceCountry: source.country || null,
+            sourceSheetId: source.sheetId || null,
+            configuredTab: source.tabName || null,
+            status: "in_progress"
+          });
+        }
+        const rows = await fetchSourceRows(sheets, source, {
+          issues: issueSink,
+          issueLimit,
+          onSourceStatus
+        });
         return rows;
       } catch (error) {
         console.warn(`Failed to read ${source.country} (${source.tabName}): ${error.message}`);
+        if (onSourceStatus) {
+          onSourceStatus({
+            sourceCountry: source.country || null,
+            sourceSheetId: source.sheetId || null,
+            configuredTab: source.tabName || null,
+            status: "failed",
+            detail: error.message
+          });
+        }
         if (issueSink && issueSink.length < issueLimit) {
           issueSink.push({
             type: "source_read_error",
