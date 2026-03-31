@@ -8,6 +8,7 @@
   gap: 12px;
   align-items: end;
   position: relative;
+  overflow-x: hidden;
 }
 
 .filter-group {
@@ -79,7 +80,8 @@
   left: 0;
   width: 100%;
   max-height: 260px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: #ffffff;
   border: 1px solid #c8d6cd;
   border-radius: 8px;
@@ -93,9 +95,10 @@
   top: 0;
   background: #ffffff;
   padding: 4px;
-  z-index: 2;
+  z-index: 6;
   border-bottom: 1px solid #e7eeea;
-  margin: -4px -4px 4px;
+  margin: 0 0 4px;
+  box-shadow: 0 4px 10px rgba(255, 255, 255, 0.96);
 }
 
 .hierarchy-search {
@@ -138,9 +141,10 @@
   width: 100%;
   padding: 6px 8px;
   border-radius: 5px;
-  font-size: 12px;
+  font-size: 11px;
   color: #1f2f2a;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .hierarchy-check-row:hover {
@@ -149,6 +153,14 @@
 
 .hierarchy-check-row input {
   margin: 0;
+  flex: 0 0 auto;
+}
+
+.hierarchy-check-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hierarchy-expand {
@@ -198,7 +210,7 @@
 
 .hierarchy-node-type {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: #5f746a;
   background: #e4eee8;
@@ -207,6 +219,10 @@
   padding: 1px 6px;
   text-transform: uppercase;
   letter-spacing: 0.2px;
+  flex: 0 0 auto;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .clear-filters {
