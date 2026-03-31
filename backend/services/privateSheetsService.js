@@ -272,10 +272,10 @@ async function getSheetMetaById(sheets, spreadsheetId) {
   });
   const meta = (res.data.sheets || [])
     .map((s) => ({
-      title: String(s?.properties?.title || "").trim(),
+      title: String(s?.properties?.title || ""),
       sheetId: Number(s?.properties?.sheetId || 0)
     }))
-    .filter((s) => s.title);
+    .filter((s) => String(s.title || "").trim() !== "");
 
   sheetMetaCache.set(cacheKey, meta);
   return meta;
@@ -310,7 +310,7 @@ async function resolveTabName(sheets, source) {
   }
 
   const meta = await getSheetMetaById(sheets, source.sheetId);
-  const titles = meta.map((m) => m.title);
+  const titles = meta.map((m) => String(m.title || "").trim()).filter(Boolean);
   if (!titles.length) return String(source.tabName || source.country || "").trim();
 
   const normalizedMap = new Map(titles.map((title) => [normalizeTabName(title), title]));
