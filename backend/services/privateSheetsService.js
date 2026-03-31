@@ -195,6 +195,7 @@ const NORMALIZED_HEADER_CANDIDATES = new Set(
 let cachedRows = null;
 let lastFetchTime = 0;
 const sheetMetaCache = new Map();
+let lastDataQualityReport = null;
 
 const keyFileFromEnv = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE || "./secrets/google-sa.json";
 const keyFilePath = path.isAbsolute(keyFileFromEnv)
@@ -508,7 +509,30 @@ function normalizeRow(rowValues, headerMap, source) {
 }
 
 async function fetchSourceRows(sheets, source) {
+  const issueSink = Array.isArray(arguments[2]) ? arguments[2] : null;
+  const issueLimit = Number(arguments[3] || 500);
+  const pushIssue = (issue) => {
+    if (!issueSink) return;
+    if (issueSink.length >= issueLimit) return;
+    issueSink.push(issue);
+  };
+
   const resolvedTab = await resolveTabName(sheets, source);
+  const candidates = getTabCandidates(source).map((v) => normalizeTabName(v));
+  if (resolvedTab && candidates.length && !candidates.includes(normalizeTabName(resolvedTab))) {
+    pushIssue({
+      type: "tab_name_mismatch",
+      severity: "warning",
+      sourceCountry: source.country || null,
+      sourceSheetId: source.sheetId || null,
+      configuredTab: source.tabName || null,
+      resolvedTab: resolvedTab || null,
+      column: null,
+      row: null,
+      detail: "Configured tab name did not resolve directly; fallback tab was used."
+    });
+  }
+
   const effectiveSource = { ...source, tabName: resolvedTab };
   const rows = await readTabValues(sheets, source.sheetId, resolvedTab);
   if (rows.length <= 1) return [];
@@ -531,25 +555,88 @@ async function fetchSourceRows(sheets, source) {
   }
 
   const headers = rows[headerRowIndex].map((h) => String(h || "").trim());
+  const normalizedHeaders = headers.map((h) => normalizeKey(h));
   const headerMap = {};
+  const headerCounts = {};
   headers.forEach((header, idx) => {
     const key = normalizeKey(header);
+    if (key) headerCounts[key] = (headerCounts[key] || 0) + 1;
     if (key && headerMap[key] === undefined) headerMap[key] = idx;
+  });
+  Object.entries(headerCounts)
+    .filter(([, count]) => Number(count) > 1)
+    .forEach(([key, count]) => {
+      pushIssue({
+        type: "duplicate_column",
+        severity: "warning",
+        sourceCountry: source.country || null,
+        sourceSheetId: source.sheetId || null,
+        configuredTab: source.tabName || null,
+        resolvedTab: resolvedTab || null,
+        column: key,
+        row: headerRowIndex + 1,
+        detail: `Duplicate column detected (${count} occurrences).`
+      });
+    });
+
+  const requiredFields = [
+    { name: "Campaign Name", aliases: FIELD_ALIASES.campaignName },
+    { name: "Campaign ID", aliases: FIELD_ALIASES.campaignId },
+    { name: "Month", aliases: FIELD_ALIASES.month },
+    { name: "Revenue", aliases: FIELD_ALIASES.revenue },
+    { name: "Spends", aliases: FIELD_ALIASES.spend }
+  ];
+  requiredFields.forEach((field) => {
+    const found = (field.aliases || []).some((alias) => headerMap[normalizeKey(alias)] !== undefined);
+    if (!found) {
+      pushIssue({
+        type: "missing_column",
+        severity: "error",
+        sourceCountry: source.country || null,
+        sourceSheetId: source.sheetId || null,
+        configuredTab: source.tabName || null,
+        resolvedTab: resolvedTab || null,
+        column: field.name,
+        row: headerRowIndex + 1,
+        detail: `Required column not found. Accepted aliases: ${field.aliases.join(", ")}`
+      });
+    }
   });
 
   const dataRows = [];
+  const errorTokenPattern = /^#(value!?|div\/0!?|ref!?|n\/a|name\?|num!?|error!?)/i;
   for (let i = headerRowIndex + 1; i < rows.length; i += 1) {
     const rowValues = rows[i];
     if (!rowValues || rowValues.every((cell) => String(cell || "").trim() === "")) continue;
+
+    rowValues.forEach((cell, idx) => {
+      const cellText = String(cell || "").trim();
+      if (!cellText || !errorTokenPattern.test(cellText)) return;
+      pushIssue({
+        type: "cell_error",
+        severity: "error",
+        sourceCountry: source.country || null,
+        sourceSheetId: source.sheetId || null,
+        configuredTab: source.tabName || null,
+        resolvedTab: resolvedTab || null,
+        column: headers[idx] || `col_${idx + 1}`,
+        row: i + 1,
+        value: cellText,
+        detail: "Spreadsheet formula/value error detected."
+      });
+    });
+
     const normalized = normalizeRow(rowValues, headerMap, effectiveSource);
     if (normalized) dataRows.push(normalized);
   }
   return dataRows;
 }
 
-async function loadAllRows(forceRefresh = false) {
+async function loadAllRows(forceRefresh = false, options = {}) {
   const cacheDuration = Number(config.cacheDurationMs || 5 * 60 * 1000);
   const now = Date.now();
+  const issueSink = Array.isArray(options.issues) ? options.issues : null;
+  const issueLimit = Number(options.issueLimit || 500);
   if (!forceRefresh && cachedRows && now - lastFetchTime < cacheDuration) {
     return cachedRows;
   }
@@ -560,10 +647,23 @@ async function loadAllRows(forceRefresh = false) {
   const results = await Promise.all(
     enabledSources.map(async (source) => {
       try {
-        const rows = await fetchSourceRows(sheets, source);
+        const rows = await fetchSourceRows(sheets, source, issueSink, issueLimit);
         return rows;
       } catch (error) {
         console.warn(`Failed to read ${source.country} (${source.tabName}): ${error.message}`);
+        if (issueSink && issueSink.length < issueLimit) {
+          issueSink.push({
+            type: "source_read_error",
+            severity: "error",
+            sourceCountry: source.country || null,
+            sourceSheetId: source.sheetId || null,
+            configuredTab: source.tabName || null,
+            resolvedTab: null,
+            column: null,
+            row: null,
+            detail: error.message
+          });
+        }
         return [];
       }
     })
@@ -571,6 +671,13 @@ async function loadAllRows(forceRefresh = false) {
 
   cachedRows = results.flat();
   lastFetchTime = now;
+  if (issueSink) {
+    lastDataQualityReport = {
+      createdAt: new Date().toISOString(),
+      issueCount: issueSink.length,
+      issues: issueSink.slice(0, issueLimit)
+    };
+  }
   return cachedRows;
 }
 
@@ -960,6 +1067,10 @@ function getSourceConfig() {
   return config.sources || [];
 }
 
+function getLastDataQualityReport() {
+  return lastDataQualityReport;
+}
+
 module.exports = {
   loadAllRows,
   getKpis,
@@ -975,5 +1086,6 @@ module.exports = {
   getCampaignWiseTable,
   getProductWiseTable,
   getFilterOptions,
-  getSourceConfig
+  getSourceConfig,
+  getLastDataQualityReport
 };

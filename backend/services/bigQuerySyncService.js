@@ -22,6 +22,50 @@ const bigquery = new BigQuery({
 
 let lastSyncResult = null;
 
+function formatDataQualityIssue(issue, index) {
+  const parts = [
+    `${index + 1}. [${String(issue?.severity || "info").toUpperCase()}] ${issue?.type || "issue"}`,
+    `country=${issue?.sourceCountry || "-"}`,
+    `sheetId=${issue?.sourceSheetId || "-"}`,
+    `configuredTab=${issue?.configuredTab || "-"}`,
+    `resolvedTab=${issue?.resolvedTab || "-"}`,
+    `column=${issue?.column || "-"}`,
+    `row=${issue?.row || "-"}`
+  ];
+  if (issue?.value !== undefined && issue?.value !== null) parts.push(`value=${String(issue.value)}`);
+  if (issue?.detail) parts.push(`detail=${issue.detail}`);
+  return parts.join(" | ");
+}
+
+async function sendDataQualityAlert({ syncId, syncedAtIso, issueReport = {}, mode = "full_refresh", rowCount = 0, transitionRowCount = 0 }) {
+  const issues = Array.isArray(issueReport.issues) ? issueReport.issues : [];
+  const issueCount = Number(issueReport.issueCount || issues.length || 0);
+  if (!issueCount) return;
+
+  const maxLines = Number(process.env.SYNC_ALERT_MAX_ISSUES || 120);
+  const shown = issues.slice(0, Math.max(1, maxLines));
+  const lines = shown.map((issue, i) => formatDataQualityIssue(issue, i)).join("\n");
+  const remaining = issueCount > shown.length ? `\n... and ${issueCount - shown.length} more issue(s)` : "";
+  const body = [
+    `BigQuery sync data-quality issues detected`,
+    `syncId: ${syncId}`,
+    `syncedAt: ${syncedAtIso}`,
+    `mode: ${mode}`,
+    `project: ${projectId}`,
+    `dataset: ${datasetId}`,
+    `table: ${tableId}`,
+    `transitionTable: ${transitionTableId}`,
+    `rowCount: ${rowCount}`,
+    `transitionRowCount: ${transitionRowCount}`,
+    `issueCount: ${issueCount}`,
+    "",
+    "Issue details:",
+    lines + remaining
+  ].join("\n");
+
+  await alertService.sendAlert("AdOps BigQuery Sync Data Quality Alert", body);
+}
+
 const TABLE_SCHEMA = [
   { name: "sync_id", type: "STRING" },
   { name: "synced_at", type: "TIMESTAMP" },
@@ -316,7 +360,12 @@ async function syncToBigQuery(options = {}) {
     const table = await ensureTable();
     const transitionTable = await ensureTransitionTable();
     await ensureStateTable();
-    const rows = await privateSheetsService.loadAllRows(Boolean(options.forceRefresh));
+    const issueLimit = Number(process.env.SYNC_VALIDATION_MAX_ISSUES || 500);
+    const syncIssues = [];
+    const rows = await privateSheetsService.loadAllRows(Boolean(options.forceRefresh), {
+      issues: syncIssues,
+      issueLimit
+    });
     const seriesByMetric = {
       revenue: await privateSheetsService.getOverviewLegacyTrend("revenue"),
       margin: await privateSheetsService.getOverviewLegacyTrend("margin"),
@@ -340,7 +389,11 @@ async function syncToBigQuery(options = {}) {
         projectId,
         checksum,
         syncedAt: syncedAtIso,
-        message: "No data change detected. BigQuery load skipped."
+        message: "No data change detected. BigQuery load skipped.",
+        dataQuality: {
+          issueCount: syncIssues.length,
+          issues: syncIssues.slice(0, issueLimit)
+        }
       };
       await writeState({
         sync_id: syncId,
@@ -351,6 +404,18 @@ async function syncToBigQuery(options = {}) {
         checksum,
         message: skipped.message
       });
+      try {
+        await sendDataQualityAlert({
+          syncId,
+          syncedAtIso,
+          issueReport: skipped.dataQuality,
+          mode: skipped.mode,
+          rowCount: rows.length,
+          transitionRowCount: transitionRows.length
+        });
+      } catch (_ignored) {
+        // no-op
+      }
       lastSyncResult = skipped;
       return skipped;
     }
@@ -389,7 +454,11 @@ async function syncToBigQuery(options = {}) {
       transitionTableId,
       projectId,
       checksum,
-      syncedAt: syncedAtIso
+      syncedAt: syncedAtIso,
+      dataQuality: {
+        issueCount: syncIssues.length,
+        issues: syncIssues.slice(0, issueLimit)
+      }
     };
     await writeState({
       sync_id: syncId,
@@ -400,6 +469,18 @@ async function syncToBigQuery(options = {}) {
       checksum,
       message: "Sync completed"
     });
+    try {
+      await sendDataQualityAlert({
+        syncId,
+        syncedAtIso,
+        issueReport: result.dataQuality,
+        mode: result.mode,
+        rowCount: bqRows.length,
+        transitionRowCount: transitionRows.length
+      });
+    } catch (_ignored) {
+      // no-op
+    }
     lastSyncResult = result;
     return result;
   } catch (error) {
