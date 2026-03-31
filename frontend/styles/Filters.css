@@ -8,7 +8,6 @@
   gap: 12px;
   align-items: end;
   position: relative;
-  overflow-x: hidden;
 }
 
 .filter-group {
@@ -95,10 +94,9 @@
   top: 0;
   background: #ffffff;
   padding: 4px;
-  z-index: 6;
+  z-index: 2;
   border-bottom: 1px solid #e7eeea;
-  margin: 0 0 4px;
-  box-shadow: 0 4px 10px rgba(255, 255, 255, 0.96);
+  margin: -4px -4px 4px;
 }
 
 .hierarchy-search {
@@ -216,13 +214,14 @@
   background: #e4eee8;
   border: 1px solid #d4e2da;
   border-radius: 10px;
-  padding: 1px 6px;
+  padding: 1px 5px;
   text-transform: uppercase;
   letter-spacing: 0.2px;
   flex: 0 0 auto;
-  max-width: 72px;
+  max-width: 64px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .clear-filters {
