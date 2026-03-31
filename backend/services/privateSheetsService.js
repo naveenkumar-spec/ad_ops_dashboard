@@ -17,26 +17,30 @@ const MONTHS = [
   "December"
 ];
 
-const COUNTRY_TO_REGION = {
-  USA: "North America",
-  UK: "Europe",
-  "UK/Europe": "Europe",
-  Europe: "Europe",
-  India: "India+SEA",
-  Canada: "North America",
-  UAE: "Middle East",
-  Malaysia: "India+SEA",
-  Singapore: "Rest of APAC",
-  Australia: "Australia",
-  Indonesia: "India+SEA",
-  Japan: "Japan",
-  "New Zealand": "Rest of APAC",
-  Newzealand: "Rest of APAC",
-  Pakistan: "India+SEA",
-  Philippines: "India+SEA",
-  "South Africa": "Africa",
-  Thailand: "India+SEA",
-  Vietnam: "India+SEA"
+const REGION_GROUPS = {
+  "North America": new Set(["usa", "canada", "multiple"]),
+  LATAM: new Set(["brazil", "chile"]),
+  Australia: new Set(["australia"]),
+  Europe: new Set([
+    "uk", "france", "germany", "spain", "italy", "switzerland", "cyprus",
+    "portugal", "netherlands", "austria", "denmark", "sweden", "belgium",
+    "poland", "baltics", "finland", "ukeurope", "europe"
+  ]),
+  "Middle East": new Set([
+    "turkey", "uae", "ksa", "abudhabiqatarkuwaitdubaibahrain", "middleeast",
+    "ksakuwait", "ksauae", "abudhabi", "qatar", "kuwait", "dubai", "bahrain",
+    "saudiarabia"
+  ]),
+  "India+SEA": new Set([
+    "india", "thailand", "indonesia", "philippines", "malaysia", "vietnam", "singapore"
+  ]),
+  "Rest of APAC": new Set([
+    "cambodia", "newzealand", "bangladesh", "taiwan", "southkorea", "srilanka", "pakistan", "hongkong"
+  ]),
+  Japan: new Set(["japan"]),
+  Africa: new Set([
+    "africa", "southafrica", "zambia", "botswana", "kenya", "mozambique", "nigeria", "kenyatanzania"
+  ])
 };
 
 const COUNTRY_CANONICAL = {
@@ -230,6 +234,15 @@ function canonicalCountryName(value) {
   return COUNTRY_CANONICAL[key] || raw;
 }
 
+function mapCountryToRegion(countryValue, fallbackValue = "") {
+  const key = normalizeKey(countryValue || fallbackValue);
+  if (!key) return "Other";
+  for (const [region, values] of Object.entries(REGION_GROUPS)) {
+    if (values.has(key)) return region;
+  }
+  return "Other";
+}
+
 function getTabCandidates(source = {}) {
   const country = String(source.country || "").trim();
   const tabName = String(source.tabName || "").trim();
@@ -339,7 +352,7 @@ function normalizeRow(rowValues, headerMap, source) {
     campaignId,
     status,
     country,
-    region: COUNTRY_TO_REGION[country] || COUNTRY_TO_REGION[sourceCountry] || country,
+    region: mapCountryToRegion(country, sourceCountry),
     revenue,
     spend,
     grossProfit,
