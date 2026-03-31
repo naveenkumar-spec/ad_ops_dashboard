@@ -102,6 +102,17 @@ export function resolveSelectedCountries(regionFilter, regionTree = []) {
   const cleaned = values.filter((v) => String(v).toLowerCase() !== "all");
   if (!cleaned.length) return [];
 
+  // If user explicitly picked one or more countries, prefer those and ignore
+  // region tokens to avoid expanding back to many countries.
+  const explicitCountries = cleaned
+    .map((token) => String(token || "").trim())
+    .filter((token) => token.toLowerCase().startsWith("country::"))
+    .map((token) => token.slice("country::".length).trim())
+    .filter(Boolean);
+  if (explicitCountries.length) {
+    return Array.from(new Set(explicitCountries));
+  }
+
   const regionMap = new Map();
   (regionTree || []).forEach((node) => {
     const region = String(node?.region || "").trim();
@@ -144,4 +155,3 @@ export function resolveSelectedCountries(regionFilter, regionTree = []) {
 
   return Array.from(selected);
 }
-
