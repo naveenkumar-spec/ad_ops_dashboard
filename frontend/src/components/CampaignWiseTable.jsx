@@ -3,6 +3,7 @@ import axios from "axios";
 import { mockCampaignWise, mockCampaignWiseTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
+import { convertUsdToDisplay, formatAbsoluteCurrencyByContext, formatCompactCurrency } from "../utils/currencyDisplay.js";
 import "../../styles/Tables.css";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -42,22 +43,25 @@ function deriveRow(row) {
   const today = new Date();
   const daysRemaining = Math.round((end - today) / MS_PER_DAY);
   const pctPassed = ((duration - daysRemaining) / duration) * 100;
+  const dailyRequiredPace = daysRemaining > 0 ? (row.plannedImpressions - row.deliveredImpressions) / daysRemaining : 0;
   return {
     ...row,
     duration,
     daysRemaining,
     pctPassed,
+    dailyRequiredPace
   };
 }
 
-export default function CampaignWiseTable({ filters = {} }) {
+export default function CampaignWiseTable({ filters = {}, currencyContext = null }) {
   const [data, setData] = useState([]);
   const [totals, setTotals] = useState(null);
   const [loading, setLoading] = useState(true);
+  const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   useEffect(() => {
     axios
-      .get("/api/overview/campaign-wise", { timeout: 6000, params: toApiParams(filters) })
+      .get("/api/overview/campaign-wise", { timeout: 12000, params: toApiParams(filters) })
       .then((res) => {
         if (res.data?.rows?.length) {
           setData(res.data.rows.map(deriveRow));
@@ -83,18 +87,25 @@ export default function CampaignWiseTable({ filters = {} }) {
         agg.duration += r.duration || 0;
         agg.daysRemaining += r.daysRemaining || 0;
         agg.plannedImpressions += r.plannedImpressions || 0;
+        agg.deliveredImpressions += r.deliveredImpressions || 0;
+        agg.revenue += r.revenue || 0;
+        agg.spend += r.spend || 0;
+        agg.grossMargin += r.grossMargin || 0;
+        agg.netMargin += r.netMargin || 0;
         return agg;
       },
-      { budgetGroups: 0, duration: 0, daysRemaining: 0, plannedImpressions: 0 }
+      { budgetGroups: 0, duration: 0, daysRemaining: 0, plannedImpressions: 0, deliveredImpressions: 0, revenue: 0, spend: 0, grossMargin: 0, netMargin: 0 }
     );
     acc.avgPctPassed = data.reduce((sum, r) => sum + (r.pctPassed || 0), 0) / data.length;
+    acc.grossMarginPct = acc.revenue > 0 ? ((acc.revenue - acc.spend) / acc.revenue) * 100 : 0;
+    acc.netMarginPct = acc.revenue > 0 ? (acc.netMargin / acc.revenue) * 100 : 0;
     return acc;
   }, [data, totals]);
 
   return (
     <div className="adv-table-card">
       <div className="adv-table-header">
-        <h3 className="adv-table-title">Campaign Wise Data</h3>
+        <h3 className="adv-table-title">Campaign Wise Data ({data.length} budget groups)</h3>
       </div>
 
       {loading ? (
@@ -108,10 +119,19 @@ export default function CampaignWiseTable({ filters = {} }) {
                 <th>Budget Groups</th>
                 <th>Start Date</th>
                 <th>End Date</th>
+                <th>Status</th>
                 <th>Campaign Duration</th>
                 <th>Days Remaining</th>
                 <th>% of Days Passed</th>
                 <th>Planned Impressions</th>
+                <th>Delivered Impressions</th>
+                <th>Daily Required Pace</th>
+                <th>Booked Revenue</th>
+                <th>Spend</th>
+                <th>Gross Margin</th>
+                <th>Gross Margin %</th>
+                <th>Net Margin</th>
+                <th>Net Margin %</th>
               </tr>
             </thead>
             <tbody>
@@ -121,12 +141,21 @@ export default function CampaignWiseTable({ filters = {} }) {
                   <td title={formatAbsoluteInteger(r.budgetGroups)}>{r.budgetGroups}</td>
                   <td title={safeTitle(fmtDate(r.startDate))}>{fmtDate(r.startDate)}</td>
                   <td title={safeTitle(fmtDate(r.endDate))}>{fmtDate(r.endDate)}</td>
+                  <td title={safeTitle(r.status)}>{r.status}</td>
                   <td title={formatAbsoluteInteger(r.duration)}>{fmtNum(r.duration)}</td>
                   <td className={r.daysRemaining < 0 ? "text-warn" : ""} title={formatAbsoluteInteger(r.daysRemaining)}>
                     {fmtNum(r.daysRemaining)}
                   </td>
                   <td title={formatAbsolutePercent(r.pctPassed, 2)}>{fmtPct(r.pctPassed)}</td>
                   <td title={formatAbsoluteInteger(r.plannedImpressions)}>{fmtImpr(r.plannedImpressions)}</td>
+                  <td title={formatAbsoluteInteger(r.deliveredImpressions)}>{fmtImpr(r.deliveredImpressions)}</td>
+                  <td title={formatAbsoluteInteger(r.dailyRequiredPace)}>{fmtImpr(r.dailyRequiredPace)}</td>
+                  <td title={formatAbsoluteCurrencyByContext(c(r.revenue), currencyContext)}>{formatCompactCurrency(c(r.revenue), currencyContext)}</td>
+                  <td title={formatAbsoluteCurrencyByContext(c(r.spend), currencyContext)}>{formatCompactCurrency(c(r.spend), currencyContext)}</td>
+                  <td title={formatAbsoluteCurrencyByContext(c(r.grossMargin), currencyContext)}>{formatCompactCurrency(c(r.grossMargin), currencyContext)}</td>
+                  <td title={formatAbsolutePercent(r.grossMarginPct, 2)}>{r.grossMarginPct != null ? fmtPct(r.grossMarginPct) : ""}</td>
+                  <td title={formatAbsoluteCurrencyByContext(c(r.netMargin), currencyContext)}>{r.netMargin != null ? formatCompactCurrency(c(r.netMargin), currencyContext) : ""}</td>
+                  <td title={formatAbsolutePercent(r.netMarginPct, 2)}>{r.netMarginPct != null ? fmtPct(r.netMarginPct) : ""}</td>
                 </tr>
               ))}
             </tbody>
@@ -139,6 +168,7 @@ export default function CampaignWiseTable({ filters = {} }) {
                   <td>
                     <strong title={formatAbsoluteInteger(totalsDerived.budgetGroups)}>{fmtNum(totalsDerived.budgetGroups)}</strong>
                   </td>
+                  <td></td>
                   <td></td>
                   <td></td>
                   <td>
@@ -156,6 +186,28 @@ export default function CampaignWiseTable({ filters = {} }) {
                   </td>
                   <td>
                     <strong title={formatAbsoluteInteger(totalsDerived.plannedImpressions)}>{fmtImpr(totalsDerived.plannedImpressions)}</strong>
+                  </td>
+                  <td>
+                    <strong title={formatAbsoluteInteger(totalsDerived.deliveredImpressions)}>{fmtImpr(totalsDerived.deliveredImpressions)}</strong>
+                  </td>
+                  <td></td>
+                  <td>
+                    <strong title={formatAbsoluteCurrencyByContext(c(totalsDerived.revenue), currencyContext)}>{formatCompactCurrency(c(totalsDerived.revenue), currencyContext)}</strong>
+                  </td>
+                  <td>
+                    <strong title={formatAbsoluteCurrencyByContext(c(totalsDerived.spend), currencyContext)}>{formatCompactCurrency(c(totalsDerived.spend), currencyContext)}</strong>
+                  </td>
+                  <td>
+                    <strong title={formatAbsoluteCurrencyByContext(c(totalsDerived.grossMargin), currencyContext)}>{formatCompactCurrency(c(totalsDerived.grossMargin), currencyContext)}</strong>
+                  </td>
+                  <td>
+                    <strong title={formatAbsolutePercent(totalsDerived.grossMarginPct, 2)}>{fmtPct(totalsDerived.grossMarginPct)}</strong>
+                  </td>
+                  <td>
+                    <strong title={formatAbsoluteCurrencyByContext(c(totalsDerived.netMargin), currencyContext)}>{formatCompactCurrency(c(totalsDerived.netMargin), currencyContext)}</strong>
+                  </td>
+                  <td>
+                    <strong title={formatAbsolutePercent(totalsDerived.netMarginPct, 2)}>{fmtPct(totalsDerived.netMarginPct)}</strong>
                   </td>
                 </tr>
               </tfoot>

@@ -822,26 +822,29 @@ async function getCountryWiseTable(filters = {}) {
   };
 }
 
-async function getCampaignWiseTable(limit = 50, filters = {}) {
-  const safeLimit = Math.max(1, Math.min(1000, Number(limit || 50)));
+async function getCampaignWiseTable(limit = 2000, filters = {}) {
+  const safeLimit = Math.max(1, Math.min(5000, Number(limit || 2000)));
   const { whereSql, params } = buildWhereClause(filters, "t");
 
   const rows = await runQuery(
     `
-      WITH grouped AS (
-        SELECT
-          COALESCE(NULLIF(TRIM(t.campaign_name), ''), 'Unknown Campaign') AS name,
-          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
-          MIN(t.start_date) AS startDate,
-          MAX(t.end_date) AS endDate,
-          SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions
-        FROM ${latestMainTableSql()} t
-        ${whereSql}
-        GROUP BY name
-      )
-      SELECT *
-      FROM grouped
-      ORDER BY plannedImpressions DESC
+      SELECT
+        COALESCE(NULLIF(TRIM(t.campaign_name), ''), 'Unknown Campaign') AS name,
+        COALESCE(t.budget_groups, 1) AS budgetGroups,
+        t.start_date AS startDate,
+        t.end_date AS endDate,
+        COALESCE(t.status, 'Unknown') AS status,
+        COALESCE(t.planned_impressions, 0) AS plannedImpressions,
+        COALESCE(t.delivered_impressions, 0) AS deliveredImpressions,
+        COALESCE(t.revenue, 0) AS revenue,
+        COALESCE(t.spend, 0) AS spend,
+        COALESCE(t.gross_profit, 0) AS grossMargin,
+        COALESCE(t.gross_margin_pct, 0) AS grossMarginPct,
+        COALESCE(t.net_margin, 0) AS netMargin,
+        COALESCE(t.net_margin_pct, 0) AS netMarginPct
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
+      ORDER BY t.campaign_name, t.start_date
       LIMIT @limit
     `,
     { ...params, limit: safeLimit }
@@ -849,27 +852,15 @@ async function getCampaignWiseTable(limit = 50, filters = {}) {
 
   const totalsRows = await runQuery(
     `
-      WITH grouped AS (
-        SELECT
-          COALESCE(NULLIF(TRIM(t.campaign_name), ''), 'Unknown Campaign') AS name,
-          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
-          SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions
-        FROM ${latestMainTableSql()} t
-        ${whereSql}
-        GROUP BY name
-      ),
-      top_rows AS (
-        SELECT *
-        FROM grouped
-        ORDER BY plannedImpressions DESC
-        LIMIT @limit
-      )
       SELECT
-        SUM(budgetGroups) AS budgetGroups,
-        SUM(plannedImpressions) AS plannedImpressions
-      FROM top_rows
+        COUNT(*) AS rowCount,
+        SUM(COALESCE(t.budget_groups, 1)) AS budgetGroups,
+        SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
+        SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
     `,
-    { ...params, limit: safeLimit }
+    params
   );
 
   const totals = totalsRows[0] || {};
@@ -879,14 +870,24 @@ async function getCampaignWiseTable(limit = 50, filters = {}) {
       budgetGroups: toNumber(r.budgetGroups),
       startDate: r.startDate ? String(r.startDate.value || r.startDate) : null,
       endDate: r.endDate ? String(r.endDate.value || r.endDate) : null,
-      plannedImpressions: toNumber(r.plannedImpressions)
+      status: r.status,
+      plannedImpressions: toNumber(r.plannedImpressions),
+      deliveredImpressions: toNumber(r.deliveredImpressions),
+      revenue: toNumber(r.revenue),
+      spend: toNumber(r.spend),
+      grossMargin: toNumber(r.grossMargin),
+      grossMarginPct: toNumber(r.grossMarginPct),
+      netMargin: toNumber(r.netMargin),
+      netMarginPct: toNumber(r.netMarginPct)
     })),
     totals: {
+      rowCount: toNumber(totals.rowCount),
       budgetGroups: toNumber(totals.budgetGroups),
       duration: 0,
       daysRemaining: 0,
       avgPctPassed: 0,
-      plannedImpressions: toNumber(totals.plannedImpressions)
+      plannedImpressions: toNumber(totals.plannedImpressions),
+      deliveredImpressions: toNumber(totals.deliveredImpressions)
     }
   };
 }
