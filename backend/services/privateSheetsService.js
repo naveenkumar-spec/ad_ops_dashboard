@@ -105,7 +105,7 @@ const FIELD_ALIASES = {
   csOwner: ["CS Responsible"],
   salesOwner: ["Sale Responsible", "Sales Responsible"],
   budgetGroups: ["Budget Groups"],
-  cpm: ["Buying CPM", "eCPM", "ECPM", "CPM"]
+  cpm: ["Buying CPM"]
 };
 
 const COUNTRY_DEFAULT_CURRENCY = {
@@ -186,7 +186,7 @@ const OVERVIEW_RAW_ALIASES = {
   country: ["Country", "Region", "Market"],
   salesValueUsd: ["Sales Value in USD", "Revenue", "Sales Value"],
   mediaSpendUsd: ["Media Spend in USD", "Media Spend", "Spend"],
-  ecpm: ["eCPM", "ECPM", "Average Buying CPM", "Avg Buying CPM", "CPM", "eCPM (USD)", "ECPM (USD)"],
+  ecpm: ["eCPM.", "eCPM", "ECPM"],
   // single-column date alternatives (Month-Year combined)
   monthYear: ["Month-Year", "Month Year", "Date", "Period"]
 };
@@ -450,12 +450,7 @@ function normalizeRow(rowValues, headerMap, source) {
   const plannedImpressions = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.plannedImpressions));
   const deliveredImpressions = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.deliveredImpressions));
   const budgetGroups = Math.max(1, Math.round(parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.budgetGroups)) || 1));
-  let cpm = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.cpm));
-  
-  // Compute CPM from spend and impressions if not provided or zero
-  if (!cpm && deliveredImpressions > 0 && spend > 0) {
-    cpm = (spend / (deliveredImpressions / 1000));
-  }
+  const cpm = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.cpm));
 
   const startDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.startDate));
   const endDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.endDate));
@@ -887,23 +882,10 @@ async function getOverviewLegacyTrend(metric = "revenue") {
   console.log(`[getOverviewLegacyTrend] Found headers at row ${headerRowIndex}:`, headers.slice(0, 15).join(", "));
   console.log(`[getOverviewLegacyTrend] Total rows to parse: ${rows.length - headerRowIndex - 1}`);
 
-  // Find which eCPM column has more non-zero data
-  function pickEcpmColumnIndex() {
-    const candidates = OVERVIEW_RAW_ALIASES.ecpm.map((alias) => headerMap[normalizeKey(alias)]).filter((idx) => idx !== undefined);
-    if (!candidates.length) return undefined;
-    if (candidates.length === 1) return candidates[0];
-    let bestIdx = candidates[0];
-    let bestCount = 0;
-    candidates.forEach((colIdx) => {
-      const count = rows.slice(headerRowIndex + 1).filter((r) => {
-        const v = String((r || [])[colIdx] || "").trim();
-        return v !== "" && v !== "0" && Number(v) !== 0;
-      }).length;
-      if (count > bestCount) { bestCount = count; bestIdx = colIdx; }
-    });
-    return bestIdx;
-  }
-  const ecpmColIdx = pickEcpmColumnIndex();
+  // Find eCPM column (prefer "eCPM." with period)
+  const ecpmColIdx = OVERVIEW_RAW_ALIASES.ecpm
+    .map((alias) => headerMap[normalizeKey(alias)])
+    .find((idx) => idx !== undefined);
 
   // Helper: parse a combined month-year cell like "Mar-20", "March 2020", "03/2020", "2020-03"
   function parseCombinedMonthYear(value) {
@@ -976,9 +958,13 @@ async function getOverviewLegacyTrend(metric = "revenue") {
     const country = String(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.country) || "").trim();
     const salesValueUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.salesValueUsd));
     const mediaSpendUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.mediaSpendUsd));
-    // Use the eCPM column with more data
+    // Use the eCPM column
     const ecpm = ecpmColIdx !== undefined ? parseNumber(row[ecpmColIdx]) : 0;
     const grossMarginPct = salesValueUsd ? ((salesValueUsd - mediaSpendUsd) / salesValueUsd) * 100 : 0;
+
+    if (parsed.length < 5) {
+      console.log(`[getOverviewLegacyTrend] Sample row ${i}: month=${month}, year=${year}, country=${country}, salesValueUsd=${salesValueUsd}, ecpm=${ecpm}`);
+    }
 
     parsed.push({
       country,

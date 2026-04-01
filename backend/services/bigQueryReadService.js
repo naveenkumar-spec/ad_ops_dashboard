@@ -526,16 +526,7 @@ async function getOverviewSeries(metric, filters = {}) {
   let valueExpr = "SUM(COALESCE(t.revenue, 0)) / 1000000";
   if (metric === "margin") valueExpr = "AVG(COALESCE(t.gross_margin_pct, 0))";
   if (metric === "net_margin") valueExpr = "AVG(COALESCE(t.net_margin_pct, 0))";
-  if (metric === "cpm") {
-    // Use cpm column if available, otherwise compute from spend/impressions
-    valueExpr = `AVG(
-      CASE 
-        WHEN COALESCE(t.cpm, 0) > 0 THEN t.cpm
-        WHEN COALESCE(t.delivered_impressions, 0) > 0 THEN SAFE_DIVIDE(t.spend, t.delivered_impressions / 1000)
-        ELSE 0
-      END
-    )`;
-  }
+  if (metric === "cpm") valueExpr = "AVG(COALESCE(t.cpm, 0))";
 
   const rows = await runQuery(
     `
