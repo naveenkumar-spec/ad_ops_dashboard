@@ -44,8 +44,8 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
   }, [JSON.stringify(filters)]);
 
   const displayed = view === "bottom"
-    ? [...data].sort((a, b) => a.grossMarginPct - b.grossMarginPct)
-    : [...data].sort((a, b) => b.grossMarginPct - a.grossMarginPct);
+    ? [...data].filter(c => c.grossMarginPct <= 50).sort((a, b) => a.grossMarginPct - b.grossMarginPct)
+    : [...data].filter(c => c.grossMarginPct >= 50).sort((a, b) => b.grossMarginPct - a.grossMarginPct);
 
   const converted = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
@@ -54,8 +54,8 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
       <div className="adv-table-header">
         <h3 className="adv-table-title">
           {view === "bottom" 
-            ? "Bottom Campaigns ( with < 50% Gross Margin )" 
-            : "Top Campaigns ( with > 50% Gross Margin )"}
+            ? "Bottom Campaigns ( with ≤ 50% Gross Margin )" 
+            : "Top Campaigns ( with ≥ 50% Gross Margin )"}
         </h3>
         <div className="bottom-top-toggle">
           <button className={`bt-btn ${view === "bottom" ? "active" : ""}`} onClick={() => setView("bottom")}>Bottom</button>
