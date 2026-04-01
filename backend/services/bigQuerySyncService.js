@@ -517,11 +517,19 @@ async function syncToBigQuery(options = {}) {
     activeSyncStatus.rowCount = rows.length;
     activeSyncStatus.issueCount = syncIssues.length;
     activeSyncStatus.step = "building_transition_metrics";
-    const seriesByMetric = {
-      revenue: await privateSheetsService.getOverviewLegacyTrend("revenue"),
-      margin: await privateSheetsService.getOverviewLegacyTrend("margin"),
-      cpm: await privateSheetsService.getOverviewLegacyTrend("cpm")
-    };
+    activeSyncStatus.message = "Reading legacy branding sheet for trend metrics";
+    let seriesByMetric = { revenue: [], margin: [], cpm: [] };
+    try {
+      const [revenueSeries, marginSeries, cpmSeries] = await Promise.all([
+        privateSheetsService.getOverviewLegacyTrend("revenue"),
+        privateSheetsService.getOverviewLegacyTrend("margin"),
+        privateSheetsService.getOverviewLegacyTrend("cpm")
+      ]);
+      seriesByMetric = { revenue: revenueSeries, margin: marginSeries, cpm: cpmSeries };
+      console.log(`[BigQuery Sync] Legacy trend rows: revenue=${revenueSeries.length}, margin=${marginSeries.length}, cpm=${cpmSeries.length}`);
+    } catch (legacyErr) {
+      console.error("[BigQuery Sync] Failed to read legacy branding sheet, transition table will be empty:", legacyErr.message);
+    }
     const transitionRows = toTransitionRows(syncId, syncedAtIso, seriesByMetric);
     throwIfStopRequested();
     activeSyncStatus.transitionRowCount = transitionRows.length;

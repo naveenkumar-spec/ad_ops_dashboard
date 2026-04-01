@@ -43,8 +43,10 @@ const projectId = process.env.GCP_PROJECT_ID;
 const datasetId = process.env.BIGQUERY_DATASET_ID || "adops_dashboard";
 const tableId = process.env.BIGQUERY_TABLE_ID || "campaign_tracker_consolidated";
 const transitionTableId = process.env.BIGQUERY_TRANSITION_TABLE_ID || "overview_transition_metrics";
+const legacyRawTableId = process.env.BIGQUERY_LEGACY_TABLE_ID || "";
 const tableRef = `\`${projectId}.${datasetId}.${tableId}\``;
 const transitionTableRef = `\`${projectId}.${datasetId}.${transitionTableId}\``;
+const legacyRawTableRef = legacyRawTableId ? `\`${projectId}.${datasetId}.${legacyRawTableId}\`` : null;
 const location = process.env.BIGQUERY_LOCATION || "US";
 
 const bigquery = new BigQuery({
@@ -257,12 +259,89 @@ async function queryTransitionRows() {
   }
 }
 
+// Query legacy raw table (branding sheet dumped to BQ) if BIGQUERY_LEGACY_TABLE_ID is set.
+// Expected columns: month (STRING), year (INT64/STRING), sales_value_usd (FLOAT),
+//                   media_spend_usd (FLOAT), ecpm (FLOAT)
+async function queryLegacyRawRows() {
+  if (!legacyRawTableRef) return [];
+  try {
+    const rows = await runQuery(
+      `
+        SELECT
+          TRIM(month) AS month,
+          SAFE_CAST(year AS INT64) AS year,
+          COALESCE(sales_value_usd, 0) AS sales_value_usd,
+          COALESCE(media_spend_usd, 0) AS media_spend_usd,
+          COALESCE(ecpm, 0) AS ecpm
+        FROM ${legacyRawTableRef}
+        WHERE TRIM(COALESCE(month, '')) != ''
+          AND SAFE_CAST(year AS INT64) IS NOT NULL
+      `
+    );
+    return rows.map((r) => {
+      const salesValueUsd = Number(r.sales_value_usd || 0);
+      const mediaSpendUsd = Number(r.media_spend_usd || 0);
+      const grossMarginPct = salesValueUsd > 0 ? ((salesValueUsd - mediaSpendUsd) / salesValueUsd) * 100 : 0;
+      return {
+        month: r.month,
+        year: Number(r.year || 0),
+        bookedRevenueM: salesValueUsd / 1_000_000,
+        grossMarginPct: Number(grossMarginPct.toFixed(2)),
+        averageBuyingCpm: Number(r.ecpm || 0)
+      };
+    });
+  } catch (error) {
+    const msg = String(error?.message || "").toLowerCase();
+    if (msg.includes("not found") || msg.includes("no such table")) return [];
+    console.error("[BigQuery] Failed to query legacy raw table:", error.message);
+    return [];
+  }
+}
+
+function legacyRawToTransitionRows(rawRows = []) {
+  // Aggregate by month+year (sum revenue, avg margin/cpm)
+  const map = new Map();
+  rawRows.forEach((r) => {
+    const key = `${r.year}__${r.month}`;
+    if (!map.has(key)) {
+      map.set(key, { month: r.month, year: r.year, revenueSum: 0, marginSum: 0, cpmSum: 0, count: 0 });
+    }
+    const entry = map.get(key);
+    entry.revenueSum += r.bookedRevenueM;
+    entry.marginSum += r.grossMarginPct;
+    entry.cpmSum += r.averageBuyingCpm;
+    entry.count += 1;
+  });
+  return Array.from(map.values()).map((e) => ({
+    month: e.month,
+    year: e.year,
+    bookedRevenueM: Number(e.revenueSum.toFixed(2)),
+    grossMarginPct: Number((e.count > 0 ? e.marginSum / e.count : 0).toFixed(2)),
+    averageBuyingCpm: Number((e.count > 0 ? e.cpmSum / e.count : 0).toFixed(2))
+  }));
+}
+
 async function loadTransitionRows(forceRefresh = false) {
   const now = Date.now();
   if (!forceRefresh && cachedTransitionRows && now - lastTransitionFetchTime < CACHE_MS) {
     return cachedTransitionRows;
   }
-  cachedTransitionRows = await queryTransitionRows();
+  // Fetch from both sources in parallel
+  const [transitionRows, legacyRawRows] = await Promise.all([
+    queryTransitionRows(),
+    queryLegacyRawRows()
+  ]);
+
+  // If we have a raw legacy table, merge: raw table takes precedence for months not in transition table
+  let merged = transitionRows;
+  if (legacyRawRows.length > 0) {
+    const transitionKeys = new Set(transitionRows.map((r) => `${r.year}__${r.month}`));
+    const aggregatedRaw = legacyRawToTransitionRows(legacyRawRows);
+    const extraFromRaw = aggregatedRaw.filter((r) => !transitionKeys.has(`${r.year}__${r.month}`));
+    merged = [...transitionRows, ...extraFromRaw];
+  }
+
+  cachedTransitionRows = merged;
   lastTransitionFetchTime = now;
   return cachedTransitionRows;
 }
