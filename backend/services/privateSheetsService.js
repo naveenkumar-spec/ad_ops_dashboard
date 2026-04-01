@@ -183,6 +183,7 @@ const OVERVIEW_RAW_SPENDS_SOURCE = {
 const OVERVIEW_RAW_ALIASES = {
   month: ["Month"],
   year: ["Year"],
+  country: ["Country", "Region", "Market"],
   salesValueUsd: ["Sales Value in USD", "Revenue", "Sales Value"],
   mediaSpendUsd: ["Media Spend in USD", "Media Spend", "Spend"],
   ecpm: ["eCPM", "ECPM", "Average Buying CPM", "Avg Buying CPM", "CPM", "eCPM (USD)", "ECPM (USD)"],
@@ -878,6 +879,9 @@ async function getOverviewLegacyTrend(metric = "revenue") {
     if (key && headerMap[key] === undefined) headerMap[key] = idx;
   });
 
+  console.log(`[getOverviewLegacyTrend] Found headers at row ${headerRowIndex}:`, headers.slice(0, 15).join(", "));
+  console.log(`[getOverviewLegacyTrend] Total rows to parse: ${rows.length - headerRowIndex - 1}`);
+
   // Find which eCPM column has more non-zero data
   function pickEcpmColumnIndex() {
     const candidates = OVERVIEW_RAW_ALIASES.ecpm.map((alias) => headerMap[normalizeKey(alias)]).filter((idx) => idx !== undefined);
@@ -964,6 +968,7 @@ async function getOverviewLegacyTrend(metric = "revenue") {
 
     if (!month || !year) continue;
 
+    const country = String(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.country) || "").trim();
     const salesValueUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.salesValueUsd));
     const mediaSpendUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.mediaSpendUsd));
     // Use the eCPM column with more data
@@ -971,22 +976,59 @@ async function getOverviewLegacyTrend(metric = "revenue") {
     const grossMarginPct = salesValueUsd ? ((salesValueUsd - mediaSpendUsd) / salesValueUsd) * 100 : 0;
 
     parsed.push({
+      country,
       month,
       year,
-      bookedRevenueM: salesValueUsd / 1_000_000,
-      grossMarginPct,
-      averageBuyingCpm: ecpm
+      salesValueUsd,
+      mediaSpendUsd,
+      ecpm,
+      grossMarginPct
     });
   }
 
-  const years = Array.from(new Set(parsed.map((r) => String(r.year)).filter(Boolean))).sort();
+  // Aggregate by month+year across all countries
+  const aggregated = new Map();
+  parsed.forEach((r) => {
+    const key = `${r.year}__${r.month}`;
+    if (!aggregated.has(key)) {
+      aggregated.set(key, {
+        month: r.month,
+        year: r.year,
+        totalSalesValueUsd: 0,
+        totalMediaSpendUsd: 0,
+        cpmSum: 0,
+        cpmCount: 0
+      });
+    }
+    const agg = aggregated.get(key);
+    agg.totalSalesValueUsd += r.salesValueUsd;
+    agg.totalMediaSpendUsd += r.mediaSpendUsd;
+    if (r.ecpm > 0) {
+      agg.cpmSum += r.ecpm;
+      agg.cpmCount += 1;
+    }
+  });
+
+  const aggregatedRows = Array.from(aggregated.values()).map((agg) => ({
+    month: agg.month,
+    year: agg.year,
+    bookedRevenueM: agg.totalSalesValueUsd / 1_000_000,
+    grossMarginPct: agg.totalSalesValueUsd > 0 
+      ? ((agg.totalSalesValueUsd - agg.totalMediaSpendUsd) / agg.totalSalesValueUsd) * 100 
+      : 0,
+    averageBuyingCpm: agg.cpmCount > 0 ? agg.cpmSum / agg.cpmCount : 0
+  }));
+
+  console.log(`[getOverviewLegacyTrend] Parsed ${parsed.length} raw rows, aggregated to ${aggregatedRows.length} month-year entries for metric=${metric}`);
+
+  const years = Array.from(new Set(aggregatedRows.map((r) => String(r.year)).filter(Boolean))).sort();
   const byMonth = {};
   MONTHS.forEach((m) => {
     byMonth[m] = { month: m };
     years.forEach((y) => { byMonth[m][y] = 0; });
   });
 
-  parsed.forEach((r) => {
+  aggregatedRows.forEach((r) => {
     const yearKey = String(r.year);
     if (!byMonth[r.month]) return;
     if (metric === "cpm") byMonth[r.month][yearKey] = Number((r.averageBuyingCpm || 0).toFixed(2));
