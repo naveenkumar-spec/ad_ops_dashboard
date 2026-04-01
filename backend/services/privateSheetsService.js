@@ -450,7 +450,12 @@ function normalizeRow(rowValues, headerMap, source) {
   const plannedImpressions = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.plannedImpressions));
   const deliveredImpressions = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.deliveredImpressions));
   const budgetGroups = Math.max(1, Math.round(parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.budgetGroups)) || 1));
-  const cpm = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.cpm));
+  let cpm = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.cpm));
+  
+  // Compute CPM from spend and impressions if not provided or zero
+  if (!cpm && deliveredImpressions > 0 && spend > 0) {
+    cpm = (spend / (deliveredImpressions / 1000));
+  }
 
   const startDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.startDate));
   const endDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.endDate));
