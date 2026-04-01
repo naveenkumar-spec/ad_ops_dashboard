@@ -822,8 +822,9 @@ async function getCountryWiseTable(filters = {}) {
   };
 }
 
-async function getCampaignWiseTable(limit = 2000, filters = {}) {
-  const safeLimit = Math.max(1, Math.min(5000, Number(limit || 2000)));
+async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
+  const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
+  const safeOffset = Math.max(0, Number(offset || 0));
   const { whereSql, params } = buildWhereClause(filters, "t");
 
   const rows = await runQuery(
@@ -845,9 +846,9 @@ async function getCampaignWiseTable(limit = 2000, filters = {}) {
       FROM ${latestMainTableSql()} t
       ${whereSql}
       ORDER BY t.campaign_name, t.start_date
-      LIMIT @limit
+      LIMIT @limit OFFSET @offset
     `,
-    { ...params, limit: safeLimit }
+    { ...params, limit: safeLimit, offset: safeOffset }
   );
 
   const totalsRows = await runQuery(
@@ -888,7 +889,8 @@ async function getCampaignWiseTable(limit = 2000, filters = {}) {
       avgPctPassed: 0,
       plannedImpressions: toNumber(totals.plannedImpressions),
       deliveredImpressions: toNumber(totals.deliveredImpressions)
-    }
+    },
+    hasMore: rows.length === safeLimit
   };
 }
 

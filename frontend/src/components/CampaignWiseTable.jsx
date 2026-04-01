@@ -57,26 +57,62 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
   const [data, setData] = useState([]);
   const [totals, setTotals] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
-  useEffect(() => {
+  const loadData = (isInitial = false) => {
+    const currentOffset = isInitial ? 0 : offset;
+    if (isInitial) {
+      setLoading(true);
+      setData([]);
+      setOffset(0);
+    } else {
+      setLoadingMore(true);
+    }
+
     axios
-      .get("/api/overview/campaign-wise", { timeout: 12000, params: toApiParams(filters) })
+      .get("/api/overview/campaign-wise", { 
+        timeout: 12000, 
+        params: { ...toApiParams(filters), limit: 50, offset: currentOffset }
+      })
       .then((res) => {
         if (res.data?.rows?.length) {
-          setData(res.data.rows.map(deriveRow));
+          const newRows = res.data.rows.map(deriveRow);
+          setData(prev => isInitial ? newRows : [...prev, ...newRows]);
           setTotals(res.data.totals);
-        } else {
+          setHasMore(res.data.hasMore !== false);
+          setOffset(currentOffset + res.data.rows.length);
+        } else if (isInitial) {
           setData(mockCampaignWise.map(deriveRow));
           setTotals(mockCampaignWiseTotals);
+          setHasMore(false);
         }
       })
       .catch(() => {
-        setData(mockCampaignWise.map(deriveRow));
-        setTotals(mockCampaignWiseTotals);
+        if (isInitial) {
+          setData(mockCampaignWise.map(deriveRow));
+          setTotals(mockCampaignWiseTotals);
+          setHasMore(false);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+      });
+  };
+
+  useEffect(() => {
+    loadData(true);
   }, [JSON.stringify(filters)]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !loadingMore) {
+      loadData(false);
+    }
+  };
 
   const totalsDerived = useMemo(() => {
     if (totals) return totals;
@@ -111,7 +147,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
       {loading ? (
         <div className="table-loading">Loading...</div>
       ) : (
-        <div className="adv-table-scroll">
+        <div className="adv-table-scroll" onScroll={handleScroll}>
           <table className="adv-table">
             <thead>
               <tr>
@@ -158,6 +194,13 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
                   <td title={formatAbsolutePercent(r.netMarginPct, 2)}>{r.netMarginPct != null ? fmtPct(r.netMarginPct) : ""}</td>
                 </tr>
               ))}
+              {loadingMore && (
+                <tr>
+                  <td colSpan="17" style={{ textAlign: 'center', padding: '20px' }}>
+                    Loading more...
+                  </td>
+                </tr>
+              )}
             </tbody>
             {totalsDerived && (
               <tfoot>
