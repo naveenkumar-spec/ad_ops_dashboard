@@ -203,6 +203,13 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
                   </td>
                 </tr>
               )}
+              {!loadingMore && hasMore && data.length >= 50 && (
+                <tr>
+                  <td colSpan="17" style={{ textAlign: 'center', padding: '10px', color: '#666', fontSize: '12px' }}>
+                    Scroll down to load more
+                  </td>
+                </tr>
+              )}
             </tbody>
             {totalsDerived && (
               <tfoot>

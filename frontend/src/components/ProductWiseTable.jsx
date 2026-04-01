@@ -117,7 +117,10 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
   return (
     <div className="adv-table-card">
       <div className="adv-table-header">
-        <h3 className="adv-table-title">Product and Platform wise data</h3>
+        <h3 className="adv-table-title">
+          Product and Platform wise data
+          {totals?.rowCount && ` - Showing ${rows.length} of ${totals.rowCount} products`}
+        </h3>
       </div>
 
       {loading ? (
@@ -207,6 +210,13 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
                 <tr>
                   <td colSpan="11" style={{ textAlign: 'center', padding: '20px' }}>
                     Loading more...
+                  </td>
+                </tr>
+              )}
+              {!loadingMore && hasMore && rows.length >= 50 && (
+                <tr>
+                  <td colSpan="11" style={{ textAlign: 'center', padding: '10px', color: '#666', fontSize: '12px' }}>
+                    Scroll down to load more
                   </td>
                 </tr>
               )}

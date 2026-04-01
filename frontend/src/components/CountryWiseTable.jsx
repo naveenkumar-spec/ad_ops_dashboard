@@ -117,7 +117,10 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
   return (
     <div className="adv-table-card">
       <div className="adv-table-header">
-        <h3 className="adv-table-title">Region / Country wise Data</h3>
+        <h3 className="adv-table-title">
+          Region / Country wise Data
+          {totals?.rowCount && ` - Showing ${data.length} of ${totals.rowCount} regions`}
+        </h3>
       </div>
 
       {loading ? (
@@ -200,6 +203,13 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
                 <tr>
                   <td colSpan="11" style={{ textAlign: 'center', padding: '20px' }}>
                     Loading more...
+                  </td>
+                </tr>
+              )}
+              {!loadingMore && hasMore && data.length >= 50 && (
+                <tr>
+                  <td colSpan="11" style={{ textAlign: 'center', padding: '10px', color: '#666', fontSize: '12px' }}>
+                    Scroll down to load more
                   </td>
                 </tr>
               )}

@@ -88,6 +88,7 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
           {view === "bottom" 
             ? "Bottom Campaigns ( with ≤ 50% Gross Margin )" 
             : "Top Campaigns ( with ≥ 50% Gross Margin )"}
+          {totals?.rowCount && ` - Showing ${data.length} of ${totals.rowCount}`}
         </h3>
         <div className="bottom-top-toggle">
           <button className={`bt-btn ${view === "bottom" ? "active" : ""}`} onClick={() => setView("bottom")}>Bottom</button>
@@ -137,6 +138,13 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
                 <tr>
                   <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
                     Loading more...
+                  </td>
+                </tr>
+              )}
+              {!loadingMore && hasMore && data.length >= 50 && (
+                <tr>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '10px', color: '#666', fontSize: '12px' }}>
+                    Scroll down to load more
                   </td>
                 </tr>
               )}
