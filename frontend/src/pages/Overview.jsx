@@ -132,10 +132,10 @@ export default function Overview({ currentUser, onLogout }) {
           <CombinedTrends key={`ct1-${refreshTick}`} filters={filters} trendBundle={trendBundle} currencyContext={currencyContext} />
           <CombinedTrendsSecondary key={`ct2-${refreshTick}`} filters={filters} trendBundle={trendBundle} currencyContext={currencyContext} />
           <div className="overview-tables-stack">
-            <BottomCampaignsTable key={`btm-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
             <CountryWiseTable key={`cty-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
             <ProductWiseTable key={`prd-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
             <CampaignWiseTable key={`cpg-${refreshTick}`} filters={filters} />
+            <BottomCampaignsTable key={`btm-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
           </div>
         </div>
       </div>
