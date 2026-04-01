@@ -26,26 +26,62 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
   const [totals, setTotals] = useState(null);
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
-  useEffect(() => {
+  const loadData = (isInitial = false) => {
+    const currentOffset = isInitial ? 0 : offset;
+    if (isInitial) {
+      setLoading(true);
+      setRows([]);
+      setOffset(0);
+    } else {
+      setLoadingMore(true);
+    }
+
     axios
-      .get("/api/overview/product-wise", { timeout: 6000, params: toApiParams(filters) })
+      .get("/api/overview/product-wise", { 
+        timeout: 6000, 
+        params: { ...toApiParams(filters), limit: 50, offset: currentOffset } 
+      })
       .then((res) => {
         if (res.data?.rows?.length) {
-          setRows(res.data.rows);
+          const newRows = res.data.rows;
+          setRows(prev => isInitial ? newRows : [...prev, ...newRows]);
           setTotals(res.data.totals);
-        } else {
+          setHasMore(res.data.hasMore !== false);
+          setOffset(currentOffset + newRows.length);
+        } else if (isInitial) {
           setRows(mockProductData);
           setTotals(mockProductTotals);
+          setHasMore(false);
         }
       })
       .catch(() => {
-        setRows(mockProductData);
-        setTotals(mockProductTotals);
+        if (isInitial) {
+          setRows(mockProductData);
+          setTotals(mockProductTotals);
+          setHasMore(false);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+      });
+  };
+
+  useEffect(() => {
+    loadData(true);
   }, [JSON.stringify(filters)]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !loadingMore) {
+      loadData(false);
+    }
+  };
 
   const renderDelivered = (row) => {
     const pct =
@@ -87,7 +123,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
       {loading ? (
         <div className="table-loading">Loading...</div>
       ) : (
-        <div className="adv-table-scroll">
+        <div className="adv-table-scroll" onScroll={handleScroll}>
           <table className="adv-table">
             <thead>
               <tr>
@@ -167,6 +203,13 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
                   </tr>
                 );
               })}
+              {loadingMore && (
+                <tr>
+                  <td colSpan="11" style={{ textAlign: 'center', padding: '20px' }}>
+                    Loading more...
+                  </td>
+                </tr>
+              )}
             </tbody>
             {totals && (
               <tfoot>

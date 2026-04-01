@@ -21,21 +21,39 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
   const [childrenByRegion, setChildrenByRegion] = useState({});
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
-  useEffect(() => {
-    setLoading(true);
+  const loadData = (isInitial = false) => {
+    const currentOffset = isInitial ? 0 : offset;
+    if (isInitial) {
+      setLoading(true);
+      setData([]);
+      setOffset(0);
+    } else {
+      setLoadingMore(true);
+    }
+
     Promise.all([
-      axios.get("/api/overview/country-wise", { timeout: 12000, params: toApiParams(filters) }),
+      axios.get("/api/overview/country-wise", { 
+        timeout: 12000, 
+        params: { ...toApiParams(filters), limit: 50, offset: currentOffset } 
+      }),
       axios.get("/api/overview/regions", { timeout: 12000, params: toApiParams(filters) })
     ])
       .then(([countryRes, regionRes]) => {
         if (countryRes.data?.rows?.length) {
-          setData(countryRes.data.rows);
+          const newRows = countryRes.data.rows;
+          setData(prev => isInitial ? newRows : [...prev, ...newRows]);
           setTotals(countryRes.data.totals);
-        } else {
+          setHasMore(countryRes.data.hasMore !== false);
+          setOffset(currentOffset + newRows.length);
+        } else if (isInitial) {
           setData(mockCountryData);
           setTotals(mockCountryTotals);
+          setHasMore(false);
         }
 
         const map = {};
@@ -53,18 +71,37 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
             deliveredImpressions: row.deliveredImpressions,
             deliveredPct: row.deliveredPct,
             grossMargin: row.grossMargin,
-            grossMarginPct: row.grossMarginPct
+            grossMarginPct: row.grossMarginPct,
+            netMargin: row.netMargin,
+            netMarginPct: row.netMarginPct
           });
         });
         setChildrenByRegion(map);
       })
       .catch(() => {
-        setData(mockCountryData);
-        setTotals(mockCountryTotals);
-        setChildrenByRegion({});
+        if (isInitial) {
+          setData(mockCountryData);
+          setTotals(mockCountryTotals);
+          setChildrenByRegion({});
+          setHasMore(false);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+      });
+  };
+
+  useEffect(() => {
+    loadData(true);
   }, [JSON.stringify(filters)]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !loadingMore) {
+      loadData(false);
+    }
+  };
 
   const toggle = (region) => setExpanded((prev) => ({ ...prev, [region]: !prev[region] }));
 
@@ -86,7 +123,7 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
       {loading ? (
         <div className="table-loading">Loading...</div>
       ) : (
-        <div className="adv-table-scroll">
+        <div className="adv-table-scroll" onScroll={handleScroll}>
           <table className="adv-table">
             <thead>
               <tr>
@@ -159,6 +196,13 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
                   </tr>
                 );
               })}
+              {loadingMore && (
+                <tr>
+                  <td colSpan="11" style={{ textAlign: 'center', padding: '20px' }}>
+                    Loading more...
+                  </td>
+                </tr>
+              )}
             </tbody>
             {totals && (
               <tfoot>

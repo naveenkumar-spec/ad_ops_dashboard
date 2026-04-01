@@ -333,7 +333,9 @@ router.get("/campaigns-detailed", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
     const view = String(_req.query.view || "bottom").toLowerCase();
-    const payload = await provider.getCampaignsDetailed(25, filters, view);
+    const limit = Number(_req.query.limit) || 50;
+    const offset = Number(_req.query.offset) || 0;
+    const payload = await provider.getCampaignsDetailed(limit, offset, filters, view);
     res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch campaigns-detailed", message: error.message });
@@ -343,7 +345,9 @@ router.get("/campaigns-detailed", async (_req, res) => {
 router.get("/country-wise", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const payload = await provider.getCountryWiseTable(filters);
+    const limit = Number(_req.query.limit) || 50;
+    const offset = Number(_req.query.offset) || 0;
+    const payload = await provider.getCountryWiseTable(limit, offset, filters);
     res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch country-wise", message: error.message });
@@ -365,7 +369,9 @@ router.get("/campaign-wise", async (_req, res) => {
 router.get("/product-wise", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const payload = await provider.getProductWiseTable(filters);
+    const limit = Number(_req.query.limit) || 50;
+    const offset = Number(_req.query.offset) || 0;
+    const payload = await provider.getProductWiseTable(limit, offset, filters);
     res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch product-wise", message: error.message });

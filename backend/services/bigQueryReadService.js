@@ -597,8 +597,9 @@ async function getBottomCampaignsSimple(limit = 8, filters = {}) {
   }));
 }
 
-async function getCampaignsDetailed(limit = 25, filters = {}, view = "bottom") {
-  const safeLimit = Math.max(1, Math.min(500, Number(limit || 25)));
+async function getCampaignsDetailed(limit = 50, offset = 0, filters = {}, view = "bottom") {
+  const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
+  const safeOffset = Math.max(0, Number(offset || 0));
   const { whereSql, params } = buildWhereClause(filters, "t");
   
   // Add gross margin filter based on view
@@ -612,60 +613,45 @@ async function getCampaignsDetailed(limit = 25, filters = {}, view = "bottom") {
 
   const rows = await runQuery(
     `
-      WITH ranked AS (
-        SELECT
-          COALESCE(t.campaign_name, 'Unknown Campaign') AS name,
-          COALESCE(t.status, 'Unknown') AS status,
-          COALESCE(t.revenue, 0) AS revenue,
-          COALESCE(t.spend, 0) AS spend,
-          COALESCE(t.revenue, 0) - COALESCE(t.spend, 0) AS grossMargin,
-          IFNULL(
-            SAFE_DIVIDE(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0), NULLIF(COALESCE(t.revenue, 0), 0)) * 100,
-            0
-          ) AS grossMarginPct,
-          COALESCE(t.net_margin, 0) AS netMargin,
-          ROUND(COALESCE(t.net_margin_pct, 0), 2) AS netMarginPct,
-          COALESCE(t.planned_impressions, 0) AS plannedImpressions
-        FROM ${latestMainTableSql()} t
-        ${finalWhereSql}
-        ORDER BY grossMarginPct ${orderDirection}
-        LIMIT @limit
-      )
-      SELECT * FROM ranked
+      SELECT
+        COALESCE(t.campaign_name, 'Unknown Campaign') AS name,
+        COALESCE(t.status, 'Unknown') AS status,
+        COALESCE(t.revenue, 0) AS revenue,
+        COALESCE(t.spend, 0) AS spend,
+        COALESCE(t.revenue, 0) - COALESCE(t.spend, 0) AS grossMargin,
+        IFNULL(
+          SAFE_DIVIDE(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0), NULLIF(COALESCE(t.revenue, 0), 0)) * 100,
+          0
+        ) AS grossMarginPct,
+        COALESCE(t.net_margin, 0) AS netMargin,
+        ROUND(COALESCE(t.net_margin_pct, 0), 2) AS netMarginPct,
+        COALESCE(t.planned_impressions, 0) AS plannedImpressions
+      FROM ${latestMainTableSql()} t
+      ${finalWhereSql}
+      ORDER BY grossMarginPct ${orderDirection}
+      LIMIT @limit OFFSET @offset
     `,
-    { ...params, limit: safeLimit }
+    { ...params, limit: safeLimit, offset: safeOffset }
   );
 
   const totalsRows = await runQuery(
     `
-      WITH ranked AS (
-        SELECT
-          COALESCE(t.revenue, 0) AS revenue,
-          COALESCE(t.spend, 0) AS spend,
-          COALESCE(t.revenue, 0) - COALESCE(t.spend, 0) AS grossMargin,
-          IFNULL(
-            SAFE_DIVIDE(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0), NULLIF(COALESCE(t.revenue, 0), 0)) * 100,
-            0
-          ) AS grossMarginPct,
-          COALESCE(t.net_margin, 0) AS netMargin,
-          ROUND(COALESCE(t.net_margin_pct, 0), 2) AS netMarginPct,
-          COALESCE(t.planned_impressions, 0) AS plannedImpressions
-        FROM ${latestMainTableSql()} t
-        ${finalWhereSql}
-        ORDER BY grossMarginPct ${orderDirection}
-        LIMIT @limit
-      )
       SELECT
-        SUM(revenue) AS revenue,
-        SUM(spend) AS spend,
-        SUM(grossMargin) AS grossMargin,
-        AVG(grossMarginPct) AS grossMarginPct,
-        SUM(netMargin) AS netMargin,
-        AVG(netMarginPct) AS netMarginPct,
-        SUM(plannedImpressions) AS plannedImpressions
-      FROM ranked
+        COUNT(*) AS rowCount,
+        SUM(COALESCE(t.revenue, 0)) AS revenue,
+        SUM(COALESCE(t.spend, 0)) AS spend,
+        SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossMargin,
+        AVG(IFNULL(
+          SAFE_DIVIDE(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0), NULLIF(COALESCE(t.revenue, 0), 0)) * 100,
+          0
+        )) AS grossMarginPct,
+        SUM(COALESCE(t.net_margin, 0)) AS netMargin,
+        AVG(ROUND(COALESCE(t.net_margin_pct, 0), 2)) AS netMarginPct,
+        SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions
+      FROM ${latestMainTableSql()} t
+      ${finalWhereSql}
     `,
-    { ...params, limit: safeLimit }
+    params
   );
 
   const totals = totalsRows[0] || {};
@@ -682,6 +668,7 @@ async function getCampaignsDetailed(limit = 25, filters = {}, view = "bottom") {
       plannedImpressions: toNumber(r.plannedImpressions)
     })),
     totals: {
+      rowCount: toNumber(totals.rowCount),
       revenue: toNumber(totals.revenue),
       spend: toNumber(totals.spend),
       grossMargin: toNumber(totals.grossMargin),
@@ -689,7 +676,8 @@ async function getCampaignsDetailed(limit = 25, filters = {}, view = "bottom") {
       netMargin: toNumber(totals.netMargin),
       netMarginPct: toNumber(totals.netMarginPct, 2),
       plannedImpressions: toNumber(totals.plannedImpressions)
-    }
+    },
+    hasMore: rows.length === safeLimit
   };
 }
 
@@ -739,7 +727,9 @@ async function getRegionTable(filters = {}) {
   }));
 }
 
-async function getCountryWiseTable(filters = {}) {
+async function getCountryWiseTable(limit = 50, offset = 0, filters = {}) {
+  const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
+  const safeOffset = Math.max(0, Number(offset || 0));
   const { whereSql, params } = buildWhereClause(filters, "t");
 
   const rows = await runQuery(
@@ -754,6 +744,7 @@ async function getCountryWiseTable(filters = {}) {
           SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
           SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
           SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossMargin,
+          SUM(COALESCE(t.net_margin, 0)) AS netMargin,
           IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
           IFNULL(
             SAFE_DIVIDE(
@@ -761,7 +752,14 @@ async function getCountryWiseTable(filters = {}) {
               NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
             ) * 100,
             0
-          ) AS grossMarginPct
+          ) AS grossMarginPct,
+          IFNULL(
+            SAFE_DIVIDE(
+              SUM(COALESCE(t.net_margin, 0)),
+              NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+            ) * 100,
+            0
+          ) AS netMarginPct
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY region
@@ -769,8 +767,9 @@ async function getCountryWiseTable(filters = {}) {
       SELECT *
       FROM grouped
       ORDER BY revenue DESC
+      LIMIT @limit OFFSET @offset
     `,
-    params
+    { ...params, limit: safeLimit, offset: safeOffset }
   );
 
   const totalsRows = await runQuery(
@@ -783,12 +782,14 @@ async function getCountryWiseTable(filters = {}) {
           SUM(COALESCE(t.spend, 0)) AS spend,
           SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
           SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
-          SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossMargin
+          SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossMargin,
+          SUM(COALESCE(t.net_margin, 0)) AS netMargin
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY COALESCE(NULLIF(TRIM(t.region), ''), 'Unknown')
       )
       SELECT
+        COUNT(*) AS rowCount,
         SUM(campaigns) AS campaigns,
         SUM(budgetGroups) AS budgetGroups,
         SUM(revenue) AS revenue,
@@ -796,8 +797,10 @@ async function getCountryWiseTable(filters = {}) {
         SUM(plannedImpressions) AS plannedImpressions,
         SUM(deliveredImpressions) AS deliveredImpressions,
         SUM(grossMargin) AS grossMargin,
+        SUM(netMargin) AS netMargin,
         IFNULL(SAFE_DIVIDE(SUM(deliveredImpressions), NULLIF(SUM(plannedImpressions), 0)) * 100, 0) AS deliveredPct,
-        IFNULL(SAFE_DIVIDE(SUM(grossMargin), NULLIF(SUM(revenue), 0)) * 100, 0) AS grossMarginPct
+        IFNULL(SAFE_DIVIDE(SUM(grossMargin), NULLIF(SUM(revenue), 0)) * 100, 0) AS grossMarginPct,
+        IFNULL(SAFE_DIVIDE(SUM(netMargin), NULLIF(SUM(revenue), 0)) * 100, 0) AS netMarginPct
       FROM grouped
     `,
     params
@@ -815,9 +818,12 @@ async function getCountryWiseTable(filters = {}) {
       deliveredImpressions: toNumber(r.deliveredImpressions),
       deliveredPct: toNumber(r.deliveredPct, 2),
       grossMargin: toNumber(r.grossMargin),
-      grossMarginPct: toNumber(r.grossMarginPct, 2)
+      grossMarginPct: toNumber(r.grossMarginPct, 2),
+      netMargin: toNumber(r.netMargin),
+      netMarginPct: toNumber(r.netMarginPct, 2)
     })),
     totals: {
+      rowCount: toNumber(totals.rowCount),
       campaigns: toNumber(totals.campaigns),
       budgetGroups: toNumber(totals.budgetGroups),
       revenue: toNumber(totals.revenue),
@@ -826,8 +832,11 @@ async function getCountryWiseTable(filters = {}) {
       deliveredImpressions: toNumber(totals.deliveredImpressions),
       deliveredPct: toNumber(totals.deliveredPct, 2),
       grossMargin: toNumber(totals.grossMargin),
-      grossMarginPct: toNumber(totals.grossMarginPct, 2)
-    }
+      grossMarginPct: toNumber(totals.grossMarginPct, 2),
+      netMargin: toNumber(totals.netMargin),
+      netMarginPct: toNumber(totals.netMarginPct, 2)
+    },
+    hasMore: rows.length === safeLimit
   };
 }
 
@@ -903,7 +912,9 @@ async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
   };
 }
 
-async function getProductWiseTable(filters = {}) {
+async function getProductWiseTable(limit = 50, offset = 0, filters = {}) {
+  const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
+  const safeOffset = Math.max(0, Number(offset || 0));
   const { whereSql, params } = buildWhereClause(filters, "t");
 
   const rows = await runQuery(
@@ -941,8 +952,9 @@ async function getProductWiseTable(filters = {}) {
       SELECT *
       FROM grouped
       ORDER BY bookedRevenue DESC
+      LIMIT @limit OFFSET @offset
     `,
-    params
+    { ...params, limit: safeLimit, offset: safeOffset }
   );
 
   const totalsRows = await runQuery(
@@ -962,6 +974,7 @@ async function getProductWiseTable(filters = {}) {
         GROUP BY COALESCE(NULLIF(TRIM(t.product), ''), 'Unknown')
       )
       SELECT
+        COUNT(*) AS rowCount,
         SUM(totalCampaigns) AS totalCampaigns,
         SUM(budgetGroups) AS budgetGroups,
         SUM(bookedRevenue) AS bookedRevenue,
@@ -995,6 +1008,7 @@ async function getProductWiseTable(filters = {}) {
       netMarginPct: toNumber(r.netMarginPct, 2)
     })),
     totals: {
+      rowCount: toNumber(totals.rowCount),
       totalCampaigns: toNumber(totals.totalCampaigns),
       budgetGroups: toNumber(totals.budgetGroups),
       bookedRevenue: toNumber(totals.bookedRevenue),
@@ -1006,7 +1020,8 @@ async function getProductWiseTable(filters = {}) {
       grossMargin: toNumber(totals.grossMargin, 2),
       netMargin: toNumber(totals.netMargin),
       netMarginPct: toNumber(totals.netMarginPct, 2)
-    }
+    },
+    hasMore: rows.length === safeLimit
   };
 }
 

@@ -24,28 +24,60 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
   const [totals, setTotals] = useState(null);
   const [view, setView] = useState("bottom");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
 
-  useEffect(() => {
-    setLoading(true);
+  const loadData = (isInitial = false) => {
+    const currentOffset = isInitial ? 0 : offset;
+    if (isInitial) {
+      setLoading(true);
+      setData([]);
+      setOffset(0);
+    } else {
+      setLoadingMore(true);
+    }
+
     axios.get("/api/overview/campaigns-detailed", { 
       timeout: 6000, 
-      params: { ...toApiParams(filters), view } 
+      params: { ...toApiParams(filters), view, limit: 50, offset: currentOffset } 
     })
       .then((res) => {
         if (res.data?.rows?.length) {
-          setData(res.data.rows);
+          const newRows = res.data.rows;
+          setData(prev => isInitial ? newRows : [...prev, ...newRows]);
           setTotals(res.data.totals);
-        } else {
+          setHasMore(res.data.hasMore !== false);
+          setOffset(currentOffset + newRows.length);
+        } else if (isInitial) {
           setData(mockBottomCampaigns);
           setTotals(mockBottomCampaignsTotals);
+          setHasMore(false);
         }
       })
       .catch(() => {
-        setData(mockBottomCampaigns);
-        setTotals(mockBottomCampaignsTotals);
+        if (isInitial) {
+          setData(mockBottomCampaigns);
+          setTotals(mockBottomCampaignsTotals);
+          setHasMore(false);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+      });
+  };
+
+  useEffect(() => {
+    loadData(true);
   }, [JSON.stringify(filters), view]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !loadingMore) {
+      loadData(false);
+    }
+  };
 
   const converted = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
@@ -66,7 +98,7 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
       {loading ? (
         <div className="table-loading">Loading...</div>
       ) : (
-        <div className="adv-table-scroll">
+        <div className="adv-table-scroll" onScroll={handleScroll}>
           <table className="adv-table">
             <thead>
               <tr>
@@ -101,6 +133,13 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
                   </tr>
                 );
               })}
+              {loadingMore && (
+                <tr>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>
+                    Loading more...
+                  </td>
+                </tr>
+              )}
             </tbody>
             {totals && (
               <tfoot>
