@@ -352,7 +352,8 @@ router.get("/country-wise", async (_req, res) => {
 router.get("/campaign-wise", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const payload = await provider.getCampaignWiseTable(50, filters);
+    const limit = Number(_req.query.limit) || 5000; // Default to 5000 to show all budget groups
+    const payload = await provider.getCampaignWiseTable(limit, filters);
     res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch campaign-wise", message: error.message });
