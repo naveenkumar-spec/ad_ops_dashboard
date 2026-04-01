@@ -183,9 +183,11 @@ const OVERVIEW_RAW_SPENDS_SOURCE = {
 const OVERVIEW_RAW_ALIASES = {
   month: ["Month"],
   year: ["Year"],
-  salesValueUsd: ["Sales Value in USD"],
-  mediaSpendUsd: ["Media Spend in USD"],
-  ecpm: ["eCPM", "ECPM"]
+  salesValueUsd: ["Sales Value in USD", "Revenue", "Sales Value"],
+  mediaSpendUsd: ["Media Spend in USD", "Media Spend", "Spend"],
+  ecpm: ["eCPM", "ECPM", "Average Buying CPM", "Avg Buying CPM", "CPM", "eCPM (USD)", "ECPM (USD)"],
+  // single-column date alternatives (Month-Year combined)
+  monthYear: ["Month-Year", "Month Year", "Date", "Period"]
 };
 
 const NORMALIZED_HEADER_CANDIDATES = new Set(
@@ -848,6 +850,7 @@ async function getOverviewLegacyTrend(metric = "revenue") {
   const rows = await readTabValues(sheets, OVERVIEW_RAW_SPENDS_SOURCE.sheetId, resolvedTab);
   if (rows.length <= 1) return [];
 
+  // Find header row by scoring against known aliases
   let headerRowIndex = 0;
   let bestScore = -1;
   const aliasKeys = new Set(
@@ -875,20 +878,96 @@ async function getOverviewLegacyTrend(metric = "revenue") {
     if (key && headerMap[key] === undefined) headerMap[key] = idx;
   });
 
+  // Find which eCPM column has more non-zero data
+  function pickEcpmColumnIndex() {
+    const candidates = OVERVIEW_RAW_ALIASES.ecpm.map((alias) => headerMap[normalizeKey(alias)]).filter((idx) => idx !== undefined);
+    if (!candidates.length) return undefined;
+    if (candidates.length === 1) return candidates[0];
+    let bestIdx = candidates[0];
+    let bestCount = 0;
+    candidates.forEach((colIdx) => {
+      const count = rows.slice(headerRowIndex + 1).filter((r) => {
+        const v = String((r || [])[colIdx] || "").trim();
+        return v !== "" && v !== "0" && Number(v) !== 0;
+      }).length;
+      if (count > bestCount) { bestCount = count; bestIdx = colIdx; }
+    });
+    return bestIdx;
+  }
+  const ecpmColIdx = pickEcpmColumnIndex();
+
+  // Helper: parse a combined month-year cell like "Mar-20", "March 2020", "03/2020", "2020-03"
+  function parseCombinedMonthYear(value) {
+    const text = String(value || "").trim();
+    if (!text) return null;
+    // "Mar-20" or "March-20" or "Mar-2020"
+    const m1 = text.match(/^([A-Za-z]+)[- \/](\d{2,4})$/);
+    if (m1) {
+      const month = parseMonthName(m1[1]);
+      const yr = m1[2].length === 2 ? 2000 + Number(m1[2]) : Number(m1[2]);
+      if (month && yr >= 2000 && yr <= 2100) return { month, year: yr };
+    }
+    // "2020-03" or "2020/03"
+    const m2 = text.match(/^(20\d{2})[- \/](\d{1,2})$/);
+    if (m2) {
+      const yr = Number(m2[1]);
+      const monthIdx = Number(m2[2]) - 1;
+      if (monthIdx >= 0 && monthIdx < 12) return { month: MONTHS[monthIdx], year: yr };
+    }
+    // "03/2020" or "3/2020"
+    const m3 = text.match(/^(\d{1,2})[\/\-](20\d{2})$/);
+    if (m3) {
+      const monthIdx = Number(m3[1]) - 1;
+      const yr = Number(m3[2]);
+      if (monthIdx >= 0 && monthIdx < 12) return { month: MONTHS[monthIdx], year: yr };
+    }
+    // "January 2020" or "January, 2020"
+    const m4 = text.match(/^([A-Za-z]+)[,\s]+(20\d{2})$/);
+    if (m4) {
+      const month = parseMonthName(m4[1]);
+      const yr = Number(m4[2]);
+      if (month && yr >= 2000 && yr <= 2100) return { month, year: yr };
+    }
+    return null;
+  }
+
   const parsed = [];
   for (let i = headerRowIndex + 1; i < rows.length; i += 1) {
     const row = rows[i] || [];
     if (!row.length || row.every((cell) => String(cell || "").trim() === "")) continue;
 
+    let month = null;
+    let year = null;
+
+    // Try separate Month + Year columns first
     const monthRaw = pickField(row, headerMap, OVERVIEW_RAW_ALIASES.month);
     const yearRaw = pickField(row, headerMap, OVERVIEW_RAW_ALIASES.year);
-    const month = parseMonthName(monthRaw);
-    const year = parseYearValue(yearRaw) || parseYearValue(monthRaw);
+    month = parseMonthName(monthRaw);
+    year = parseYearValue(yearRaw) || parseYearValue(monthRaw) || 0;
+
+    // If that fails, try combined month-year column
+    if (!month || !year) {
+      const combined = pickField(row, headerMap, OVERVIEW_RAW_ALIASES.monthYear);
+      if (combined) {
+        const parsed2 = parseCombinedMonthYear(combined);
+        if (parsed2) { month = parsed2.month; year = parsed2.year; }
+      }
+    }
+
+    // Last resort: scan all cells for a recognisable month-year pattern
+    if (!month || !year) {
+      for (const cell of row) {
+        const parsed2 = parseCombinedMonthYear(String(cell || ""));
+        if (parsed2) { month = parsed2.month; year = parsed2.year; break; }
+      }
+    }
+
     if (!month || !year) continue;
 
     const salesValueUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.salesValueUsd));
     const mediaSpendUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.mediaSpendUsd));
-    const ecpm = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.ecpm));
+    // Use the eCPM column with more data
+    const ecpm = ecpmColIdx !== undefined ? parseNumber(row[ecpmColIdx]) : 0;
     const grossMarginPct = salesValueUsd ? ((salesValueUsd - mediaSpendUsd) / salesValueUsd) * 100 : 0;
 
     parsed.push({
