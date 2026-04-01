@@ -42,7 +42,7 @@ export default function CombinedTrendsSecondary({ filters = {}, trendBundle = nu
             <div className="year-select-label">Selected Years: {selectedYearsText}</div>
             <button type="button" className="year-select-btn" onClick={() => setShowPanel(o => !o)}>
               {yearButtonLabel}
-              <span className="select-chevron">â–¼</span>
+              <span className="select-chevron">▼</span>
             </button>
             {showPanel && (
               <div className="year-dropdown">

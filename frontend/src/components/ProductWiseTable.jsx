@@ -123,6 +123,12 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
                       <td title={formatAbsolutePercent(row.grossMargin, 2)}>
                         {row.grossMargin != null ? `${row.grossMargin.toFixed(2)}%` : ""}
                       </td>
+                      <td title={formatAbsoluteCurrencyByContext(c(row.netMargin), currencyContext)}>
+                        {row.netMargin != null ? formatCompactCurrency(c(row.netMargin), currencyContext) : ""}
+                      </td>
+                      <td title={formatAbsolutePercent(row.netMarginPct, 2)}>
+                        {row.netMarginPct != null ? `${row.netMarginPct.toFixed(2)}%` : ""}
+                      </td>
                     </tr>
                   );
                 }
@@ -151,6 +157,12 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
                     <td title={formatAbsoluteCurrencyByContext(c(row.grossProfitLoss), currencyContext)}>{formatCompactCurrency(c(row.grossProfitLoss), currencyContext)}</td>
                     <td title={formatAbsolutePercent(row.grossMargin, 2)}>
                       {row.grossMargin != null ? `${row.grossMargin.toFixed(2)}%` : ""}
+                    </td>
+                    <td title={formatAbsoluteCurrencyByContext(c(row.netMargin), currencyContext)}>
+                      {row.netMargin != null ? formatCompactCurrency(c(row.netMargin), currencyContext) : ""}
+                    </td>
+                    <td title={formatAbsolutePercent(row.netMarginPct, 2)}>
+                      {row.netMarginPct != null ? `${row.netMarginPct.toFixed(2)}%` : ""}
                     </td>
                   </tr>
                 );
@@ -191,6 +203,16 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
                   </td>
                   <td>
                     <strong title={formatAbsolutePercent(totals.grossMargin, 2)}>{totals.grossMargin.toFixed(2)}%</strong>
+                  </td>
+                  <td>
+                    <strong title={formatAbsoluteCurrencyByContext(c(totals.netMargin), currencyContext)}>
+                      {totals.netMargin != null ? formatCompactCurrency(c(totals.netMargin), currencyContext) : ""}
+                    </strong>
+                  </td>
+                  <td>
+                    <strong title={formatAbsolutePercent(totals.netMarginPct, 2)}>
+                      {totals.netMarginPct != null ? `${totals.netMarginPct.toFixed(2)}%` : ""}
+                    </strong>
                   </td>
                 </tr>
               </tfoot>

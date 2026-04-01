@@ -26,7 +26,11 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get("/api/overview/campaigns-detailed", { timeout: 6000, params: toApiParams(filters) })
+    setLoading(true);
+    axios.get("/api/overview/campaigns-detailed", { 
+      timeout: 6000, 
+      params: { ...toApiParams(filters), view } 
+    })
       .then((res) => {
         if (res.data?.rows?.length) {
           setData(res.data.rows);
@@ -41,11 +45,7 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
         setTotals(mockBottomCampaignsTotals);
       })
       .finally(() => setLoading(false));
-  }, [JSON.stringify(filters)]);
-
-  const displayed = view === "bottom"
-    ? [...data].filter(c => c.grossMarginPct <= 50).sort((a, b) => a.grossMarginPct - b.grossMarginPct)
-    : [...data].filter(c => c.grossMarginPct >= 50).sort((a, b) => b.grossMarginPct - a.grossMarginPct);
+  }, [JSON.stringify(filters), view]);
 
   const converted = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
@@ -82,7 +82,7 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
               </tr>
             </thead>
             <tbody>
-              {displayed.map((r, i) => {
+              {data.map((r, i) => {
                 const revenue = converted(r.revenue);
                 const spend = converted(r.spend);
                 const grossMargin = converted(r.grossMargin);

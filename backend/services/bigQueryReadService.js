@@ -597,9 +597,18 @@ async function getBottomCampaignsSimple(limit = 8, filters = {}) {
   }));
 }
 
-async function getCampaignsDetailed(limit = 25, filters = {}) {
+async function getCampaignsDetailed(limit = 25, filters = {}, view = "bottom") {
   const safeLimit = Math.max(1, Math.min(500, Number(limit || 25)));
   const { whereSql, params } = buildWhereClause(filters, "t");
+  
+  // Add gross margin filter based on view
+  const marginFilter = view === "top" ? ">= 50" : "<= 50";
+  const orderDirection = view === "top" ? "DESC" : "ASC";
+  
+  // Modify whereSql to include margin filter
+  const finalWhereSql = whereSql 
+    ? `${whereSql} AND IFNULL(SAFE_DIVIDE(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0), NULLIF(COALESCE(t.revenue, 0), 0)) * 100, 0) ${marginFilter}`
+    : `WHERE IFNULL(SAFE_DIVIDE(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0), NULLIF(COALESCE(t.revenue, 0), 0)) * 100, 0) ${marginFilter}`;
 
   const rows = await runQuery(
     `
@@ -618,8 +627,8 @@ async function getCampaignsDetailed(limit = 25, filters = {}) {
           ROUND(COALESCE(t.net_margin_pct, 0), 2) AS netMarginPct,
           COALESCE(t.planned_impressions, 0) AS plannedImpressions
         FROM ${latestMainTableSql()} t
-        ${whereSql}
-        ORDER BY grossMarginPct ASC
+        ${finalWhereSql}
+        ORDER BY grossMarginPct ${orderDirection}
         LIMIT @limit
       )
       SELECT * FROM ranked
@@ -642,8 +651,8 @@ async function getCampaignsDetailed(limit = 25, filters = {}) {
           ROUND(COALESCE(t.net_margin_pct, 0), 2) AS netMarginPct,
           COALESCE(t.planned_impressions, 0) AS plannedImpressions
         FROM ${latestMainTableSql()} t
-        ${whereSql}
-        ORDER BY grossMarginPct ASC
+        ${finalWhereSql}
+        ORDER BY grossMarginPct ${orderDirection}
         LIMIT @limit
       )
       SELECT
@@ -909,6 +918,7 @@ async function getProductWiseTable(filters = {}) {
           SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
           SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
           SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossProfitLoss,
+          SUM(COALESCE(t.net_margin, 0)) AS netMargin,
           IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
           IFNULL(
             SAFE_DIVIDE(
@@ -916,7 +926,14 @@ async function getProductWiseTable(filters = {}) {
               NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
             ) * 100,
             0
-          ) AS grossMargin
+          ) AS grossMargin,
+          IFNULL(
+            SAFE_DIVIDE(
+              SUM(COALESCE(t.net_margin, 0)),
+              NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+            ) * 100,
+            0
+          ) AS netMarginPct
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY product
@@ -938,7 +955,8 @@ async function getProductWiseTable(filters = {}) {
           SUM(COALESCE(t.spend, 0)) AS spend,
           SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
           SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
-          SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossProfitLoss
+          SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)) AS grossProfitLoss,
+          SUM(COALESCE(t.net_margin, 0)) AS netMargin
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY COALESCE(NULLIF(TRIM(t.product), ''), 'Unknown')
@@ -951,8 +969,10 @@ async function getProductWiseTable(filters = {}) {
         SUM(plannedImpressions) AS plannedImpressions,
         SUM(deliveredImpressions) AS deliveredImpressions,
         SUM(grossProfitLoss) AS grossProfitLoss,
+        SUM(netMargin) AS netMargin,
         IFNULL(SAFE_DIVIDE(SUM(deliveredImpressions), NULLIF(SUM(plannedImpressions), 0)) * 100, 0) AS deliveredPct,
-        IFNULL(SAFE_DIVIDE(SUM(grossProfitLoss), NULLIF(SUM(bookedRevenue), 0)) * 100, 0) AS grossMargin
+        IFNULL(SAFE_DIVIDE(SUM(grossProfitLoss), NULLIF(SUM(bookedRevenue), 0)) * 100, 0) AS grossMargin,
+        IFNULL(SAFE_DIVIDE(SUM(netMargin), NULLIF(SUM(bookedRevenue), 0)) * 100, 0) AS netMarginPct
       FROM grouped
     `,
     params
@@ -970,7 +990,9 @@ async function getProductWiseTable(filters = {}) {
       deliveredImpressions: toNumber(r.deliveredImpressions),
       deliveredPct: toNumber(r.deliveredPct, 2),
       grossProfitLoss: toNumber(r.grossProfitLoss),
-      grossMargin: toNumber(r.grossMargin, 2)
+      grossMargin: toNumber(r.grossMargin, 2),
+      netMargin: toNumber(r.netMargin),
+      netMarginPct: toNumber(r.netMarginPct, 2)
     })),
     totals: {
       totalCampaigns: toNumber(totals.totalCampaigns),
@@ -981,7 +1003,9 @@ async function getProductWiseTable(filters = {}) {
       deliveredImpressions: toNumber(totals.deliveredImpressions),
       deliveredPct: toNumber(totals.deliveredPct, 2),
       grossProfitLoss: toNumber(totals.grossProfitLoss),
-      grossMargin: toNumber(totals.grossMargin, 2)
+      grossMargin: toNumber(totals.grossMargin, 2),
+      netMargin: toNumber(totals.netMargin),
+      netMarginPct: toNumber(totals.netMarginPct, 2)
     }
   };
 }

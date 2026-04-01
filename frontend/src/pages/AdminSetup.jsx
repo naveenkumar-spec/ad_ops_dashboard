@@ -38,7 +38,7 @@ function MultiSelectDropdown({ label, options = [], value = [], onChange, disabl
         onClick={() => !disabled && setOpen((v) => !v)}
       >
         <span>{summary}</span>
-        <span className="ms-arrow">{open ? "â–²" : "â–¼"}</span>
+        <span className="ms-arrow">{open ? "▲" : "▼"}</span>
       </button>
       {open && !disabled ? (
         <div className="ms-panel">

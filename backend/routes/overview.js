@@ -332,7 +332,8 @@ router.get("/trends", async (_req, res) => {
 router.get("/campaigns-detailed", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const payload = await provider.getCampaignsDetailed(25, filters);
+    const view = String(_req.query.view || "bottom").toLowerCase();
+    const payload = await provider.getCampaignsDetailed(25, filters, view);
     res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch campaigns-detailed", message: error.message });
