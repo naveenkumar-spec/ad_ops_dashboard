@@ -141,7 +141,9 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
   return (
     <div className="adv-table-card">
       <div className="adv-table-header">
-        <h3 className="adv-table-title">Campaign Wise Data ({data.length} budget groups)</h3>
+        <h3 className="adv-table-title">
+          Campaign Wise Data ({totalsDerived?.rowCount || data.length} budget groups)
+        </h3>
       </div>
 
       {loading ? (

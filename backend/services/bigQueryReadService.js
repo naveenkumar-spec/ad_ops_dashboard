@@ -875,7 +875,11 @@ async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
         COUNT(*) AS rowCount,
         SUM(COALESCE(t.budget_groups, 1)) AS budgetGroups,
         SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
-        SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions
+        SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
+        SUM(COALESCE(t.revenue, 0)) AS revenue,
+        SUM(COALESCE(t.spend, 0)) AS spend,
+        SUM(COALESCE(t.gross_profit, 0)) AS grossMargin,
+        SUM(COALESCE(t.net_margin, 0)) AS netMargin
       FROM ${latestMainTableSql()} t
       ${whereSql}
     `,
@@ -883,6 +887,11 @@ async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
   );
 
   const totals = totalsRows[0] || {};
+  const totalRevenue = toNumber(totals.revenue);
+  const totalSpend = toNumber(totals.spend);
+  const totalGrossMargin = toNumber(totals.grossMargin);
+  const totalNetMargin = toNumber(totals.netMargin);
+  
   return {
     rows: rows.map((r) => ({
       name: r.name,
@@ -906,7 +915,13 @@ async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
       daysRemaining: 0,
       avgPctPassed: 0,
       plannedImpressions: toNumber(totals.plannedImpressions),
-      deliveredImpressions: toNumber(totals.deliveredImpressions)
+      deliveredImpressions: toNumber(totals.deliveredImpressions),
+      revenue: totalRevenue,
+      spend: totalSpend,
+      grossMargin: totalGrossMargin,
+      grossMarginPct: totalRevenue > 0 ? ((totalRevenue - totalSpend) / totalRevenue) * 100 : 0,
+      netMargin: totalNetMargin,
+      netMarginPct: totalRevenue > 0 ? (totalNetMargin / totalRevenue) * 100 : 0
     },
     hasMore: rows.length === safeLimit
   };
