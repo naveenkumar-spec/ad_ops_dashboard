@@ -105,7 +105,7 @@ const FIELD_ALIASES = {
   csOwner: ["CS Responsible"],
   salesOwner: ["Sale Responsible", "Sales Responsible"],
   budgetGroups: ["Budget Groups"],
-  cpm: ["Buying CPM"]
+  cpm: ["Buying CPM", "eCPM", "ECPM", "CPM"]
 };
 
 const COUNTRY_DEFAULT_CURRENCY = {
