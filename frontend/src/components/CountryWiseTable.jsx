@@ -99,6 +99,8 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
                 <th>Delivered Impressions</th>
                 <th>Gross Margin</th>
                 <th>Gross Margin %</th>
+                <th>Net Margin</th>
+                <th>Net Margin %</th>
               </tr>
             </thead>
             <tbody>
@@ -129,6 +131,8 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
                       </td>
                       <td title={formatAbsoluteCurrencyByContext(c(r.grossMargin), currencyContext)}>{formatCompactCurrency(c(r.grossMargin), currencyContext)}</td>
                       <td title={formatAbsolutePercent(r.grossMarginPct, 2)}>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
+                      <td title={formatAbsoluteCurrencyByContext(c(r.netMargin), currencyContext)}>{r.netMargin != null ? formatCompactCurrency(c(r.netMargin), currencyContext) : ""}</td>
+                      <td title={formatAbsolutePercent(r.netMarginPct, 2)}>{r.netMarginPct != null ? `${r.netMarginPct.toFixed(2)}%` : ""}</td>
                     </tr>
                   );
                 }
@@ -150,6 +154,8 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
                     </td>
                     <td title={formatAbsoluteCurrencyByContext(c(r.grossMargin), currencyContext)}>{formatCompactCurrency(c(r.grossMargin), currencyContext)}</td>
                     <td title={formatAbsolutePercent(r.grossMarginPct, 2)}>{r.grossMarginPct != null ? `${r.grossMarginPct.toFixed(2)}%` : ""}</td>
+                    <td title={formatAbsoluteCurrencyByContext(c(r.netMargin), currencyContext)}>{r.netMargin != null ? formatCompactCurrency(c(r.netMargin), currencyContext) : ""}</td>
+                    <td title={formatAbsolutePercent(r.netMarginPct, 2)}>{r.netMarginPct != null ? `${r.netMarginPct.toFixed(2)}%` : ""}</td>
                   </tr>
                 );
               })}
@@ -169,6 +175,8 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
                   </td>
                   <td title={formatAbsoluteCurrencyByContext(c(totals.grossMargin), currencyContext)}><strong>{formatCompactCurrency(c(totals.grossMargin), currencyContext)}</strong></td>
                   <td title={formatAbsolutePercent(totals.grossMarginPct, 2)}><strong>{totals.grossMarginPct.toFixed(2)}%</strong></td>
+                  <td title={formatAbsoluteCurrencyByContext(c(totals.netMargin), currencyContext)}><strong>{totals.netMargin != null ? formatCompactCurrency(c(totals.netMargin), currencyContext) : ""}</strong></td>
+                  <td title={formatAbsolutePercent(totals.netMarginPct, 2)}><strong>{totals.netMarginPct != null ? `${totals.netMarginPct.toFixed(2)}%` : ""}</strong></td>
                 </tr>
               </tfoot>
             )}

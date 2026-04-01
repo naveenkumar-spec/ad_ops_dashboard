@@ -52,7 +52,11 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
   return (
     <div className="adv-table-card">
       <div className="adv-table-header">
-        <h3 className="adv-table-title">Bottom Campaigns ( with &lt; 50% Gross Margin )</h3>
+        <h3 className="adv-table-title">
+          {view === "bottom" 
+            ? "Bottom Campaigns ( with < 50% Gross Margin )" 
+            : "Top Campaigns ( with > 50% Gross Margin )"}
+        </h3>
         <div className="bottom-top-toggle">
           <button className={`bt-btn ${view === "bottom" ? "active" : ""}`} onClick={() => setView("bottom")}>Bottom</button>
           <button className={`bt-btn ${view === "top" ? "active" : ""}`} onClick={() => setView("top")}>Top</button>

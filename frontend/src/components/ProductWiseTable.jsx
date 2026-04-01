@@ -100,6 +100,8 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
                 <th>Delivered Impressions</th>
                 <th>Gross Profit / Loss</th>
                 <th>Gross Margin %</th>
+                <th>Net Margin</th>
+                <th>Net Margin %</th>
               </tr>
             </thead>
             <tbody>
