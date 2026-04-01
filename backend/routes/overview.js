@@ -443,4 +443,17 @@ router.post("/sync/bigquery/stop", (req, res) => {
   }
 });
 
+// Diagnostic endpoint to check CPM data in BigQuery
+router.get("/debug/cpm-data", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    const diagnostics = await bigQueryReadService.debugCpmData();
+    return res.json(diagnostics);
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to fetch CPM diagnostics", message: error.message });
+  }
+});
+
 module.exports = router;

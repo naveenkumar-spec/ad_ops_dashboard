@@ -1076,6 +1076,79 @@ async function getAdminOptions() {
   };
 }
 
+async function debugCpmData() {
+  // Check tracker data (campaign_tracker_consolidated)
+  const trackerRows = await runQuery(
+    `
+      SELECT 
+        month, 
+        year, 
+        COUNT(*) as row_count,
+        AVG(COALESCE(cpm, 0)) as avg_cpm,
+        SUM(CASE WHEN COALESCE(cpm, 0) > 0 THEN 1 ELSE 0 END) as non_zero_cpm_count,
+        AVG(COALESCE(spend, 0)) as avg_spend,
+        AVG(COALESCE(delivered_impressions, 0)) as avg_impressions
+      FROM ${latestMainTableSql()}
+      GROUP BY month, year
+      ORDER BY year DESC, ${MONTH_ORDER_CASE} DESC
+      LIMIT 24
+    `
+  );
+
+  // Check transition table (overview_transition_metrics)
+  const transitionRows = await runQuery(
+    `
+      SELECT 
+        month, 
+        year, 
+        booked_revenue_m,
+        gross_margin_pct,
+        average_buying_cpm,
+        synced_at
+      FROM (
+        SELECT
+          month,
+          year,
+          booked_revenue_m,
+          gross_margin_pct,
+          average_buying_cpm,
+          synced_at,
+          ROW_NUMBER() OVER (PARTITION BY month, year ORDER BY synced_at DESC) AS rn
+        FROM ${transitionTableRef}
+      )
+      WHERE rn = 1
+      ORDER BY year DESC, ${MONTH_ORDER_CASE} DESC
+      LIMIT 24
+    `
+  ).catch(() => []);
+
+  return {
+    trackerData: {
+      description: "CPM data from tracker sheets (campaign_tracker_consolidated)",
+      recentMonths: trackerRows.map((r) => ({
+        month: r.month,
+        year: Number(r.year),
+        rowCount: Number(r.row_count),
+        avgCpm: Number(r.avg_cpm || 0).toFixed(2),
+        nonZeroCpmCount: Number(r.non_zero_cpm_count),
+        avgSpend: Number(r.avg_spend || 0).toFixed(2),
+        avgImpressions: Number(r.avg_impressions || 0).toFixed(0)
+      }))
+    },
+    transitionData: {
+      description: "Legacy CPM data from branding sheet (overview_transition_metrics)",
+      recentMonths: transitionRows.map((r) => ({
+        month: r.month,
+        year: Number(r.year),
+        bookedRevenueM: Number(r.booked_revenue_m || 0).toFixed(2),
+        grossMarginPct: Number(r.gross_margin_pct || 0).toFixed(2),
+        averageBuyingCpm: Number(r.average_buying_cpm || 0).toFixed(2),
+        syncedAt: r.synced_at
+      }))
+    }
+  };
+}
+
 module.exports = {
   loadAllRows,
   getKpis,
@@ -1090,5 +1163,6 @@ module.exports = {
   getCampaignWiseTable,
   getProductWiseTable,
   getFilterOptions,
-  getAdminOptions
+  getAdminOptions,
+  debugCpmData
 };
