@@ -111,10 +111,23 @@ function mergeLegacySeries(baseSeries = [], legacySeries = []) {
   const base = (baseSeries || []).map((row) => ({ ...row }));
   if (!base.length || !legacySeries?.length) return base;
 
-  const activeKeys = parseMonthYearKeysFromSeries(base);
-  if (!activeKeys.length) return base;
+  // Determine current and previous month
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIndex = now.getMonth(); // 0-11
+  const currentMonth = MONTHS[currentMonthIndex];
+  const previousMonthIndex = currentMonthIndex === 0 ? 11 : currentMonthIndex - 1;
+  const previousMonth = MONTHS[previousMonthIndex];
+  const previousMonthYear = currentMonthIndex === 0 ? currentYear - 1 : currentYear;
 
-  const preserveRecent = new Set(activeKeys.slice(-2).map((x) => x.key));
+  // Preserve current month and previous month from tracker data
+  const preserveRecent = new Set([
+    `${currentYear}__${currentMonth}`,
+    `${previousMonthYear}__${previousMonth}`
+  ]);
+
+  console.log(`[mergeLegacySeries] Preserving tracker data for: ${currentMonth} ${currentYear} and ${previousMonth} ${previousMonthYear}`);
+
   const allYears = new Set();
   base.forEach((row) => {
     Object.keys(row || {}).forEach((k) => {
@@ -141,7 +154,10 @@ function mergeLegacySeries(baseSeries = [], legacySeries = []) {
       if (year === "month") return;
       if (legacyRow[year] === undefined || legacyRow[year] === null) return;
       const key = `${Number(year)}__${month}`;
-      if (preserveRecent.has(key)) return;
+      if (preserveRecent.has(key)) {
+        console.log(`[mergeLegacySeries] Skipping ${key} - using tracker data`);
+        return;
+      }
       const value = Number(legacyRow[year]);
       if (!Number.isFinite(value)) return;
       target[year] = value;
