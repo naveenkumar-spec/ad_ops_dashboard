@@ -25,16 +25,48 @@
       "authProvider": "local",
       "createdAt": "2026-03-25T17:49:52.046Z",
       "role": "user",
-      "fullAccess": false,
-      "allowedCountries": [
-        "Australia"
-      ],
+      "fullAccess": true,
+      "allowedCountries": [],
       "allowedAdops": [],
       "allowedTabs": [
         "overview",
         "management"
       ],
       "updatedAt": "2026-03-25T17:50:37.110Z"
+    },
+    {
+      "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "username": "yogi.wadhwa@silverpush.co",
+      "email": "yogi.wadhwa@silverpush.co",
+      "displayName": "yogi.wadhwa@silverpush.co",
+      "authProvider": "google",
+      "createdAt": "2026-04-02T14:00:00.000Z",
+      "role": "user",
+      "fullAccess": true,
+      "allowedCountries": [],
+      "allowedAdops": [],
+      "allowedTabs": [
+        "overview",
+        "management"
+      ],
+      "updatedAt": "2026-04-02T14:00:00.000Z"
+    },
+    {
+      "id": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e",
+      "username": "mansi.matela@silverpush.co",
+      "email": "mansi.matela@silverpush.co",
+      "displayName": "mansi.matela@silverpush.co",
+      "authProvider": "google",
+      "createdAt": "2026-04-02T14:00:00.000Z",
+      "role": "user",
+      "fullAccess": true,
+      "allowedCountries": [],
+      "allowedAdops": [],
+      "allowedTabs": [
+        "overview",
+        "management"
+      ],
+      "updatedAt": "2026-04-02T14:00:00.000Z"
     }
   ]
 }
