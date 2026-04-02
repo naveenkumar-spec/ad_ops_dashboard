@@ -180,7 +180,8 @@ async function withLegacyOverviewTrend(metric, baseSeries, filters = {}) {
   const hasScopedAccess = Array.isArray(filters.scopeCountries) && filters.scopeCountries.length;
   const hasAdopsScope = Array.isArray(filters.scopeAdops) && filters.scopeAdops.length;
   if (hasScopedAccess || hasAdopsScope) return baseSeries;
-  const filterKeys = ["region", "year", "month", "status", "product", "platform", "ops", "cs", "sales"];
+  // Exclude region from filterKeys since legacy sheet has country data
+  const filterKeys = ["year", "month", "status", "product", "platform", "ops", "cs", "sales"];
   const hasActiveFilters = filterKeys.some((key) => {
     const value = filters[key];
     if (value === undefined || value === null) return false;
@@ -188,7 +189,8 @@ async function withLegacyOverviewTrend(metric, baseSeries, filters = {}) {
     return String(value).trim().toLowerCase() !== "all" && String(value).trim() !== "";
   });
   if (hasActiveFilters) return baseSeries;
-  const legacySeries = await privateSheetsService.getOverviewLegacyTrend(metric);
+  // Pass filters to legacy trend so it can filter by country/region
+  const legacySeries = await privateSheetsService.getOverviewLegacyTrend(metric, filters);
   return mergeLegacySeries(baseSeries, legacySeries);
 }
 

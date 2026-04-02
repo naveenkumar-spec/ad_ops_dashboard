@@ -851,7 +851,7 @@ async function getCpmTrend() {
   return buildMonthYearSeries(rows, (r) => r.cpm, "avg");
 }
 
-async function getOverviewLegacyTrend(metric = "revenue") {
+async function getOverviewLegacyTrend(metric = "revenue", filters = {}) {
   const sheets = await getSheetsClient();
   const resolvedTab = await resolveTabName(sheets, OVERVIEW_RAW_SPENDS_SOURCE);
   const rows = await readTabValues(sheets, OVERVIEW_RAW_SPENDS_SOURCE.sheetId, resolvedTab);
@@ -892,6 +892,25 @@ async function getOverviewLegacyTrend(metric = "revenue") {
   const ecpmColIdx = OVERVIEW_RAW_ALIASES.ecpm
     .map((alias) => headerMap[normalizeKey(alias)])
     .find((idx) => idx !== undefined);
+
+  // Parse region filter to get allowed countries
+  const allowedCountries = new Set();
+  if (filters.region && filters.region !== "all") {
+    const regionFilter = String(filters.region).trim();
+    // Check if it's a country or region
+    const allCountries = Object.keys(COUNTRY_DEFAULT_CURRENCY);
+    if (allCountries.some(c => canonicalCountryName(c) === canonicalCountryName(regionFilter))) {
+      // It's a specific country
+      allowedCountries.add(canonicalCountryName(regionFilter));
+    } else {
+      // It's a region, find all countries in that region
+      allCountries.forEach(country => {
+        if (mapCountryToRegion(country) === regionFilter) {
+          allowedCountries.add(canonicalCountryName(country));
+        }
+      });
+    }
+  }
 
   // Helper: parse a combined month-year cell like "Mar-20", "March 2020", "03/2020", "2020-03"
   function parseCombinedMonthYear(value) {
@@ -961,7 +980,13 @@ async function getOverviewLegacyTrend(metric = "revenue") {
 
     if (!month || !year) continue;
 
-    const country = String(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.country) || "").trim();
+    const country = canonicalCountryName(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.country) || "");
+    
+    // Apply country/region filter
+    if (allowedCountries.size > 0 && !allowedCountries.has(country)) {
+      continue;
+    }
+
     const salesValueUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.salesValueUsd));
     const mediaSpendUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.mediaSpendUsd));
     // Use the eCPM column
