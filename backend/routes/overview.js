@@ -179,7 +179,10 @@ async function withLegacyOverviewTrend(metric, baseSeries, filters = {}) {
   if (DATA_SOURCE !== "google_sheets") return baseSeries;
   const hasScopedAccess = Array.isArray(filters.scopeCountries) && filters.scopeCountries.length;
   const hasAdopsScope = Array.isArray(filters.scopeAdops) && filters.scopeAdops.length;
-  if (hasScopedAccess || hasAdopsScope) return baseSeries;
+  if (hasScopedAccess || hasAdopsScope) {
+    console.log(`[withLegacyOverviewTrend] Skipping legacy merge - scoped access detected`);
+    return baseSeries;
+  }
   // Exclude region from filterKeys since legacy sheet has country data
   const filterKeys = ["year", "month", "status", "product", "platform", "ops", "cs", "sales"];
   const hasActiveFilters = filterKeys.some((key) => {
@@ -188,10 +191,25 @@ async function withLegacyOverviewTrend(metric, baseSeries, filters = {}) {
     if (Array.isArray(value)) return value.length > 0;
     return String(value).trim().toLowerCase() !== "all" && String(value).trim() !== "";
   });
-  if (hasActiveFilters) return baseSeries;
+  if (hasActiveFilters) {
+    console.log(`[withLegacyOverviewTrend] Skipping legacy merge - active filters detected:`, filters);
+    return baseSeries;
+  }
+  console.log(`[withLegacyOverviewTrend] Fetching legacy data for metric=${metric}, filters=`, filters);
   // Pass filters to legacy trend so it can filter by country/region
   const legacySeries = await privateSheetsService.getOverviewLegacyTrend(metric, filters);
-  return mergeLegacySeries(baseSeries, legacySeries);
+  console.log(`[withLegacyOverviewTrend] Legacy series has ${legacySeries.length} months`);
+  if (legacySeries.length > 0) {
+    const legacyYears = Object.keys(legacySeries[0] || {}).filter(k => k !== 'month');
+    console.log(`[withLegacyOverviewTrend] Legacy years:`, legacyYears);
+  }
+  const merged = mergeLegacySeries(baseSeries, legacySeries);
+  console.log(`[withLegacyOverviewTrend] Merged series has ${merged.length} months`);
+  if (merged.length > 0) {
+    const mergedYears = Object.keys(merged[0] || {}).filter(k => k !== 'month');
+    console.log(`[withLegacyOverviewTrend] Merged years:`, mergedYears);
+  }
+  return merged;
 }
 
 router.get("/kpis", async (_req, res) => {
