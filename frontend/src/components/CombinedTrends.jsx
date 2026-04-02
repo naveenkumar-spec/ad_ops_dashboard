@@ -88,7 +88,7 @@ export default function CombinedTrends({ filters = {}, trendBundle = null, curre
         title="Booked Revenue Trend"
         endpoint="/api/overview/revenue-trend"
         isPercent={false}
-        filters={{}}
+        filters={filters}
         rawDataOverride={trendBundle?.revenue || null}
         controlledYears={selectedYears}
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
@@ -101,7 +101,7 @@ export default function CombinedTrends({ filters = {}, trendBundle = null, curre
         title="Gross Margin Trend"
         endpoint="/api/overview/margin-trend"
         isPercent={true}
-        filters={{}}
+        filters={filters}
         rawDataOverride={trendBundle?.margin || null}
         controlledYears={selectedYears}
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}

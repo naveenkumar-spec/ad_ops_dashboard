@@ -80,10 +80,10 @@ export default function Overview({ currentUser, onLogout }) {
   }, [refreshTick, JSON.stringify(filters)]);
 
   useEffect(() => {
-    apiGet("/api/overview/trends", { timeout: 20000 })
+    apiGet("/api/overview/trends", { timeout: 20000, params: toApiParams(trendFilters) })
       .then((res) => setTrendBundle(res.data || null))
       .catch(() => setTrendBundle(null));
-  }, [refreshTick]);
+  }, [refreshTick, JSON.stringify(trendFilters)]);
 
   const currencyContext = useMemo(
     () =>
@@ -93,6 +93,12 @@ export default function Overview({ currentUser, onLogout }) {
         regionTree: filterOptions?.regionTree || []
       }),
     [currency, filters.region, JSON.stringify(filterOptions?.regionTree || [])]
+  );
+
+  // Filters for trend charts: exclude year/month but include all other filters
+  const trendFilters = useMemo(
+    () => omitFilterKeys(filters, ["year", "month"]),
+    [JSON.stringify(filters)]
   );
 
   const handleFilterChange = (name, value) => {
@@ -128,8 +134,8 @@ export default function Overview({ currentUser, onLogout }) {
             onClear={handleClear}
           />
           <KPICards key={`kpi-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
-          <CombinedTrends key={`ct1-${refreshTick}`} filters={filters} trendBundle={trendBundle} currencyContext={currencyContext} />
-          <CombinedTrendsSecondary key={`ct2-${refreshTick}`} filters={filters} trendBundle={trendBundle} currencyContext={currencyContext} />
+          <CombinedTrends key={`ct1-${refreshTick}`} filters={trendFilters} trendBundle={trendBundle} currencyContext={currencyContext} />
+          <CombinedTrendsSecondary key={`ct2-${refreshTick}`} filters={trendFilters} trendBundle={trendBundle} currencyContext={currencyContext} />
           <div className="overview-tables-stack">
             <CountryWiseTable key={`cty-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
             <ProductWiseTable key={`prd-${refreshTick}`} filters={filters} currencyContext={currencyContext} />

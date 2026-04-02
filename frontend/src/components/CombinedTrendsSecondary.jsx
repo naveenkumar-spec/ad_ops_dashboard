@@ -85,7 +85,7 @@ export default function CombinedTrendsSecondary({ filters = {}, trendBundle = nu
         endpoint="/api/overview/cpm-trend"
         isPercent={false}
         isRaw={true}
-        filters={{}}
+        filters={filters}
         rawDataOverride={trendBundle?.cpm || null}
         controlledYears={selectedYears}
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
@@ -98,7 +98,7 @@ export default function CombinedTrendsSecondary({ filters = {}, trendBundle = nu
         title="Net Margin Trend ( Tracker Sheet )"
         endpoint="/api/overview/net-margin-trend"
         isPercent={true}
-        filters={{}}
+        filters={filters}
         rawDataOverride={trendBundle?.netMargin || null}
         controlledYears={selectedYears}
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
