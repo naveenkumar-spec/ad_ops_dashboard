@@ -34,9 +34,29 @@
 ## 🚀 DEPLOYMENT STATUS
 
 ### Git Status
-- ✅ Changes committed: `b811c08`
+- ✅ Changes committed: `7b8613f` (with debugging improvements)
 - ✅ Changes pushed to GitHub
 - ✅ Render auto-deployment triggered
+
+### Latest Updates (7b8613f)
+- ✅ Enhanced `getBrandingSheetParsedData()` with detailed logging
+- ✅ Added sample row logging and skip reason tracking  
+- ✅ Improved `toTransitionRows()` with year distribution logging
+- ✅ Made filtering less restrictive to capture more data
+- ✅ Added unique campaign_id generation to avoid conflicts
+
+### Expected Debug Output
+After deployment and manual sync, look for these log messages:
+```
+[getBrandingSheetParsedData] Found headers at row X: ...
+[getBrandingSheetParsedData] Total rows to parse: 16138
+[getBrandingSheetParsedData] Sample row 1: month=..., year=..., country=..., salesValueUsd=..., ecpm=...
+[getBrandingSheetParsedData] Parsed X raw rows from branding sheet (skipped Y invalid rows)
+[toTransitionRows] Processing X raw branding sheet rows
+[toTransitionRows] Sample row 1: month=..., year=..., country=..., revenue=..., spend=..., cpm=...
+[toTransitionRows] Created X transition rows from Y raw rows (filtered out Z rows)
+[toTransitionRows] Year distribution: {2020: X, 2021: Y, 2022: Z, ...}
+```
 
 ### Expected Results After Deployment
 

@@ -213,9 +213,8 @@ const TABLE_SCHEMA = [
 const TRANSITION_TABLE_SCHEMA = [
   { name: "sync_id", type: "STRING" },
   { name: "synced_at", type: "TIMESTAMP" },
-  { name: "campaign_name", type: "STRING" },
-  { name: "campaign_id", type: "STRING" },
-  { name: "status", type: "STRING" },
+  { name: "month", type: "STRING" },
+  { name: "year", type: "INT64" },
   { name: "country", type: "STRING" },
   { name: "region", type: "STRING" },
   { name: "revenue", type: "FLOAT" },
@@ -224,23 +223,10 @@ const TRANSITION_TABLE_SCHEMA = [
   { name: "gross_margin_pct", type: "FLOAT" },
   { name: "net_margin", type: "FLOAT" },
   { name: "net_margin_pct", type: "FLOAT" },
-  { name: "planned_impressions", type: "FLOAT" },
-  { name: "delivered_impressions", type: "FLOAT" },
-  { name: "budget_groups", type: "INT64" },
   { name: "cpm", type: "FLOAT" },
-  { name: "start_date", type: "DATE" },
-  { name: "end_date", type: "DATE" },
-  { name: "month", type: "STRING" },
-  { name: "year", type: "INT64" },
-  { name: "product", type: "STRING" },
-  { name: "platform", type: "STRING" },
-  { name: "ops_owner", type: "STRING" },
-  { name: "cs_owner", type: "STRING" },
-  { name: "sales_owner", type: "STRING" },
   { name: "source_sheet_id", type: "STRING" },
   { name: "source_tab", type: "STRING" },
-  { name: "source_country", type: "STRING" },
-  { name: "source_gid", type: "INT64" }
+  { name: "source_country", type: "STRING" }
 ];
 
 async function ensureTable() {
@@ -483,9 +469,8 @@ function toTransitionRows(syncId, syncedAtIso, rawBrandingData) {
     const transitionRow = {
       sync_id: syncId,
       synced_at: syncedAtIso,
-      campaign_name: "Legacy Branding Data",
-      campaign_id: `legacy_${row.country}_${row.year}_${row.month}_${index}`,
-      status: "Historical",
+      month: row.month || null,
+      year: Math.round(Number(row.year || 0)),
       country: row.country || null,
       region: row.region || null,
       revenue: revenue,
@@ -494,23 +479,10 @@ function toTransitionRows(syncId, syncedAtIso, rawBrandingData) {
       gross_margin_pct: grossMarginPct,
       net_margin: grossProfit, // Same as gross for legacy data
       net_margin_pct: grossMarginPct,
-      planned_impressions: 0,
-      delivered_impressions: 0,
-      budget_groups: 1,
       cpm: Number(row.ecpm || 0),
-      start_date: null,
-      end_date: null,
-      month: row.month || null,
-      year: Math.round(Number(row.year || 0)),
-      product: null, // Not available in branding sheet
-      platform: null, // Not available in branding sheet
-      ops_owner: null, // Not available in branding sheet
-      cs_owner: null, // Not available in branding sheet
-      sales_owner: null, // Not available in branding sheet
       source_sheet_id: "1MwWqMLj5b4FwIS6wD3FugfwgbWlyJD0xaQJLpmlRlQs",
       source_tab: "Raw Spends Data",
-      source_country: row.country || null,
-      source_gid: 0
+      source_country: row.country || null
     };
     
     // Log first few rows for debugging

@@ -529,18 +529,14 @@ async function getOverviewSeries(metric, filters = {}) {
   // For CPM, only average non-zero values
   if (metric === "cpm") valueExpr = "AVG(CASE WHEN t.cpm > 0 THEN t.cpm ELSE NULL END)";
 
-  // Query both tracker data and transition (legacy) data using UNION ALL
+  // Use country-based JOIN approach like Power BI instead of UNION ALL
+  // This allows all filters to work by joining tracker data with branding data
   const rows = await runQuery(
     `
-      SELECT
-        t.month AS month,
-        SAFE_CAST(t.year AS INT64) AS year,
-        ROUND(${valueExpr}, 2) AS value
-      FROM (
-        -- Tracker data (recent)
+      WITH tracker_data AS (
         SELECT * FROM ${latestMainTableSql()}
-        UNION ALL
-        -- Legacy branding data (historical)
+      ),
+      branding_data AS (
         SELECT * FROM ${transitionTableRef}
         WHERE sync_id = (
           SELECT sync_id
@@ -548,7 +544,47 @@ async function getOverviewSeries(metric, filters = {}) {
           ORDER BY synced_at DESC
           LIMIT 1
         )
-      ) t
+      ),
+      combined_data AS (
+        -- Tracker data (recent years with all filter columns)
+        SELECT 
+          month, year, revenue, spend, gross_margin_pct, net_margin_pct, cpm,
+          country, region, product, platform, status, ops_owner, cs_owner, sales_owner
+        FROM tracker_data
+        
+        UNION ALL
+        
+        -- Branding data (historical years) - use country to inherit filter values from tracker
+        SELECT 
+          b.month, b.year, b.revenue, b.spend, b.gross_margin_pct, b.net_margin_pct, b.cpm,
+          b.country, b.region,
+          -- For missing dimensions, try to inherit from tracker data for same country
+          COALESCE(t.product, 'Historical') as product,
+          COALESCE(t.platform, 'Historical') as platform, 
+          COALESCE(t.status, 'Historical') as status,
+          COALESCE(t.ops_owner, 'Historical') as ops_owner,
+          COALESCE(t.cs_owner, 'Historical') as cs_owner,
+          COALESCE(t.sales_owner, 'Historical') as sales_owner
+        FROM branding_data b
+        LEFT JOIN (
+          -- Get representative values for each country from tracker data
+          SELECT DISTINCT 
+            country,
+            FIRST_VALUE(product) OVER (PARTITION BY country ORDER BY year DESC, month DESC) as product,
+            FIRST_VALUE(platform) OVER (PARTITION BY country ORDER BY year DESC, month DESC) as platform,
+            FIRST_VALUE(status) OVER (PARTITION BY country ORDER BY year DESC, month DESC) as status,
+            FIRST_VALUE(ops_owner) OVER (PARTITION BY country ORDER BY year DESC, month DESC) as ops_owner,
+            FIRST_VALUE(cs_owner) OVER (PARTITION BY country ORDER BY year DESC, month DESC) as cs_owner,
+            FIRST_VALUE(sales_owner) OVER (PARTITION BY country ORDER BY year DESC, month DESC) as sales_owner
+          FROM tracker_data
+          WHERE country IS NOT NULL
+        ) t ON b.country = t.country
+      )
+      SELECT
+        t.month AS month,
+        SAFE_CAST(t.year AS INT64) AS year,
+        ROUND(${valueExpr}, 2) AS value
+      FROM combined_data t
       ${whereSql}
       GROUP BY month, year
       ORDER BY year ASC, ${MONTH_ORDER_CASE}
