@@ -248,10 +248,8 @@ router.get("/kpis", async (_req, res) => {
 router.get("/revenue-trend", async (_req, res) => {
   try {
     const trendFilters = withUserScope(parseFilters(_req.query), _req.user);
-    const baseSeries = DATA_SOURCE === "powerbi"
-      ? await powerBiService.getRevenueTrendData()
-      : await provider.getRevenueTrend(trendFilters);
-    const trendData = clampFutureMonths(await withLegacyOverviewTrend("revenue", baseSeries, trendFilters));
+    // BigQuery now queries both tracker and transition tables automatically
+    const trendData = clampFutureMonths(await provider.getRevenueTrend(trendFilters));
     res.json(trendData);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch revenue trend", message: error.message });
@@ -261,10 +259,8 @@ router.get("/revenue-trend", async (_req, res) => {
 router.get("/margin-trend", async (_req, res) => {
   try {
     const trendFilters = withUserScope(parseFilters(_req.query), _req.user);
-    const baseSeries = DATA_SOURCE === "powerbi"
-      ? await powerBiService.getRevenueTrendData()
-      : await provider.getMarginTrend(trendFilters);
-    const trendData = clampFutureMonths(await withLegacyOverviewTrend("margin", baseSeries, trendFilters));
+    // BigQuery now queries both tracker and transition tables automatically
+    const trendData = clampFutureMonths(await provider.getMarginTrend(trendFilters));
     res.json(trendData);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch margin trend", message: error.message });
@@ -408,9 +404,9 @@ router.get("/product-wise", async (_req, res) => {
 router.get("/cpm-trend", async (_req, res) => {
   try {
     const trendFilters = withUserScope(parseFilters(_req.query), _req.user);
-    const baseSeries = await provider.getCpmTrend(trendFilters);
-    const payload = clampFutureMonths(await withLegacyOverviewTrend("cpm", baseSeries, trendFilters));
-    res.json(payload);
+    // BigQuery now queries both tracker and transition tables automatically
+    const trendData = clampFutureMonths(await provider.getCpmTrend(trendFilters));
+    res.json(trendData);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch cpm-trend", message: error.message });
   }

@@ -213,14 +213,34 @@ const TABLE_SCHEMA = [
 const TRANSITION_TABLE_SCHEMA = [
   { name: "sync_id", type: "STRING" },
   { name: "synced_at", type: "TIMESTAMP" },
+  { name: "campaign_name", type: "STRING" },
+  { name: "campaign_id", type: "STRING" },
+  { name: "status", type: "STRING" },
+  { name: "country", type: "STRING" },
+  { name: "region", type: "STRING" },
+  { name: "revenue", type: "FLOAT" },
+  { name: "spend", type: "FLOAT" },
+  { name: "gross_profit", type: "FLOAT" },
+  { name: "gross_margin_pct", type: "FLOAT" },
+  { name: "net_margin", type: "FLOAT" },
+  { name: "net_margin_pct", type: "FLOAT" },
+  { name: "planned_impressions", type: "FLOAT" },
+  { name: "delivered_impressions", type: "FLOAT" },
+  { name: "budget_groups", type: "INT64" },
+  { name: "cpm", type: "FLOAT" },
+  { name: "start_date", type: "DATE" },
+  { name: "end_date", type: "DATE" },
   { name: "month", type: "STRING" },
   { name: "year", type: "INT64" },
-  { name: "quarter", type: "STRING" },
-  { name: "booked_revenue_m", type: "FLOAT" },
-  { name: "gross_margin_pct", type: "FLOAT" },
-  { name: "average_buying_cpm", type: "FLOAT" },
+  { name: "product", type: "STRING" },
+  { name: "platform", type: "STRING" },
+  { name: "ops_owner", type: "STRING" },
+  { name: "cs_owner", type: "STRING" },
+  { name: "sales_owner", type: "STRING" },
   { name: "source_sheet_id", type: "STRING" },
-  { name: "source_tab", type: "STRING" }
+  { name: "source_tab", type: "STRING" },
+  { name: "source_country", type: "STRING" },
+  { name: "source_gid", type: "INT64" }
 ];
 
 async function ensureTable() {
@@ -400,6 +420,7 @@ function toBigQueryRows(rows, syncId, syncedAtIso) {
 }
 
 function toTransitionMapRow(seriesByMetric, month, year) {
+  // This function is no longer needed - we'll parse raw branding sheet data directly
   const row = {
     month,
     year: Math.round(Number(year || 0)),
@@ -430,43 +451,65 @@ function toTransitionMapRow(seriesByMetric, month, year) {
   return row;
 }
 
-function toTransitionRows(syncId, syncedAtIso, seriesByMetric) {
-  const monthOrder = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
-  const years = new Set();
-  Object.values(seriesByMetric || {}).forEach((series) => {
-    (series || []).forEach((row) => {
-      Object.keys(row || {}).forEach((k) => {
-        if (k !== "month" && Number.isFinite(Number(k))) years.add(Number(k));
-      });
-    });
-  });
+async function getBrandingSheetRawData() {
+  // Get raw parsed data from branding sheet with all dimensions
+  try {
+    const rawData = await privateSheetsService.getBrandingSheetParsedData();
+    console.log(`[getBrandingSheetRawData] Retrieved ${rawData.length} raw rows from branding sheet`);
+    return rawData;
+  } catch (error) {
+    console.error("[getBrandingSheetRawData] Failed to get branding sheet data:", error.message);
+    return [];
+  }
+}
 
-  const out = [];
-  console.log(`[toTransitionRows] Processing ${years.size} years:`, Array.from(years).sort((a, b) => a - b));
-  Array.from(years).sort((a, b) => a - b).forEach((year) => {
-    monthOrder.forEach((month) => {
-      const merged = toTransitionMapRow(seriesByMetric, month, year);
-      if (!Number.isFinite(merged.year) || !merged.year) return;
-      // Keep rows that have ANY non-zero value (not requiring all three)
-      const hasData = Math.abs(merged.booked_revenue_m) > 0 || 
-                      Math.abs(merged.gross_margin_pct) > 0 || 
-                      Math.abs(merged.average_buying_cpm) > 0;
-      if (!hasData) {
-        return; // Skip only if ALL metrics are zero
-      }
-      out.push({
-        sync_id: syncId,
-        synced_at: syncedAtIso,
-        ...merged,
-        source_sheet_id: "1MwWqMLj5b4FwIS6wD3FugfwgbWlyJD0xaQJLpmlRlQs",
-        source_tab: "Raw Spends Data"
-      });
-    });
+function toTransitionRows(syncId, syncedAtIso, rawBrandingData) {
+  console.log(`[toTransitionRows] Processing ${rawBrandingData.length} raw branding sheet rows`);
+  
+  const out = rawBrandingData.map((row) => {
+    const revenue = Number(row.salesValueUsd || 0);
+    const spend = Number(row.mediaSpendUsd || 0);
+    const grossProfit = revenue - spend;
+    const grossMarginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+    
+    return {
+      sync_id: syncId,
+      synced_at: syncedAtIso,
+      campaign_name: "Legacy Branding Data",
+      campaign_id: `legacy_${row.country}_${row.year}_${row.month}`,
+      status: "Historical",
+      country: row.country || null,
+      region: row.region || null,
+      revenue: revenue,
+      spend: spend,
+      gross_profit: grossProfit,
+      gross_margin_pct: grossMarginPct,
+      net_margin: grossProfit, // Same as gross for legacy data
+      net_margin_pct: grossMarginPct,
+      planned_impressions: 0,
+      delivered_impressions: 0,
+      budget_groups: 1,
+      cpm: Number(row.ecpm || 0),
+      start_date: null,
+      end_date: null,
+      month: row.month || null,
+      year: Math.round(Number(row.year || 0)),
+      product: null, // Not available in branding sheet
+      platform: null, // Not available in branding sheet
+      ops_owner: null, // Not available in branding sheet
+      cs_owner: null, // Not available in branding sheet
+      sales_owner: null, // Not available in branding sheet
+      source_sheet_id: "1MwWqMLj5b4FwIS6wD3FugfwgbWlyJD0xaQJLpmlRlQs",
+      source_tab: "Raw Spends Data",
+      source_country: row.country || null,
+      source_gid: 0
+    };
+  }).filter(row => {
+    // Keep rows that have meaningful data
+    return row.year > 0 && row.month && (row.revenue > 0 || row.spend > 0 || row.cpm > 0);
   });
-  console.log(`[toTransitionRows] Created ${out.length} transition rows from ${years.size} years`);
+  
+  console.log(`[toTransitionRows] Created ${out.length} transition rows from ${rawBrandingData.length} raw rows`);
   return out;
 }
 
@@ -526,20 +569,13 @@ async function syncToBigQuery(options = {}) {
     activeSyncStatus.issueCount = syncIssues.length;
     activeSyncStatus.step = "building_transition_metrics";
     activeSyncStatus.message = "Reading legacy branding sheet for trend metrics";
-    console.log("[BigQuery Sync] 📊 SYNC PROCESS: Reading Google Sheets for legacy trend data (this is expected)");
-    let seriesByMetric = { revenue: [], margin: [], cpm: [] };
-    try {
-      const [revenueSeries, marginSeries, cpmSeries] = await Promise.all([
-        privateSheetsService.getOverviewLegacyTrend("revenue"),
-        privateSheetsService.getOverviewLegacyTrend("margin"),
-        privateSheetsService.getOverviewLegacyTrend("cpm")
-      ]);
-      seriesByMetric = { revenue: revenueSeries, margin: marginSeries, cpm: cpmSeries };
-      console.log(`[BigQuery Sync] ✅ Legacy trend rows: revenue=${revenueSeries.length}, margin=${marginSeries.length}, cpm=${cpmSeries.length}`);
-    } catch (legacyErr) {
-      console.error("[BigQuery Sync] Failed to read legacy branding sheet, transition table will be empty:", legacyErr.message);
-    }
-    const transitionRows = toTransitionRows(syncId, syncedAtIso, seriesByMetric);
+    console.log("[BigQuery Sync] 📊 SYNC PROCESS: Reading Google Sheets for legacy branding data (this is expected)");
+    
+    // Get raw parsed data from branding sheet (with all dimensions preserved)
+    const rawBrandingData = await getBrandingSheetRawData();
+    console.log(`[BigQuery Sync] ✅ Retrieved ${rawBrandingData.length} raw branding sheet rows`);
+    
+    const transitionRows = toTransitionRows(syncId, syncedAtIso, rawBrandingData);
     throwIfStopRequested();
     activeSyncStatus.transitionRowCount = transitionRows.length;
     activeSyncStatus.step = "preparing_bigquery_load";

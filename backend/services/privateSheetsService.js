@@ -1061,6 +1061,108 @@ async function getOverviewLegacyTrend(metric = "revenue", filters = {}) {
   return MONTHS.map((m) => byMonth[m]);
 }
 
+async function getBrandingSheetParsedData() {
+  // Returns raw parsed branding sheet data with all dimensions (country, month, year, etc.)
+  // This is used for populating the transition table with the same schema as tracker sheets
+  
+  const sheets = await getSheetsClient();
+  const resolvedTab = await resolveTabName(sheets, OVERVIEW_RAW_SPENDS_SOURCE);
+  const range = `${resolvedTab}!A1:ZZ`;
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: OVERVIEW_RAW_SPENDS_SOURCE.sheetId,
+    range
+  });
+
+  const rows = response.data.values || [];
+  if (!rows.length) {
+    console.log("[getBrandingSheetParsedData] No data found in branding sheet");
+    return [];
+  }
+
+  // Find header row
+  let headerRowIndex = -1;
+  let bestScore = -1;
+  const aliasKeys = new Set(
+    Object.values(OVERVIEW_RAW_ALIASES).flat().map((v) => normalizeKey(v))
+  );
+  for (let i = 0; i < Math.min(rows.length, 120); i += 1) {
+    const row = rows[i] || [];
+    const score = row.filter((cell) => aliasKeys.has(normalizeKey(cell))).length;
+    if (score > bestScore) {
+      bestScore = score;
+      headerRowIndex = i;
+    }
+  }
+
+  if (headerRowIndex < 0 || bestScore < 2) {
+    console.error("[getBrandingSheetParsedData] Could not find header row");
+    return [];
+  }
+
+  const headers = rows[headerRowIndex].map((h) => String(h || "").trim());
+  const headerMap = {};
+  headers.forEach((header, idx) => {
+    const key = normalizeKey(header);
+    if (key && headerMap[key] === undefined) headerMap[key] = idx;
+  });
+
+  console.log(`[getBrandingSheetParsedData] Found headers at row ${headerRowIndex}:`, headers.slice(0, 15).join(", "));
+  console.log(`[getBrandingSheetParsedData] Total rows to parse: ${rows.length - headerRowIndex - 1}`);
+
+  // Find eCPM column
+  const ecpmColIdx = OVERVIEW_RAW_ALIASES.ecpm
+    .map((alias) => headerMap[normalizeKey(alias)])
+    .find((idx) => idx !== undefined);
+
+  const parsed = [];
+  for (let i = headerRowIndex + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+
+    let month = null;
+    let year = 0;
+
+    // Try separate Month + Year columns first
+    const monthRaw = pickField(row, headerMap, OVERVIEW_RAW_ALIASES.month);
+    const yearRaw = pickField(row, headerMap, OVERVIEW_RAW_ALIASES.year);
+    month = parseMonthName(monthRaw);
+    year = parseYearValue(yearRaw) || parseYearValue(monthRaw) || 0;
+
+    // If that fails, try combined month-year column
+    if (!month || !year) {
+      const combined = pickField(row, headerMap, OVERVIEW_RAW_ALIASES.monthYear);
+      if (combined) {
+        const parsed2 = parseCombinedMonthYear(combined);
+        if (parsed2) {
+          month = parsed2.month;
+          year = parsed2.year;
+        }
+      }
+    }
+
+    if (!month || !year) continue;
+
+    const country = canonicalCountryName(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.country) || "");
+    const region = mapCountryToRegion(country);
+    const salesValueUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.salesValueUsd));
+    const mediaSpendUsd = parseNumber(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.mediaSpendUsd));
+    const ecpm = ecpmColIdx !== undefined ? parseNumber(row[ecpmColIdx]) : 0;
+
+    parsed.push({
+      country,
+      region,
+      month,
+      year,
+      salesValueUsd,
+      mediaSpendUsd,
+      ecpm
+    });
+  }
+
+  console.log(`[getBrandingSheetParsedData] Parsed ${parsed.length} raw rows from branding sheet`);
+  return parsed;
+}
+
 async function getBottomCampaignsSimple(limit = 8) {
   const rows = await loadAllRows();
   return rows
@@ -1289,6 +1391,7 @@ module.exports = {
   getNetMarginTrend,
   getCpmTrend,
   getOverviewLegacyTrend,
+  getBrandingSheetParsedData,
   getBottomCampaignsSimple,
   getCampaignsDetailed,
   getRegionTable,

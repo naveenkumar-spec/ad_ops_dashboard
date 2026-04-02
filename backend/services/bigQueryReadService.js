@@ -526,16 +526,29 @@ async function getOverviewSeries(metric, filters = {}) {
   let valueExpr = "SUM(COALESCE(t.revenue, 0)) / 1000000";
   if (metric === "margin") valueExpr = "AVG(COALESCE(t.gross_margin_pct, 0))";
   if (metric === "net_margin") valueExpr = "AVG(COALESCE(t.net_margin_pct, 0))";
-  // For CPM, only average non-zero values from tracker sheets (Buying CPM column)
+  // For CPM, only average non-zero values
   if (metric === "cpm") valueExpr = "AVG(CASE WHEN t.cpm > 0 THEN t.cpm ELSE NULL END)";
 
+  // Query both tracker data and transition (legacy) data using UNION ALL
   const rows = await runQuery(
     `
       SELECT
         t.month AS month,
         SAFE_CAST(t.year AS INT64) AS year,
         ROUND(${valueExpr}, 2) AS value
-      FROM ${latestMainTableSql()} t
+      FROM (
+        -- Tracker data (recent)
+        SELECT * FROM ${latestMainTableSql()}
+        UNION ALL
+        -- Legacy branding data (historical)
+        SELECT * FROM ${transitionTableRef}
+        WHERE sync_id = (
+          SELECT sync_id
+          FROM ${transitionTableRef}
+          ORDER BY synced_at DESC
+          LIMIT 1
+        )
+      ) t
       ${whereSql}
       GROUP BY month, year
       ORDER BY year ASC, ${MONTH_ORDER_CASE}
