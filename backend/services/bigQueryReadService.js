@@ -547,13 +547,11 @@ async function getOverviewSeries(metric, filters = {}) {
 }
 
 async function getRevenueTrend(filters = {}) {
-  const base = await getOverviewSeries("revenue", filters);
-  return getMergedOverviewSeries(base, "revenue");
+  return getOverviewSeries("revenue", filters);
 }
 
 async function getMarginTrend(filters = {}) {
-  const base = await getOverviewSeries("margin", filters);
-  return getMergedOverviewSeries(base, "margin");
+  return getOverviewSeries("margin", filters);
 }
 
 async function getNetMarginTrend(filters = {}) {
@@ -561,8 +559,7 @@ async function getNetMarginTrend(filters = {}) {
 }
 
 async function getCpmTrend(filters = {}) {
-  const base = await getOverviewSeries("cpm", filters);
-  return getMergedOverviewSeries(base, "cpm");
+  return getOverviewSeries("cpm", filters);
 }
 
 async function getBottomCampaignsSimple(limit = 8, filters = {}) {
