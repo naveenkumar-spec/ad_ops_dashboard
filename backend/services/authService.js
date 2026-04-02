@@ -23,6 +23,7 @@ function sanitizeUser(user) {
     allowedTabs: user.allowedTabs || ["overview", "management"],
     authProvider: user.authProvider || "local",
     fullAccess: Boolean(user.fullAccess),
+    chatbotEnabled: user.chatbotEnabled !== false,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
   };
@@ -86,7 +87,8 @@ function signToken(user) {
       fullAccess: Boolean(user.fullAccess),
       allowedCountries: user.allowedCountries || [],
       allowedAdops: user.allowedAdops || [],
-      allowedTabs: user.allowedTabs || ["overview", "management"]
+      allowedTabs: user.allowedTabs || ["overview", "management"],
+      chatbotEnabled: user.chatbotEnabled !== false
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
@@ -166,6 +168,7 @@ async function upsertAccessUser(payload) {
   const allowedCountries = fullAccess ? [] : normalizeCountries(payload.allowedCountries);
   const allowedAdops = fullAccess ? [] : normalizeAdops(payload.allowedAdops);
   const allowedTabs = normalizeTabs(payload.allowedTabs, role);
+  const chatbotEnabled = payload.chatbotEnabled !== false;
 
   const existing = findUserByIdentity(email);
   const authProvider = String(payload.authProvider || existing?.authProvider || "google").toLowerCase();
@@ -192,6 +195,7 @@ async function upsertAccessUser(payload) {
   user.allowedAdops = allowedAdops;
   user.allowedTabs = allowedTabs;
   user.authProvider = authProvider;
+  user.chatbotEnabled = chatbotEnabled;
 
   if (authProvider === "local") {
     if (payload.password) {

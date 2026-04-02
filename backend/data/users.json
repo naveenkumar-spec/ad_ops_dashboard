@@ -16,7 +16,8 @@
       "updatedAt": "2026-03-25T17:27:47.966Z",
       "email": "admin@silverpush.local",
       "authProvider": "local",
-      "fullAccess": true
+      "fullAccess": true,
+      "chatbotEnabled": true
     },
     {
       "id": "0662b523-05b0-4ee4-b196-8f57e8b124ab",
@@ -34,7 +35,8 @@
         "overview",
         "management"
       ],
-      "updatedAt": "2026-03-25T17:50:37.110Z"
+      "updatedAt": "2026-03-25T17:50:37.110Z",
+      "chatbotEnabled": true
     },
     {
       "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
@@ -52,7 +54,8 @@
         "overview",
         "management"
       ],
-      "updatedAt": "2026-04-02T14:00:00.000Z"
+      "updatedAt": "2026-04-02T14:00:00.000Z",
+      "chatbotEnabled": true
     },
     {
       "id": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e",
@@ -70,7 +73,8 @@
         "overview",
         "management"
       ],
-      "updatedAt": "2026-04-02T14:00:00.000Z"
+      "updatedAt": "2026-04-02T14:00:00.000Z",
+      "chatbotEnabled": true
     }
   ]
 }

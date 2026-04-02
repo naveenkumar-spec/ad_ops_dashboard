@@ -73,7 +73,8 @@ const EMPTY_FORM = {
   fullAccess: false,
   allowedCountries: [],
   allowedAdops: [],
-  allowedTabs: ["overview", "management"]
+  allowedTabs: ["overview", "management"],
+  chatbotEnabled: true
 };
 
 export default function AdminSetup({ currentUser, onLogout }) {
@@ -157,7 +158,8 @@ export default function AdminSetup({ currentUser, onLogout }) {
       fullAccess: Boolean(user.fullAccess),
       allowedCountries: user.allowedCountries || [],
       allowedAdops: user.allowedAdops || [],
-      allowedTabs: user.allowedTabs || ["overview", "management"]
+      allowedTabs: user.allowedTabs || ["overview", "management"],
+      chatbotEnabled: user.chatbotEnabled !== false
     });
   };
 
@@ -291,6 +293,16 @@ export default function AdminSetup({ currentUser, onLogout }) {
                 ))}
               </div>
             </div>
+            <div className="admin-check-row">
+              <label className="admin-check">
+                <input
+                  type="checkbox"
+                  checked={form.chatbotEnabled}
+                  onChange={(e) => setForm((p) => ({ ...p, chatbotEnabled: e.target.checked }))}
+                />
+                Enable AI Chatbot
+              </label>
+            </div>
           </div>
           <button type="submit" className="admin-btn primary">{editingEmail ? "Update Access" : "Allow Email"}</button>
           {editingEmail ? (
@@ -371,6 +383,7 @@ export default function AdminSetup({ currentUser, onLogout }) {
                 <th align="left">Countries</th>
                 <th align="left">AdOps</th>
                 <th align="left">Tabs</th>
+                <th align="left">Chatbot</th>
                 <th align="left">Action</th>
               </tr>
             </thead>
@@ -386,6 +399,7 @@ export default function AdminSetup({ currentUser, onLogout }) {
                     <td>{(u.allowedCountries || []).join(", ") || "All"}</td>
                     <td>{(u.allowedAdops || []).join(", ") || "All"}</td>
                     <td>{(u.allowedTabs || []).join(", ")}</td>
+                    <td>{u.chatbotEnabled !== false ? "Yes" : "No"}</td>
                     <td>
                       <button type="button" className="admin-btn sm" onClick={() => editUser(u)}>Edit</button>
                       {String(u.username).toLowerCase() === "admin" ? "Locked" : (
