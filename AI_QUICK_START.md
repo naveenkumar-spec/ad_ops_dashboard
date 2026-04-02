@@ -1,8 +1,8 @@
 # AI Features - Quick Start (5 Minutes)
 
 ## What You Get (100% FREE)
-✅ **Automated Insights** - AI analyzes your data and shows key findings  
 ✅ **Interactive Chatbot** - Ask questions about your data in plain English  
+✅ **Admin Control** - Enable/disable per user  
 ✅ **No Credit Card** - Completely free with Hugging Face  
 
 ---
@@ -41,13 +41,6 @@ Wait 3-5 minutes for Render to redeploy. Done! 🎉
 
 ## How to Use
 
-### Insights Panel
-- Located at top of Overview page
-- Automatically analyzes your data
-- Shows 5 key insights
-- Click 🔄 to refresh
-- Updates when you change filters
-
 ### Chatbot
 - Click 🤖 button (bottom-right corner)
 - Type your question or click a suggestion
@@ -59,6 +52,13 @@ Wait 3-5 minutes for Render to redeploy. Done! 🎉
 - "Show top performing products"
 - "What's the average CPM?"
 - "Compare this month vs last month"
+
+### Admin Control
+- Go to Admin Setup page
+- Edit any user
+- Check/uncheck "Enable AI Chatbot"
+- Save changes
+- User will see/not see the 🤖 button
 
 ---
 

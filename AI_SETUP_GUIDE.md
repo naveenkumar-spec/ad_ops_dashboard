@@ -1,9 +1,9 @@
 # AI Insights & Chatbot Setup Guide
 
 ## Overview
-Your dashboard now includes AI-powered features:
-- **Automated Insights Panel**: Analyzes your data and provides actionable insights
+Your dashboard now includes an AI-powered chatbot feature:
 - **Interactive Chatbot**: Answer questions about your data in natural language
+- **Admin Control**: Enable/disable chatbot per user from Admin panel
 
 ## Setup Instructions
 
@@ -76,18 +76,8 @@ OPENAI_API_KEY=sk-xxxxxxxxxxxxx
 
 ## Features
 
-### 1. Insights Panel
-Located at the top of the Overview page, it automatically:
-- Analyzes your KPIs (revenue, spend, margins, CPM)
-- Identifies trends and patterns
-- Highlights top/bottom performers
-- Provides actionable recommendations
-- Updates when filters change
-
-**Refresh**: Click the 🔄 button to regenerate insights
-
-### 2. Chatbot Widget
-Floating button (🤖) in the bottom-right corner:
+### Chatbot Widget
+Floating button (🤖) in the bottom-right corner (when enabled for user):
 
 **Example Questions:**
 - "What's our total revenue this month?"
@@ -104,22 +94,32 @@ Floating button (🤖) in the bottom-right corner:
 - Suggested questions
 - Real-time data analysis
 
+### Admin Control
+In the Admin Setup page, you can:
+- Enable/disable chatbot for each user
+- New checkbox: "Enable AI Chatbot"
+- Default: Enabled for all users
+- Users without chatbot access won't see the 🤖 button
+
 ---
 
 ## Testing
 
-### Test Insights Panel
-1. Login to dashboard
-2. Go to Overview page
-3. You should see "🤖 AI Insights" panel below filters
-4. Wait for insights to load (may take 10-20 seconds first time)
-5. Try changing filters and clicking refresh
-
 ### Test Chatbot
-1. Click the 🤖 button in bottom-right
-2. Try a suggested question or type your own
-3. Wait for response (10-20 seconds first time, faster after)
-4. Ask follow-up questions
+1. Login to dashboard
+2. Look for 🤖 button in bottom-right corner
+3. Click to open chat interface
+4. Try a suggested question or type your own
+5. Wait for response (10-20 seconds first time, faster after)
+6. Ask follow-up questions
+
+### Test Admin Control
+1. Go to Admin Setup page
+2. Edit a user
+3. Uncheck "Enable AI Chatbot"
+4. Save changes
+5. Login as that user - chatbot button should not appear
+6. Re-enable and verify button appears again
 
 ---
 
