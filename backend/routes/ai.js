@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { generateInsights, handleChatQuery } = require('../services/aiService');
 const { getKPIs, getCampaignsDetailed, getProductWiseTable, getCountryWiseTable } = require('../services/bigQueryReadService');
-const { parseFilters, withUserScope } = require('../services/authService');
+const { parseFilters, withUserScope } = require('../utils/filters');
 
 /**
  * GET /api/ai/insights
