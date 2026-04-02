@@ -1,89 +1,77 @@
 const axios = require('axios');
 
-// Hugging Face API configuration - Using free tier models
-// These models are guaranteed to work on free tier
-const HF_MODELS = [
-  'HuggingFaceH4/zephyr-7b-beta',  // Primary: Good quality, free tier
-  'google/flan-t5-base',  // Fallback: Smaller, faster, always available
-  'facebook/blenderbot-400M-distill'  // Backup: Chat-optimized, very reliable
-];
+// Groq API configuration - FREE and FAST!
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama3-8b-8192'; // Fast and free
 
-const HF_MODEL = process.env.HF_MODEL || HF_MODELS[0];
-const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
-const HF_API_TOKEN = process.env.HUGGINGFACE_API_KEY;
+// Fallback to other free APIs if Groq not configured
+const USE_GROQ = !!GROQ_API_KEY;
 
 /**
- * Call Hugging Face API for text generation
+ * Call Groq API for text generation (FREE and FAST!)
  */
-async function callHuggingFace(prompt, maxTokens = 500) {
+async function callGroq(prompt, maxTokens = 500) {
   try {
-    if (!HF_API_TOKEN) {
-      throw new Error('HUGGINGFACE_API_KEY environment variable is not set');
+    if (!GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY environment variable is not set');
     }
 
-    console.log('[AI] Calling Hugging Face API with model:', HF_MODEL);
+    console.log('[AI] Calling Groq API with model:', GROQ_MODEL);
     
     const response = await axios.post(
-      HF_API_URL,
+      GROQ_API_URL,
       {
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: maxTokens,
-          temperature: 0.7,
-          top_p: 0.95,
-          return_full_text: false
-        },
-        options: {
-          wait_for_model: true,
-          use_cache: false
-        }
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful marketing analytics assistant. Provide clear, concise answers based on the data provided.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.7,
+        top_p: 0.95
       },
       {
         headers: {
-          'Authorization': `Bearer ${HF_API_TOKEN}`,
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 60000
+        timeout: 30000
       }
     );
 
     console.log('[AI] Response status:', response.status);
-    console.log('[AI] Response data:', JSON.stringify(response.data).substring(0, 200));
 
-    if (response.data && response.data[0] && response.data[0].generated_text) {
-      return response.data[0].generated_text.trim();
+    if (response.data?.choices?.[0]?.message?.content) {
+      return response.data.choices[0].message.content.trim();
     }
     
-    // Handle error responses
-    if (response.data && response.data.error) {
-      console.error('[AI] Hugging Face API error:', response.data.error);
-      throw new Error(response.data.error);
-    }
-    
-    throw new Error('Invalid response from Hugging Face API');
+    throw new Error('Invalid response from Groq API');
   } catch (error) {
-    if (error.response?.status === 503) {
-      // Model is loading, retry after delay
-      console.log('[AI] Model loading, retrying in 20 seconds...');
-      await new Promise(resolve => setTimeout(resolve, 20000));
-      return callHuggingFace(prompt, maxTokens);
-    }
-    
-    if (error.response?.status === 410) {
-      // This specific model is not available on free tier
-      console.error('[AI] Model not available on free tier. Error:', error.response?.data);
-      throw new Error(`Model ${HF_MODEL} is not available. The free Inference API may have restrictions on this model. Try using a different model or upgrade to a paid tier.`);
-    }
-    
-    console.error('[AI] Hugging Face API error:', {
+    console.error('[AI] Groq API error:', {
       message: error.message,
       status: error.response?.status,
-      statusText: error.response?.statusText,
       data: error.response?.data
     });
-    
     throw error;
   }
+}
+
+/**
+ * Main function to call AI API (uses Groq if available)
+ */
+async function callAI(prompt, maxTokens = 500) {
+  if (USE_GROQ) {
+    return callGroq(prompt, maxTokens);
+  }
+  
+  throw new Error('No AI API configured. Please set GROQ_API_KEY environment variable.');
 }
 
 /**
@@ -201,7 +189,7 @@ Answer:`;
 
   try {
     console.log('[AI] Handling chat query:', query);
-    const response = await callHuggingFace(prompt, 300);
+    const response = await callAI(prompt, 300);
     console.log('[AI] Chat response generated successfully');
     
     return {
@@ -227,5 +215,5 @@ Answer:`;
 module.exports = {
   generateInsights,
   handleChatQuery,
-  callHuggingFace
+  callAI
 };
