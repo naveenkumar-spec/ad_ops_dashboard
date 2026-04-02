@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { generateInsights, handleChatQuery } = require('../services/aiService');
-const { getKPIs, getCampaignsDetailed, getProductWiseTable, getCountryWiseTable } = require('../services/bigQueryReadService');
+const { getKpis, getCampaignsDetailed, getProductWiseTable, getCountryWiseTable } = require('../services/bigQueryReadService');
 const { parseFilters, withUserScope } = require('../utils/filters');
 
 /**
@@ -14,7 +14,7 @@ router.get('/insights', async (req, res) => {
     
     // Fetch dashboard data
     const [kpis, topCampaigns, bottomCampaigns, products, regions] = await Promise.all([
-      getKPIs(filters),
+      getKpis(filters),
       getCampaignsDetailed(filters, 'top', 10, 0),
       getCampaignsDetailed(filters, 'bottom', 10, 0),
       getProductWiseTable(filters, 10, 0),
@@ -76,7 +76,7 @@ router.post('/chat', async (req, res) => {
 
       const dataPromises = [];
       
-      if (needsKPIs) dataPromises.push(getKPIs(filters));
+      if (needsKPIs) dataPromises.push(getKpis(filters));
       if (needsCampaigns) dataPromises.push(getCampaignsDetailed(filters, 'top', 5, 0));
       if (needsProducts) dataPromises.push(getProductWiseTable(filters, 5, 0));
       if (needsRegions) dataPromises.push(getCountryWiseTable(filters, 5, 0));
