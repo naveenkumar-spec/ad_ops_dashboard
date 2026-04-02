@@ -9,6 +9,12 @@ const HF_API_TOKEN = process.env.HUGGINGFACE_API_KEY;
  */
 async function callHuggingFace(prompt, maxTokens = 500) {
   try {
+    if (!HF_API_TOKEN) {
+      throw new Error('HUGGINGFACE_API_KEY environment variable is not set');
+    }
+
+    console.log('[AI] Calling Hugging Face API...');
+    
     const response = await axios.post(
       HF_API_URL,
       {
@@ -29,19 +35,33 @@ async function callHuggingFace(prompt, maxTokens = 500) {
       }
     );
 
+    console.log('[AI] Response received:', JSON.stringify(response.data).substring(0, 200));
+
     if (response.data && response.data[0] && response.data[0].generated_text) {
       return response.data[0].generated_text.trim();
+    }
+    
+    // Handle error responses
+    if (response.data && response.data.error) {
+      console.error('[AI] Hugging Face API error:', response.data.error);
+      throw new Error(response.data.error);
     }
     
     throw new Error('Invalid response from Hugging Face API');
   } catch (error) {
     if (error.response?.status === 503) {
       // Model is loading, retry after delay
-      console.log('Model loading, retrying in 10 seconds...');
+      console.log('[AI] Model loading, retrying in 10 seconds...');
       await new Promise(resolve => setTimeout(resolve, 10000));
       return callHuggingFace(prompt, maxTokens);
     }
-    console.error('Hugging Face API error:', error.message);
+    
+    console.error('[AI] Hugging Face API error:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    
     throw error;
   }
 }
@@ -160,17 +180,26 @@ Provide a clear, concise answer. If you need to reference numbers, format them n
 Answer:`;
 
   try {
+    console.log('[AI] Handling chat query:', query);
     const response = await callHuggingFace(prompt, 300);
+    console.log('[AI] Chat response generated successfully');
+    
     return {
       answer: response,
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    console.error('Error handling chat query:', error);
+    console.error('[AI] Error handling chat query:', {
+      message: error.message,
+      query: query,
+      stack: error.stack
+    });
+    
     return {
       answer: "I'm having trouble processing your question right now. Please try again in a moment.",
       timestamp: new Date().toISOString(),
-      error: true
+      error: true,
+      errorMessage: error.message
     };
   }
 }

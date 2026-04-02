@@ -54,6 +54,8 @@ router.post('/chat', async (req, res) => {
   try {
     const { query, includeContext = true } = req.body;
 
+    console.log('[AI] Chat request received:', { query, includeContext });
+
     if (!query || typeof query !== 'string') {
       return res.status(400).json({
         success: false,
@@ -86,9 +88,13 @@ router.post('/chat', async (req, res) => {
       if (needsCampaigns) context.campaigns = results[idx++]?.rows;
       if (needsProducts) context.products = results[idx++]?.rows;
       if (needsRegions) context.regions = results[idx++]?.rows;
+      
+      console.log('[AI] Context prepared:', Object.keys(context));
     }
 
     const response = await handleChatQuery(query, context);
+
+    console.log('[AI] Sending response:', { success: !response.error });
 
     res.json({
       success: true,
@@ -96,7 +102,11 @@ router.post('/chat', async (req, res) => {
       ...response
     });
   } catch (error) {
-    console.error('Error handling chat query:', error);
+    console.error('[AI] Error handling chat query:', {
+      message: error.message,
+      stack: error.stack
+    });
+    
     res.status(500).json({
       success: false,
       error: 'Failed to process chat query',
