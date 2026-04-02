@@ -3,7 +3,8 @@ const axios = require('axios');
 // Groq API configuration - FREE and FAST!
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama3-8b-8192'; // Fast and free
+// Updated to current available models (as of 2024)
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'; // Fast and free
 
 // Fallback to other free APIs if Groq not configured
 const USE_GROQ = !!GROQ_API_KEY;
