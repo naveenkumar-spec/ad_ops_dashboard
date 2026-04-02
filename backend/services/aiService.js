@@ -1,11 +1,11 @@
 const axios = require('axios');
 
-// Hugging Face API configuration - Using free tier compatible models
-// Mistral may require paid tier, so we'll use models that work on free tier
+// Hugging Face API configuration - Using free tier models
+// These models are guaranteed to work on free tier
 const HF_MODELS = [
-  'HuggingFaceH4/zephyr-7b-beta',  // Good quality, free tier
-  'mistralai/Mixtral-8x7B-Instruct-v0.1',  // High quality if available
-  'google/flan-t5-large'  // Fallback, always available
+  'HuggingFaceH4/zephyr-7b-beta',  // Primary: Good quality, free tier
+  'google/flan-t5-base',  // Fallback: Smaller, faster, always available
+  'facebook/blenderbot-400M-distill'  // Backup: Chat-optimized, very reliable
 ];
 
 const HF_MODEL = process.env.HF_MODEL || HF_MODELS[0];
