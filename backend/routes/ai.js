@@ -17,7 +17,7 @@ router.get('/insights', async (req, res) => {
       getKpis(filters),
       getCampaignsDetailed(filters, 'top', 10, 0),
       getCampaignsDetailed(filters, 'bottom', 10, 0),
-      getProductWiseTable(filters, 10, 0),
+      getProductWiseTable(10, 0, filters),
       getCountryWiseTable(10, 0, filters)
     ]);
 
@@ -78,7 +78,7 @@ router.post('/chat', async (req, res) => {
       
       if (needsKPIs) dataPromises.push(getKpis(filters));
       if (needsCampaigns) dataPromises.push(getCampaignsDetailed(filters, 'top', 5, 0));
-      if (needsProducts) dataPromises.push(getProductWiseTable(filters, 5, 0));
+      if (needsProducts) dataPromises.push(getProductWiseTable(5, 0, filters));
       if (needsRegions) dataPromises.push(getCountryWiseTable(5, 0, filters));
 
       const results = await Promise.all(dataPromises);
