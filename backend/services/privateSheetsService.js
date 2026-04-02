@@ -175,7 +175,7 @@ const LOCAL_TO_USD_BY_CURRENCY = {
 const OVERVIEW_RAW_SPENDS_SOURCE = {
   country: "Overview Legacy",
   sheetId: "1MwWqMLj5b4FwIS6wD3FugfwgbWlyJD0xaQJLpmlRlQs",
-  tabName: "Raw Spends Data",
+  tabName: "2020-21 Branding Ops Sales and Spends Final Data",
   gid: 848964579,
   enabled: true
 };
