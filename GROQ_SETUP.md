@@ -61,16 +61,155 @@ To change model, add to Render environment:
 
 ## Free Tier Limits
 
-**Groq Free Tier:**
-- 30 requests per minute
-- 14,400 requests per day
-- Unlimited for reasonable use
+### Rate Limits (Per Minute):
+- **30 requests per minute** per API key
+- **14,400 requests per day** (if maxed out every minute)
+- **432,000 requests per month** (theoretical maximum)
 
-**More than enough for:**
-- Testing
-- Small teams
-- Personal projects
-- Your dashboard usage
+### Token Limits:
+- **llama-3.1-8b-instant**: 30,000 tokens/minute
+- **llama-3.1-70b-versatile**: 6,000 tokens/minute
+- **mixtral-8x7b**: 5,000 tokens/minute
+
+### Context Window:
+- Up to **8,192 tokens** per request (input + output)
+
+---
+
+## Is It Really Free?
+
+**YES! 100% FREE as long as you stay under 30 requests/minute!**
+
+### What's FREE:
+✅ Unlimited daily requests (up to 14,400/day)  
+✅ Unlimited monthly requests (up to 432,000/month)  
+✅ Unlimited users  
+✅ Unlimited duration (use for years)  
+✅ No credit card required  
+✅ No expiration  
+
+### The Only Limit:
+❌ Maximum 30 requests per minute
+
+**If you stay under 30 req/min, it's FREE FOREVER!**
+
+---
+
+## Real-World Usage Examples
+
+### Small Team (10 users):
+- Each user asks 5 questions/day = 50 queries/day
+- Average: **0.03 requests/minute**
+- **Usage: 0.1% of free limit** ✅
+- **Cost: $0/month**
+
+### Medium Team (50 users):
+- Each user asks 10 questions/day = 500 queries/day
+- Average: **0.35 requests/minute**
+- **Usage: 1.2% of free limit** ✅
+- **Cost: $0/month**
+
+### Heavy Usage (100 users):
+- Each user asks 20 questions/day = 2,000 queries/day
+- Average: **1.4 requests/minute**
+- **Usage: 4.7% of free limit** ✅
+- **Cost: $0/month**
+
+### When You'd Hit the Limit:
+❌ 30+ people asking questions in the same minute  
+❌ Someone spamming (30 clicks in 60 seconds)  
+❌ Very unlikely in normal use!
+
+---
+
+## What Happens If You Hit the Limit?
+
+**Rate Limit Response:**
+```json
+{
+  "error": {
+    "message": "Rate limit exceeded",
+    "type": "rate_limit_error"
+  }
+}
+```
+
+**User Experience:**
+- Sees: "I'm having trouble processing your question right now. Please try again in a moment."
+- Wait 1 minute
+- Works again automatically
+
+**No charges, no penalties, just a temporary pause!**
+
+---
+
+## Monitoring Your Usage
+
+Check your usage at [Groq Console](https://console.groq.com/):
+- Go to Usage tab
+- See requests per day/hour/minute
+- Get alerts if approaching limits
+- View token consumption
+
+---
+
+## If You Need More (Paid Tier)
+
+### Groq Paid Tier:
+- **Cost**: Pay-as-you-go ($0.10 per 1M tokens)
+- **Limits**: Much higher (thousands of requests/min)
+- **Billing**: Only pay for what you use
+- **No monthly fees**: Pay only for actual usage
+
+### Estimated Costs (If You Upgrade):
+- 10,000 queries/month ≈ **$1-2**
+- 100,000 queries/month ≈ **$10-20**
+- 1,000,000 queries/month ≈ **$100-200**
+
+Still much cheaper than OpenAI or Anthropic!
+
+---
+
+## Comparison with Other Providers
+
+| Provider | Free Tier | Rate Limit | Cost After Free |
+|----------|-----------|------------|-----------------|
+| **Groq** | ✅ Unlimited (30/min) | 30 req/min | $0.10 per 1M tokens |
+| OpenAI | ❌ $5 trial (expires) | Varies | $0.50-$15 per 1M tokens |
+| Anthropic | ❌ None | N/A | $3-$15 per 1M tokens |
+| Google AI | ⚠️ Limited | 60 req/min | $0.50-$7 per 1M tokens |
+
+**Groq is the best free option!** 🏆
+
+---
+
+## Recommendations
+
+### For Testing/Small Teams (< 50 users):
+✅ Free tier is perfect  
+✅ No credit card needed  
+✅ No worries about costs  
+✅ Can use for years  
+
+### For Growing Teams (50-200 users):
+✅ Still likely within free tier  
+✅ Monitor usage in console  
+✅ Upgrade only if hitting limits regularly  
+
+### For Large Teams (200+ users):
+⚠️ May hit rate limits during peak times  
+💡 Consider upgrading to paid tier  
+💰 Still very affordable ($10-50/month)  
+
+---
+
+## Bottom Line
+
+**Your dashboard with ~10 users will be 100% FREE indefinitely!**
+
+The free tier is designed for exactly this - small to medium teams testing and using AI features. Groq makes money from large enterprises with thousands of requests per minute, not from small teams.
+
+**Enjoy your free AI chatbot!** 🚀
 
 ---
 
