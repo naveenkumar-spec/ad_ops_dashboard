@@ -84,8 +84,8 @@ async function getUsers() {
         allowedAdops,
         allowedTabs,
         chatbotEnabled,
-        TIMESTAMP_MILLIS(CAST(createdAt AS INT64)) as createdAt,
-        TIMESTAMP_MILLIS(CAST(updatedAt AS INT64)) as updatedAt
+        createdAt,
+        updatedAt
       FROM \`${PROJECT_ID}.${DATASET_ID}.${USERS_TABLE_ID}\`
       ORDER BY createdAt ASC
     `;
@@ -105,8 +105,8 @@ async function getUsers() {
       allowedAdops: row.allowedAdops || [],
       allowedTabs: row.allowedTabs || [],
       chatbotEnabled: row.chatbotEnabled !== false,
-      createdAt: row.createdAt?.value || new Date().toISOString(),
-      updatedAt: row.updatedAt?.value || new Date().toISOString()
+      createdAt: row.createdAt || new Date().toISOString(),
+      updatedAt: row.updatedAt || new Date().toISOString()
     }));
   } catch (error) {
     console.error("[UserStore] Error getting users:", error.message);
@@ -171,7 +171,7 @@ async function saveUser(user) {
         WHERE username = @username
       `;
 
-      await bq.query({
+      const queryOptions = {
         query: updateQuery,
         location: LOCATION,
         params: {
@@ -187,11 +187,21 @@ async function saveUser(user) {
           allowedTabs: row.allowedTabs,
           chatbotEnabled: row.chatbotEnabled
         }
-      });
+      };
 
+      // Add type hints for empty arrays
+      if (row.allowedCountries.length === 0 || row.allowedAdops.length === 0 || row.allowedTabs.length === 0) {
+        queryOptions.types = {
+          allowedCountries: ['STRING'],
+          allowedAdops: ['STRING'],
+          allowedTabs: ['STRING']
+        };
+      }
+
+      await bq.query(queryOptions);
       console.log(`[UserStore] Updated user: ${user.username}`);
     } else {
-      // Insert new user
+      // Insert new user - use streaming insert to avoid array type issues
       await table.insert([row]);
       console.log(`[UserStore] Created user: ${user.username}`);
     }
