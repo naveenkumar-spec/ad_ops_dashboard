@@ -15,8 +15,8 @@ router.get('/insights', async (req, res) => {
     // Fetch dashboard data
     const [kpis, topCampaigns, bottomCampaigns, products, regions] = await Promise.all([
       getKpis(filters),
-      getCampaignsDetailed(filters, 'top', 10, 0),
-      getCampaignsDetailed(filters, 'bottom', 10, 0),
+      getCampaignsDetailed(10, 0, filters, 'top'),
+      getCampaignsDetailed(10, 0, filters, 'bottom'),
       getProductWiseTable(10, 0, filters),
       getCountryWiseTable(10, 0, filters)
     ]);
@@ -66,30 +66,35 @@ router.post('/chat', async (req, res) => {
     let context = {};
     
     if (includeContext) {
-      const filters = withUserScope(parseFilters(req.query), req.user);
-      
-      // Fetch relevant data based on query keywords
-      const needsKPIs = /revenue|spend|margin|cpm|total/i.test(query);
-      const needsCampaigns = /campaign/i.test(query);
-      const needsProducts = /product/i.test(query);
-      const needsRegions = /region|country|location/i.test(query);
+      try {
+        const filters = withUserScope(parseFilters(req.query), req.user);
+        
+        // Fetch relevant data based on query keywords
+        const needsKPIs = /revenue|spend|margin|cpm|total/i.test(query);
+        const needsCampaigns = /campaign/i.test(query);
+        const needsProducts = /product/i.test(query);
+        const needsRegions = /region|country|location/i.test(query);
 
-      const dataPromises = [];
-      
-      if (needsKPIs) dataPromises.push(getKpis(filters));
-      if (needsCampaigns) dataPromises.push(getCampaignsDetailed(filters, 'top', 5, 0));
-      if (needsProducts) dataPromises.push(getProductWiseTable(5, 0, filters));
-      if (needsRegions) dataPromises.push(getCountryWiseTable(5, 0, filters));
+        const dataPromises = [];
+        
+        if (needsKPIs) dataPromises.push(getKpis(filters).catch(err => { console.error('[AI] KPIs error:', err.message); return null; }));
+        if (needsCampaigns) dataPromises.push(getCampaignsDetailed(5, 0, filters, 'top').catch(err => { console.error('[AI] Campaigns error:', err.message); return { rows: [] }; }));
+        if (needsProducts) dataPromises.push(getProductWiseTable(5, 0, filters).catch(err => { console.error('[AI] Products error:', err.message); return { rows: [] }; }));
+        if (needsRegions) dataPromises.push(getCountryWiseTable(5, 0, filters).catch(err => { console.error('[AI] Regions error:', err.message); return { rows: [] }; }));
 
-      const results = await Promise.all(dataPromises);
-      
-      let idx = 0;
-      if (needsKPIs) context.kpis = results[idx++];
-      if (needsCampaigns) context.campaigns = results[idx++]?.rows;
-      if (needsProducts) context.products = results[idx++]?.rows;
-      if (needsRegions) context.regions = results[idx++]?.rows;
-      
-      console.log('[AI] Context prepared:', Object.keys(context));
+        const results = await Promise.all(dataPromises);
+        
+        let idx = 0;
+        if (needsKPIs && results[idx]) context.kpis = results[idx++];
+        if (needsCampaigns && results[idx]) context.campaigns = results[idx++]?.rows;
+        if (needsProducts && results[idx]) context.products = results[idx++]?.rows;
+        if (needsRegions && results[idx]) context.regions = results[idx++]?.rows;
+        
+        console.log('[AI] Context prepared:', Object.keys(context));
+      } catch (contextError) {
+        console.error('[AI] Error preparing context:', contextError.message);
+        // Continue with empty context rather than failing
+      }
     }
 
     const response = await handleChatQuery(query, context);
