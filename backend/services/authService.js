@@ -204,9 +204,13 @@ async function upsertAccessUser(payload) {
     } else if (!user.passwordHash) {
       throw new Error("Password is required for local login users");
     }
+    // If payload.password is empty but user.passwordHash exists, keep the existing password
   } else {
-    // SSO user: ignore stored password
-    user.passwordHash = null;
+    // SSO user: only clear password if explicitly switching from local to SSO
+    if (existing && existing.authProvider === "local" && authProvider !== "local") {
+      user.passwordHash = null;
+    }
+    // Otherwise, preserve existing passwordHash (don't clear it)
   }
   user.updatedAt = now;
 
