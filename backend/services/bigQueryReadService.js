@@ -526,7 +526,8 @@ async function getOverviewSeries(metric, filters = {}) {
   let valueExpr = "SUM(COALESCE(t.revenue, 0)) / 1000000";
   if (metric === "margin") valueExpr = "AVG(COALESCE(t.gross_margin_pct, 0))";
   if (metric === "net_margin") valueExpr = "AVG(COALESCE(t.net_margin_pct, 0))";
-  if (metric === "cpm") valueExpr = "AVG(COALESCE(t.cpm, 0))";
+  // For CPM, only average non-zero values from tracker sheets (Buying CPM column)
+  if (metric === "cpm") valueExpr = "AVG(CASE WHEN t.cpm > 0 THEN t.cpm ELSE NULL END)";
 
   const rows = await runQuery(
     `
