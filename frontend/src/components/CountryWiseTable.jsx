@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { mockCountryData, mockCountryTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
@@ -37,11 +37,11 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
     }
 
     Promise.all([
-      axios.get("/api/overview/country-wise", { 
+      apiGet("/api/overview/country-wise", { 
         timeout: 12000, 
         params: { ...toApiParams(filters), limit: 50, offset: currentOffset } 
       }),
-      axios.get("/api/overview/regions", { timeout: 12000, params: toApiParams(filters) })
+      apiGet("/api/overview/regions", { timeout: 12000, params: toApiParams(filters) })
     ])
       .then(([countryRes, regionRes]) => {
         if (countryRes.data?.rows?.length) {

@@ -9,7 +9,7 @@ import {
   Tooltip,
   LabelList
 } from "recharts";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { formatAbsoluteInteger, safeTitle } from "../utils/absoluteTooltip.js";
 import { convertUsdToDisplay, formatAbsoluteCurrencyByContext } from "../utils/currencyDisplay.js";
 import "../../styles/PerformanceChart.css";
@@ -95,7 +95,7 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await axios.get("/api/management/performance", {
+        const res = await apiGet("/api/management/performance", {
           params: { type: variant, ...filters },
           timeout: 6000
         });

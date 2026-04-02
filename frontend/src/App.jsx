@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { apiGet } from "./utils/apiClient";
+import apiClient from "./utils/apiClient";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Overview from "./pages/Overview";
 import ManagementView from "./pages/ManagementView";
@@ -8,11 +9,11 @@ import AdminSetup from "./pages/AdminSetup";
 import { clearSession, loadSession, saveSession } from "./auth/session";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
-axios.defaults.baseURL = API_BASE_URL;
+apiClient.defaults.baseURL = API_BASE_URL;
 
 const initialSession = loadSession();
 if (initialSession?.token) {
-  axios.defaults.headers.common.Authorization = `Bearer ${initialSession.token}`;
+  sessionStorage.setItem('token', initialSession.token);
 }
 
 function RouteGuard({ session, tab, children }) {
@@ -27,17 +28,17 @@ function App() {
 
   useEffect(() => {
     const token = session?.token;
-    axios.defaults.baseURL = API_BASE_URL;
+    apiClient.defaults.baseURL = API_BASE_URL;
     if (token) {
-      axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+      sessionStorage.setItem('token', token);
     } else {
-      delete axios.defaults.headers.common.Authorization;
+      sessionStorage.removeItem('token');
     }
   }, [session?.token]);
 
   const handleLogin = (result) => {
     if (result?.token) {
-      axios.defaults.headers.common.Authorization = `Bearer ${result.token}`;
+      sessionStorage.setItem('token', result.token);
     }
     saveSession(result);
     setSession(result);

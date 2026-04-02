@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import axios from "axios";
+import { apiGet, apiPost, apiPut, apiDelete } from "../utils/apiClient";
 import DashboardHeader from "../components/DashboardHeader";
 import AppLayout from "../components/AppLayout";
 import "../../styles/AdminSetup.css";
@@ -88,8 +88,8 @@ export default function AdminSetup({ currentUser, onLogout }) {
 
   const loadAll = async () => {
     const [u, o] = await Promise.all([
-      axios.get("/api/admin/users", { timeout: 6000 }),
-      axios.get("/api/admin/options", { timeout: 6000 })
+      apiGet("/api/admin/users", { timeout: 6000 }),
+      apiGet("/api/admin/options", { timeout: 6000 })
     ]);
     setUsers(u.data || []);
     setOptions({ countries: o.data?.countries || [], adops: o.data?.adops || [] });
@@ -101,7 +101,7 @@ export default function AdminSetup({ currentUser, onLogout }) {
 
   const loadSyncStatus = async () => {
     try {
-      const res = await axios.get("/api/overview/sync/bigquery/status", { timeout: 10000 });
+      const res = await apiGet("/api/overview/sync/bigquery/status", { timeout: 10000 });
       setSyncStatus(res.data || null);
       return res.data || null;
     } catch (_err) {
@@ -133,10 +133,10 @@ export default function AdminSetup({ currentUser, onLogout }) {
       if (!payload.email) throw new Error("Email is required");
 
       if (editingEmail) {
-        await axios.put(`/api/admin/users/${encodeURIComponent(editingEmail)}`, payload, { timeout: 6000 });
+        await apiPut(`/api/admin/users/${encodeURIComponent(editingEmail)}`, payload, { timeout: 6000 });
         setMsg("Access updated");
       } else {
-        await axios.post("/api/admin/users", payload, { timeout: 6000 });
+        await apiPost("/api/admin/users", payload, { timeout: 6000 });
         setMsg("Access added");
       }
       setForm(EMPTY_FORM);
@@ -163,7 +163,7 @@ export default function AdminSetup({ currentUser, onLogout }) {
 
   const deleteUser = async (email) => {
     try {
-      await axios.delete(`/api/admin/users/${encodeURIComponent(email)}`, { timeout: 6000 });
+      await apiDelete(`/api/admin/users/${encodeURIComponent(email)}`, { timeout: 6000 });
       await loadAll();
     } catch (err) {
       setMsg(err.response?.data?.error || "Failed to delete user");
@@ -182,7 +182,7 @@ export default function AdminSetup({ currentUser, onLogout }) {
     setMsg("");
     setSyncBusy(true);
     try {
-      const res = await axios.post("/api/overview/sync/bigquery?async=true&fullRefresh=true&forceRefresh=true&skipIfUnchanged=false", {}, { timeout: 30000 });
+      const res = await apiPost("/api/overview/sync/bigquery?async=true&fullRefresh=true&forceRefresh=true&skipIfUnchanged=false", {}, { timeout: 30000 });
       await loadSyncStatus();
       setMsg(res.data?.message || "Manual sync started");
     } catch (err) {
@@ -197,7 +197,7 @@ export default function AdminSetup({ currentUser, onLogout }) {
     setStopBusy(true);
     setMsg("");
     try {
-      const res = await axios.post("/api/overview/sync/bigquery/stop", {}, { timeout: 20000 });
+      const res = await apiPost("/api/overview/sync/bigquery/stop", {}, { timeout: 20000 });
       setMsg(res.data?.message || "Stop requested");
       await loadSyncStatus();
     } catch (err) {

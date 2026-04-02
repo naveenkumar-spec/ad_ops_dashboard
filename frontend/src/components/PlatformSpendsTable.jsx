@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { mockPlatformSpends } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
 import { safeTitle } from "../utils/absoluteTooltip.js";
@@ -19,7 +19,7 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   useEffect(() => {
-    axios.get("/api/management/platform-spends", { timeout: 6000, params: toApiParams(filters) })
+    apiGet("/api/management/platform-spends", { timeout: 6000, params: toApiParams(filters) })
       .then((res) => setRows(res.data?.length ? res.data : mockPlatformSpends()))
       .catch(() => setRows(mockPlatformSpends()))
       .finally(() => setLoading(false));

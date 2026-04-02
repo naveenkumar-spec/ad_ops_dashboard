@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { mockCampaignWise, mockCampaignWiseTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
@@ -72,8 +72,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
       setLoadingMore(true);
     }
 
-    axios
-      .get("/api/overview/campaign-wise", { 
+    apiGet("/api/overview/campaign-wise", { 
         timeout: 12000, 
         params: { ...toApiParams(filters), limit: 50, offset: currentOffset }
       })

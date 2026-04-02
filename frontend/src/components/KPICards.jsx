@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { mockKPIs } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
@@ -78,7 +78,7 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
   useEffect(() => {
     setLoading(true);
     setError("");
-    axios.get("/api/overview/kpis", { timeout: 20000, params: toApiParams(filters) })
+    apiGet("/api/overview/kpis", { timeout: 20000, params: toApiParams(filters) })
       .then((res) => {
         const source = Array.isArray(res.data) ? res.data : [];
         const normalized = source.map((item) => {

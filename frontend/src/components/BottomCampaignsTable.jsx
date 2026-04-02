@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { mockBottomCampaigns, mockBottomCampaignsTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
@@ -38,7 +38,7 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
       setLoadingMore(true);
     }
 
-    axios.get("/api/overview/campaigns-detailed", { 
+    apiGet("/api/overview/campaigns-detailed", { 
       timeout: 6000, 
       params: { ...toApiParams(filters), view, limit: 50, offset: currentOffset } 
     })

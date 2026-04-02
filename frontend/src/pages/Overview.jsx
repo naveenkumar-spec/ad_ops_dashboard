@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import DashboardHeader from "../components/DashboardHeader";
 import AppLayout from "../components/AppLayout";
 import FiltersPanel from "../components/FiltersPanel";
@@ -53,12 +53,12 @@ export default function Overview({ currentUser, onLogout }) {
 
   useEffect(() => {
     Promise.all([
-      axios.get("/api/overview/filter-options", { timeout: 20000, params: toApiParams(filters) }),
-      axios.get("/api/overview/filter-options", {
+      apiGet("/api/overview/filter-options", { timeout: 20000, params: toApiParams(filters) }),
+      apiGet("/api/overview/filter-options", {
         timeout: 20000,
         params: toApiParams(omitFilterKeys(filters, ["region"]))
       }),
-      axios.get("/api/overview/filter-options", {
+      apiGet("/api/overview/filter-options", {
         timeout: 20000,
         params: toApiParams(omitFilterKeys(filters, ["year", "month"]))
       })
@@ -80,8 +80,7 @@ export default function Overview({ currentUser, onLogout }) {
   }, [refreshTick, JSON.stringify(filters)]);
 
   useEffect(() => {
-    axios
-      .get("/api/overview/trends", { timeout: 20000 })
+    apiGet("/api/overview/trends", { timeout: 20000 })
       .then((res) => setTrendBundle(res.data || null))
       .catch(() => setTrendBundle(null));
   }, [refreshTick]);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { mockOwners } from "../mockData.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import {
@@ -40,7 +40,7 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {}, c
 
   useEffect(() => {
     const key = endpoint?.includes("ops") ? "ops" : endpoint?.includes("cs") ? "cs" : "sales";
-    axios.get(`${endpoint}`, {
+    apiGet(`${endpoint}`, {
       timeout: 6000,
       params: filters
     })

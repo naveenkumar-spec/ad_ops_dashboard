@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   ResponsiveContainer, LabelList
 } from "recharts";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { mockRevenueTrend, mockMarginTrend, mockCPMTrend, mockNetMarginTrend } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
 import { formatAbsoluteNumber, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
@@ -117,7 +117,7 @@ export default function TrendChart({
     const fallback = getFallback(endpoint, isPercent, isRaw);
     setLoading(true);
     setError("");
-    axios.get(endpoint, { timeout: 20000, params: toApiParams(filters) })
+    apiGet(endpoint, { timeout: 20000, params: toApiParams(filters) })
       .then(res => {
         const d = res.data?.length ? res.data : fallback;
         setRawData(d);

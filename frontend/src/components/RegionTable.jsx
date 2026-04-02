@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, Fragment } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { mockRegions, mockManagementRegions } from "../mockData.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import { convertUsdToDisplay, formatAbsoluteCurrencyByContext, formatCompactCurrency } from "../utils/currencyDisplay.js";
@@ -38,7 +38,7 @@ export default function RegionTable({ title="Region Performance", variant="overv
     const isManagement = variant === "management";
     const endpoint = isManagement ? "/api/management/regions" : "/api/overview/regions";
     const fallback = isManagement ? mockManagementRegions : mockRegions;
-    axios.get(endpoint,{timeout:6000})
+    apiGet(endpoint,{timeout:6000})
       .then(res=>setData(res.data?.length ? res.data : fallback))
       .catch(()=>setData(fallback))
       .finally(()=>setLoading(false));

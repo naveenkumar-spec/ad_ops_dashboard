@@ -8,7 +8,7 @@ import PerformanceChart from "../components/PerformanceChart";
 import { mockManagementRegions } from "../mockData";
 import "../../styles/ManagementView.css";
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import { toApiParams } from "../utils/apiFilters";
 import { resolveCurrencyContext } from "../utils/currencyDisplay";
 
@@ -47,12 +47,12 @@ export default function ManagementView({ currentUser, onLogout }) {
 
   useEffect(() => {
     Promise.all([
-      axios.get("/api/management/filter-options", { timeout: 20000, params: toApiParams(filters) }),
-      axios.get("/api/management/filter-options", {
+      apiGet("/api/management/filter-options", { timeout: 20000, params: toApiParams(filters) }),
+      apiGet("/api/management/filter-options", {
         timeout: 20000,
         params: toApiParams(omitFilterKeys(filters, ["region"]))
       }),
-      axios.get("/api/management/filter-options", {
+      apiGet("/api/management/filter-options", {
         timeout: 20000,
         params: toApiParams(omitFilterKeys(filters, ["year", "month"]))
       })

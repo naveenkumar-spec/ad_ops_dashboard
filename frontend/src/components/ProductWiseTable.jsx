@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { apiGet } from "../utils/apiClient";
 import {
   mockProductData,
   mockProductTotals,
@@ -41,8 +41,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
       setLoadingMore(true);
     }
 
-    axios
-      .get("/api/overview/product-wise", { 
+    apiGet("/api/overview/product-wise", { 
         timeout: 6000, 
         params: { ...toApiParams(filters), limit: 50, offset: currentOffset } 
       })
