@@ -450,7 +450,8 @@ function normalizeRow(rowValues, headerMap, source) {
   const plannedImpressions = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.plannedImpressions));
   const deliveredImpressions = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.deliveredImpressions));
   const budgetGroups = Math.max(1, Math.round(parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.budgetGroups)) || 1));
-  const cpm = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.cpm));
+  // Buying CPM is stored in cents in the sheets, divide by 100 to get dollars
+  const cpm = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.cpm)) / 100;
 
   const startDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.startDate));
   const endDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.endDate));
@@ -763,8 +764,13 @@ function groupBy(items, keyFn) {
 
 function average(items, valueFn) {
   if (!items.length) return 0;
-  const sum = items.reduce((acc, item) => acc + (Number(valueFn(item)) || 0), 0);
-  return sum / items.length;
+  const validItems = items.filter(item => {
+    const val = Number(valueFn(item)) || 0;
+    return val > 0;
+  });
+  if (!validItems.length) return 0;
+  const sum = validItems.reduce((acc, item) => acc + (Number(valueFn(item)) || 0), 0);
+  return sum / validItems.length;
 }
 
 function sum(items, valueFn) {
