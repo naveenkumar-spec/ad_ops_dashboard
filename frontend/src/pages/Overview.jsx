@@ -51,6 +51,12 @@ export default function Overview({ currentUser, onLogout }) {
     return () => clearInterval(timer);
   }, []);
 
+  // Filters for trend charts: exclude year/month but include all other filters
+  const trendFilters = useMemo(
+    () => omitFilterKeys(filters, ["year", "month"]),
+    [JSON.stringify(filters)]
+  );
+
   useEffect(() => {
     Promise.all([
       apiGet("/api/overview/filter-options", { timeout: 20000, params: toApiParams(filters) }),
@@ -93,12 +99,6 @@ export default function Overview({ currentUser, onLogout }) {
         regionTree: filterOptions?.regionTree || []
       }),
     [currency, filters.region, JSON.stringify(filterOptions?.regionTree || [])]
-  );
-
-  // Filters for trend charts: exclude year/month but include all other filters
-  const trendFilters = useMemo(
-    () => omitFilterKeys(filters, ["year", "month"]),
-    [JSON.stringify(filters)]
   );
 
   const handleFilterChange = (name, value) => {
