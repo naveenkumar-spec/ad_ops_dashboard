@@ -220,7 +220,7 @@ router.get("/kpis", async (_req, res) => {
 
 router.get("/revenue-trend", async (_req, res) => {
   try {
-    const trendFilters = {};
+    const trendFilters = withUserScope(parseFilters(_req.query), _req.user);
     const baseSeries = DATA_SOURCE === "powerbi"
       ? await powerBiService.getRevenueTrendData()
       : await provider.getRevenueTrend(trendFilters);
@@ -233,7 +233,7 @@ router.get("/revenue-trend", async (_req, res) => {
 
 router.get("/margin-trend", async (_req, res) => {
   try {
-    const trendFilters = {};
+    const trendFilters = withUserScope(parseFilters(_req.query), _req.user);
     const baseSeries = DATA_SOURCE === "powerbi"
       ? await powerBiService.getRevenueTrendData()
       : await provider.getMarginTrend(trendFilters);
@@ -380,7 +380,7 @@ router.get("/product-wise", async (_req, res) => {
 
 router.get("/cpm-trend", async (_req, res) => {
   try {
-    const trendFilters = {};
+    const trendFilters = withUserScope(parseFilters(_req.query), _req.user);
     const baseSeries = await provider.getCpmTrend(trendFilters);
     const payload = clampFutureMonths(await withLegacyOverviewTrend("cpm", baseSeries, trendFilters));
     res.json(payload);
