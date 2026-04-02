@@ -439,16 +439,17 @@ function toTransitionRows(syncId, syncedAtIso, seriesByMetric) {
   });
 
   const out = [];
+  console.log(`[toTransitionRows] Processing ${years.size} years:`, Array.from(years).sort((a, b) => a - b));
   Array.from(years).sort((a, b) => a - b).forEach((year) => {
     monthOrder.forEach((month) => {
       const merged = toTransitionMapRow(seriesByMetric, month, year);
       if (!Number.isFinite(merged.year) || !merged.year) return;
-      if (
-        Math.abs(merged.booked_revenue_m) <= 0 &&
-        Math.abs(merged.gross_margin_pct) <= 0 &&
-        Math.abs(merged.average_buying_cpm) <= 0
-      ) {
-        return;
+      // Keep rows that have ANY non-zero value (not requiring all three)
+      const hasData = Math.abs(merged.booked_revenue_m) > 0 || 
+                      Math.abs(merged.gross_margin_pct) > 0 || 
+                      Math.abs(merged.average_buying_cpm) > 0;
+      if (!hasData) {
+        return; // Skip only if ALL metrics are zero
       }
       out.push({
         sync_id: syncId,
@@ -459,6 +460,7 @@ function toTransitionRows(syncId, syncedAtIso, seriesByMetric) {
       });
     });
   });
+  console.log(`[toTransitionRows] Created ${out.length} transition rows from ${years.size} years`);
   return out;
 }
 
