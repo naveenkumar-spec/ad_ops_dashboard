@@ -2,7 +2,7 @@
 import TrendChart from "./TrendChart";
 import "../../styles/Charts.css";
 
-export default function CombinedTrends({ filters = {}, trendBundle = null, currencyContext = null }) {
+export default function CombinedTrends({ filters = {}, currencyContext = null }) {
   const [selectedYears, setSelectedYears] = useState([]);
   const [availableYears, setAvailableYears] = useState([]);
   const [granularity, setGranularity] = useState("month");
@@ -89,7 +89,6 @@ export default function CombinedTrends({ filters = {}, trendBundle = null, curre
         endpoint="/api/overview/revenue-trend"
         isPercent={false}
         filters={filters}
-        rawDataOverride={trendBundle?.revenue || null}
         controlledYears={selectedYears}
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}
@@ -102,7 +101,6 @@ export default function CombinedTrends({ filters = {}, trendBundle = null, curre
         endpoint="/api/overview/margin-trend"
         isPercent={true}
         filters={filters}
-        rawDataOverride={trendBundle?.margin || null}
         controlledYears={selectedYears}
         onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
         controlledGranularity={granularity}
