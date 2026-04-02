@@ -1,8 +1,13 @@
 const axios = require('axios');
 
-// Hugging Face API configuration
-const HF_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
+// Hugging Face API configuration - Using serverless inference
+const HF_MODEL = 'mistralai/Mistral-7B-Instruct-v0.2';
+const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
 const HF_API_TOKEN = process.env.HUGGINGFACE_API_KEY;
+
+// Fallback to a smaller, faster model if main model fails
+const HF_FALLBACK_MODEL = 'microsoft/DialoGPT-medium';
+const HF_FALLBACK_URL = `https://api-inference.huggingface.co/models/${HF_FALLBACK_MODEL}`;
 
 /**
  * Call Hugging Face API for text generation
@@ -24,6 +29,9 @@ async function callHuggingFace(prompt, maxTokens = 500) {
           temperature: 0.7,
           top_p: 0.95,
           return_full_text: false
+        },
+        options: {
+          wait_for_model: true
         }
       },
       {
@@ -31,7 +39,7 @@ async function callHuggingFace(prompt, maxTokens = 500) {
           'Authorization': `Bearer ${HF_API_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 60000
       }
     );
 
@@ -51,9 +59,15 @@ async function callHuggingFace(prompt, maxTokens = 500) {
   } catch (error) {
     if (error.response?.status === 503) {
       // Model is loading, retry after delay
-      console.log('[AI] Model loading, retrying in 10 seconds...');
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      console.log('[AI] Model loading, retrying in 20 seconds...');
+      await new Promise(resolve => setTimeout(resolve, 20000));
       return callHuggingFace(prompt, maxTokens);
+    }
+    
+    if (error.response?.status === 410) {
+      // API endpoint deprecated - provide helpful error
+      console.error('[AI] Hugging Face API endpoint deprecated. Please update to use Inference Endpoints or Serverless API.');
+      throw new Error('Hugging Face API endpoint has been deprecated. Please contact support to update the integration.');
     }
     
     console.error('[AI] Hugging Face API error:', {
