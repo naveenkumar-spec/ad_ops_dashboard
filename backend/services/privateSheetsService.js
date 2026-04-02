@@ -175,7 +175,7 @@ const LOCAL_TO_USD_BY_CURRENCY = {
 const OVERVIEW_RAW_SPENDS_SOURCE = {
   country: "Overview Legacy",
   sheetId: "1MwWqMLj5b4FwIS6wD3FugfwgbWlyJD0xaQJLpmlRlQs",
-  tabName: "2020-21 Branding Ops Sales and Spends Final Data",
+  tabName: "Raw Spends Data",
   gid: 848964579,
   enabled: true
 };
@@ -184,9 +184,9 @@ const OVERVIEW_RAW_ALIASES = {
   month: ["Month"],
   year: ["Year"],
   country: ["Country", "Region", "Market"],
-  salesValueUsd: ["Sales Value in USD", "Revenue", "Sales Value"],
-  mediaSpendUsd: ["Media Spend in USD", "Media Spend", "Spend"],
-  ecpm: ["eCPM.", "eCPM", "ECPM"],
+  salesValueUsd: ["Sales Value in USD"],
+  mediaSpendUsd: ["Media Spend in USD"],
+  ecpm: ["eCPM."],
   // single-column date alternatives (Month-Year combined)
   monthYear: ["Month-Year", "Month Year", "Date", "Period"]
 };
