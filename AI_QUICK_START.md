@@ -1,41 +1,34 @@
-# AI Features - Quick Start (5 Minutes)
+# AI Features - Quick Start (3 Minutes)
 
 ## What You Get (100% FREE)
 ✅ **Interactive Chatbot** - Ask questions about your data in plain English  
+✅ **Super Fast** - Groq is 10x faster than other free APIs  
 ✅ **Admin Control** - Enable/disable per user  
-✅ **No Credit Card** - Completely free with Hugging Face  
+✅ **No Credit Card** - Completely free with Groq  
 
 ---
 
 ## Setup (3 Steps)
 
-### 1. Get Free API Key (2 minutes)
-1. Go to: https://huggingface.co/join
-2. Create free account
-3. Go to: https://huggingface.co/settings/tokens
-4. Click "New token" → Name it "Dashboard" → Select "Read" → Generate
-5. Copy the token (starts with `hf_...`)
+### 1. Get Free API Key (1 minute)
+1. Go to: https://console.groq.com/
+2. Sign up with Google/GitHub (no credit card!)
+3. Go to: https://console.groq.com/keys
+4. Click "Create API Key" → Name it "Dashboard" → Submit
+5. Copy the key (starts with `gsk_...`)
 
-### 2. Add to Your Backend (1 minute)
-1. Open `backend/.env` file
-2. Find this line:
-   ```
-   HUGGINGFACE_API_KEY=your-huggingface-api-key-here
-   ```
-3. Replace with your token:
-   ```
-   HUGGINGFACE_API_KEY=hf_xxxxxxxxxxxxxxxxxxxxx
-   ```
-4. Save the file
+### 2. Add to Render (1 minute)
+1. Go to: https://dashboard.render.com/
+2. Click your backend service
+3. Go to "Environment" tab
+4. Click "Add Environment Variable"
+5. Add:
+   - **Key:** `GROQ_API_KEY`
+   - **Value:** `gsk_xxxxxxxxxxxxx` (paste your key)
+6. Click "Save Changes"
 
-### 3. Deploy (2 minutes)
-```bash
-git add backend/.env
-git commit -m "Add Hugging Face API key"
-git push origin main
-```
-
-Wait 3-5 minutes for Render to redeploy. Done! 🎉
+### 3. Wait for Deploy (1 minute)
+Render will auto-redeploy (takes 2-3 minutes). Done! 🎉
 
 ---
 
@@ -64,56 +57,55 @@ Wait 3-5 minutes for Render to redeploy. Done! 🎉
 
 ## Important Notes
 
-⏱️ **First request takes 10-20 seconds** (model loading)  
-⚡ **After that, responses are 2-5 seconds**  
+⚡ **Super Fast** - Responses in under 1 second!  
 📊 **Chatbot knows your current filters**  
-🔄 **Insights update when filters change**  
-🆓 **Completely free, no limits for testing**  
+🆓 **Completely free** - 30 requests/minute (more than enough!)  
+🔒 **Secure** - API key stored in Render environment  
 
 ---
 
 ## Troubleshooting
 
-**"Failed to generate insights"**
-→ Check API key is correct in backend/.env
+**"Failed to process query"**
+→ Check API key is correct in Render environment variables
 
-**"Model is loading"**
-→ Wait 10-20 seconds, it will retry automatically
+**"Rate limit exceeded"**
+→ Wait 1 minute (only if 30+ requests in same minute)
 
-**Slow responses**
-→ Normal for free tier, consider OpenAI for faster responses
+**Chatbot button not showing**
+→ Admin needs to enable it for your user in Admin Setup
 
 ---
 
 ## What's Next?
 
 After testing, you can:
-- Switch to OpenAI for faster/better responses ($10-30/month)
-- Customize the insights prompts
-- Add more chatbot features
-- Export insights as reports
-- Set up automated insight emails
+- Monitor usage at https://console.groq.com/
+- Upgrade to paid tier if you need more than 30 req/min
+- Customize chatbot prompts in `backend/services/aiService.js`
+- Add more data sources to chatbot context
 
-See `AI_SETUP_GUIDE.md` for full documentation.
+See `GROQ_SETUP.md` for detailed limits and `AI_SETUP_GUIDE.md` for full documentation.
 
 ---
 
 ## Cost Comparison
 
-| Service | Cost | Speed | Quality |
-|---------|------|-------|---------|
-| **Hugging Face (Free)** | $0 | 2-10s | Good ⭐⭐⭐ |
-| Hugging Face Pro | $9/mo | 1-3s | Good ⭐⭐⭐ |
-| OpenAI GPT-3.5 | $10-30/mo | 1-2s | Excellent ⭐⭐⭐⭐ |
-| OpenAI GPT-4 | $50-150/mo | 2-4s | Best ⭐⭐⭐⭐⭐ |
+| Service | Cost | Speed | Quality | Free Tier |
+|---------|------|-------|---------|-----------|
+| **Groq (Current)** | $0 | ⚡⚡⚡ | ⭐⭐⭐⭐ | 30 req/min |
+| OpenAI GPT-3.5 | $10-30/mo | ⚡⚡ | ⭐⭐⭐⭐ | None |
+| OpenAI GPT-4 | $50-150/mo | ⚡ | ⭐⭐⭐⭐⭐ | None |
+| Anthropic Claude | $30-100/mo | ⚡⚡ | ⭐⭐⭐⭐⭐ | None |
 
-**Recommendation:** Start with free Hugging Face, upgrade if needed.
+**Recommendation:** Groq is perfect for small-medium teams (free forever!). Only upgrade if you need 30+ requests per minute.
 
 ---
 
 ## Need Help?
 
-1. Check `AI_SETUP_GUIDE.md` for detailed docs
-2. Check Render logs for errors
-3. Verify API key at https://huggingface.co/settings/tokens
-4. Ask me! 😊
+1. Check `GROQ_SETUP.md` for detailed free tier info
+2. Check `AI_SETUP_GUIDE.md` for full documentation
+3. Check Render logs for errors
+4. Verify API key at https://console.groq.com/keys
+5. Ask me! 😊

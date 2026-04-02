@@ -211,21 +211,12 @@ async function withLegacyOverviewTrend(metric, baseSeries, filters = {}) {
     console.log(`[withLegacyOverviewTrend] Skipping legacy merge - active filters detected:`, filters);
     return baseSeries;
   }
-  console.log(`[withLegacyOverviewTrend] Fetching legacy data for metric=${metric}, filters=`, filters);
-  // Pass filters to legacy trend so it can filter by country/region
-  const legacySeries = await privateSheetsService.getOverviewLegacyTrend(metric, filters);
-  console.log(`[withLegacyOverviewTrend] Legacy series has ${legacySeries.length} months`);
-  if (legacySeries.length > 0) {
-    const legacyYears = Object.keys(legacySeries[0] || {}).filter(k => k !== 'month');
-    console.log(`[withLegacyOverviewTrend] Legacy years:`, legacyYears);
-  }
-  const merged = mergeLegacySeries(baseSeries, legacySeries);
-  console.log(`[withLegacyOverviewTrend] Merged series has ${merged.length} months`);
-  if (merged.length > 0) {
-    const mergedYears = Object.keys(merged[0] || {}).filter(k => k !== 'month');
-    console.log(`[withLegacyOverviewTrend] Merged years:`, mergedYears);
-  }
-  return merged;
+  console.log(`[withLegacyOverviewTrend] ✅ USING BIGQUERY (not Google Sheets) for metric=${metric}`);
+  // Use BigQuery's getMergedOverviewSeries instead of reading from Google Sheets directly
+  // This reads from the transition table that was populated during sync
+  const mergedSeries = await bigQueryReadService.getMergedOverviewSeries(baseSeries, metric);
+  console.log(`[withLegacyOverviewTrend] ✅ BigQuery returned ${mergedSeries.length} months (NO Google Sheets API call)`);
+  return mergedSeries;
 }
 
 router.get("/kpis", async (_req, res) => {

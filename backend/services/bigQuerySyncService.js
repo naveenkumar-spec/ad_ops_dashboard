@@ -518,6 +518,7 @@ async function syncToBigQuery(options = {}) {
     activeSyncStatus.issueCount = syncIssues.length;
     activeSyncStatus.step = "building_transition_metrics";
     activeSyncStatus.message = "Reading legacy branding sheet for trend metrics";
+    console.log("[BigQuery Sync] 📊 SYNC PROCESS: Reading Google Sheets for legacy trend data (this is expected)");
     let seriesByMetric = { revenue: [], margin: [], cpm: [] };
     try {
       const [revenueSeries, marginSeries, cpmSeries] = await Promise.all([
@@ -526,7 +527,7 @@ async function syncToBigQuery(options = {}) {
         privateSheetsService.getOverviewLegacyTrend("cpm")
       ]);
       seriesByMetric = { revenue: revenueSeries, margin: marginSeries, cpm: cpmSeries };
-      console.log(`[BigQuery Sync] Legacy trend rows: revenue=${revenueSeries.length}, margin=${marginSeries.length}, cpm=${cpmSeries.length}`);
+      console.log(`[BigQuery Sync] ✅ Legacy trend rows: revenue=${revenueSeries.length}, margin=${marginSeries.length}, cpm=${cpmSeries.length}`);
     } catch (legacyErr) {
       console.error("[BigQuery Sync] Failed to read legacy branding sheet, transition table will be empty:", legacyErr.message);
     }
