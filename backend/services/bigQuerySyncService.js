@@ -466,17 +466,25 @@ async function getBrandingSheetRawData() {
 function toTransitionRows(syncId, syncedAtIso, rawBrandingData) {
   console.log(`[toTransitionRows] Processing ${rawBrandingData.length} raw branding sheet rows`);
   
-  const out = rawBrandingData.map((row) => {
+  if (!rawBrandingData.length) {
+    console.log(`[toTransitionRows] No raw branding data to process`);
+    return [];
+  }
+  
+  let validRows = 0;
+  let filteredRows = 0;
+  
+  const out = rawBrandingData.map((row, index) => {
     const revenue = Number(row.salesValueUsd || 0);
     const spend = Number(row.mediaSpendUsd || 0);
     const grossProfit = revenue - spend;
     const grossMarginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
     
-    return {
+    const transitionRow = {
       sync_id: syncId,
       synced_at: syncedAtIso,
       campaign_name: "Legacy Branding Data",
-      campaign_id: `legacy_${row.country}_${row.year}_${row.month}`,
+      campaign_id: `legacy_${row.country}_${row.year}_${row.month}_${index}`,
       status: "Historical",
       country: row.country || null,
       region: row.region || null,
@@ -504,12 +512,39 @@ function toTransitionRows(syncId, syncedAtIso, rawBrandingData) {
       source_country: row.country || null,
       source_gid: 0
     };
+    
+    // Log first few rows for debugging
+    if (validRows < 5) {
+      console.log(`[toTransitionRows] Sample row ${validRows + 1}: month=${transitionRow.month}, year=${transitionRow.year}, country=${transitionRow.country}, revenue=${transitionRow.revenue}, spend=${transitionRow.spend}, cpm=${transitionRow.cpm}`);
+    }
+    
+    return transitionRow;
   }).filter(row => {
-    // Keep rows that have meaningful data
-    return row.year > 0 && row.month && (row.revenue > 0 || row.spend > 0 || row.cpm > 0);
+    // Keep rows that have meaningful data - be less restrictive
+    const hasValidDate = row.year > 0 && row.month;
+    const hasData = row.revenue > 0 || row.spend > 0 || row.cpm > 0;
+    
+    if (hasValidDate && hasData) {
+      validRows++;
+      return true;
+    } else {
+      filteredRows++;
+      if (filteredRows <= 5) {
+        console.log(`[toTransitionRows] Filtered out row: year=${row.year}, month=${row.month}, revenue=${row.revenue}, spend=${row.spend}, cpm=${row.cpm}`);
+      }
+      return false;
+    }
   });
   
-  console.log(`[toTransitionRows] Created ${out.length} transition rows from ${rawBrandingData.length} raw rows`);
+  console.log(`[toTransitionRows] Created ${out.length} transition rows from ${rawBrandingData.length} raw rows (filtered out ${filteredRows} rows)`);
+  
+  // Log year distribution
+  const yearCounts = {};
+  out.forEach(row => {
+    yearCounts[row.year] = (yearCounts[row.year] || 0) + 1;
+  });
+  console.log(`[toTransitionRows] Year distribution:`, yearCounts);
+  
   return out;
 }
 

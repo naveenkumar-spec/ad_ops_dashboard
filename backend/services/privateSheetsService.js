@@ -1115,9 +1115,15 @@ async function getBrandingSheetParsedData() {
     .find((idx) => idx !== undefined);
 
   const parsed = [];
+  let skippedRows = 0;
+  let validRows = 0;
+  
   for (let i = headerRowIndex + 1; i < rows.length; i++) {
     const row = rows[i];
-    if (!row || row.length === 0) continue;
+    if (!row || row.length === 0) {
+      skippedRows++;
+      continue;
+    }
 
     let month = null;
     let year = 0;
@@ -1140,7 +1146,13 @@ async function getBrandingSheetParsedData() {
       }
     }
 
-    if (!month || !year) continue;
+    if (!month || !year) {
+      skippedRows++;
+      if (skippedRows <= 5) {
+        console.log(`[getBrandingSheetParsedData] Skipped row ${i}: month=${monthRaw}, year=${yearRaw}, combined=${pickField(row, headerMap, OVERVIEW_RAW_ALIASES.monthYear)}`);
+      }
+      continue;
+    }
 
     const country = canonicalCountryName(pickField(row, headerMap, OVERVIEW_RAW_ALIASES.country) || "");
     const region = mapCountryToRegion(country);
@@ -1157,9 +1169,14 @@ async function getBrandingSheetParsedData() {
       mediaSpendUsd,
       ecpm
     });
+    
+    validRows++;
+    if (validRows <= 5) {
+      console.log(`[getBrandingSheetParsedData] Sample row ${validRows}: month=${month}, year=${year}, country=${country}, salesValueUsd=${salesValueUsd}, ecpm=${ecpm}`);
+    }
   }
 
-  console.log(`[getBrandingSheetParsedData] Parsed ${parsed.length} raw rows from branding sheet`);
+  console.log(`[getBrandingSheetParsedData] Parsed ${parsed.length} raw rows from branding sheet (skipped ${skippedRows} invalid rows)`);
   return parsed;
 }
 
