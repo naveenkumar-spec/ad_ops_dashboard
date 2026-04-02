@@ -4,6 +4,8 @@ import DashboardHeader from "../components/DashboardHeader";
 import AppLayout from "../components/AppLayout";
 import FiltersPanel from "../components/FiltersPanel";
 import KPICards from "../components/KPICards";
+import InsightsPanel from "../components/InsightsPanel";
+import ChatbotWidget from "../components/ChatbotWidget";
 import CombinedTrends from "../components/CombinedTrends";
 import CombinedTrendsSecondary from "../components/CombinedTrendsSecondary";
 import BottomCampaignsTable from "../components/BottomCampaignsTable";
@@ -126,6 +128,7 @@ export default function Overview({ currentUser, onLogout }) {
             onChange={handleFilterChange}
             onClear={handleClear}
           />
+          <InsightsPanel filters={filters} />
           <KPICards key={`kpi-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
           <CombinedTrends key={`ct1-${refreshTick}`} filters={trendFilters} currencyContext={currencyContext} />
           <CombinedTrendsSecondary key={`ct2-${refreshTick}`} filters={trendFilters} currencyContext={currencyContext} />
@@ -135,6 +138,7 @@ export default function Overview({ currentUser, onLogout }) {
             <CampaignWiseTable key={`cpg-${refreshTick}`} filters={filters} />
             <BottomCampaignsTable key={`btm-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
           </div>
+          <ChatbotWidget filters={filters} />
         </div>
       </div>
     </AppLayout>

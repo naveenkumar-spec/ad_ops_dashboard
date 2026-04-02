@@ -11,6 +11,7 @@ const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const overviewRoutes = require("./routes/overview");
 const managementRoutes = require("./routes/management");
+const aiRoutes = require("./routes/ai");
 const bigQueryScheduler = require("./services/bigQueryScheduler");
 
 const app = express();
@@ -41,6 +42,7 @@ function tabGuard(tab) {
 
 app.use("/api/overview", tabGuard("overview"), overviewRoutes);
 app.use("/api/management", tabGuard("management"), managementRoutes);
+app.use("/api/ai", aiRoutes);
 
 const PORT = process.env.PORT || 5000;
 authService.ensureDefaultAdmin().then(() => {
