@@ -421,6 +421,12 @@ function toTransitionMapRow(seriesByMetric, month, year) {
     if (metric === "margin") row.gross_margin_pct = Number(value.toFixed(2));
     if (metric === "cpm") row.average_buying_cpm = Number(value.toFixed(2));
   });
+  
+  // Debug: Log first few rows
+  if (row.year === 2020 && (month === "January" || month === "September")) {
+    console.log(`[toTransitionMapRow] ${month} ${year}:`, row);
+  }
+  
   return row;
 }
 
