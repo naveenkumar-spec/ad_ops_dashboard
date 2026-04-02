@@ -523,14 +523,38 @@ async function getKpis(filters = {}) {
 async function getOverviewSeries(metric, filters = {}) {
   const { whereSql, params } = buildWhereClause(filters, "t");
 
+  // NET MARGIN: Use tracker data ONLY (all months)
+  if (metric === "net_margin") {
+    const rows = await runQuery(
+      `
+        SELECT
+          t.month AS month,
+          SAFE_CAST(t.year AS INT64) AS year,
+          ROUND(AVG(COALESCE(t.net_margin_pct, 0)), 2) AS value
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        GROUP BY month, year
+        ORDER BY year ASC, ${MONTH_ORDER_CASE}
+      `,
+      params
+    );
+    return monthYearSeriesFromRows(rows);
+  }
+
+  // OTHER 3 CHARTS: Use country-based JOIN approach (branding historical + tracker recent)
   let valueExpr = "SUM(COALESCE(t.revenue, 0)) / 1000000";
   if (metric === "margin") valueExpr = "AVG(COALESCE(t.gross_margin_pct, 0))";
-  if (metric === "net_margin") valueExpr = "AVG(COALESCE(t.net_margin_pct, 0))";
-  // For CPM, only average non-zero values
   if (metric === "cpm") valueExpr = "AVG(CASE WHEN t.cpm > 0 THEN t.cpm ELSE NULL END)";
 
-  // Use country-based JOIN approach like Power BI instead of UNION ALL
-  // This allows all filters to work by joining tracker data with branding data
+  // Determine current and last month for tracker data priority
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIndex = now.getMonth(); // 0-11
+  const currentMonth = MONTHS[currentMonthIndex];
+  const previousMonthIndex = currentMonthIndex === 0 ? 11 : currentMonthIndex - 1;
+  const previousMonth = MONTHS[previousMonthIndex];
+  const previousMonthYear = currentMonthIndex === 0 ? currentYear - 1 : currentYear;
+
   const rows = await runQuery(
     `
       WITH tracker_data AS (
@@ -546,25 +570,27 @@ async function getOverviewSeries(metric, filters = {}) {
         )
       ),
       combined_data AS (
-        -- Tracker data (recent years with all filter columns)
+        -- Tracker data (ALL months - but current/last month takes priority)
         SELECT 
-          month, year, revenue, spend, gross_margin_pct, net_margin_pct, cpm,
-          country, region, product, platform, status, ops_owner, cs_owner, sales_owner
+          month, year, revenue, spend, gross_margin_pct, cpm,
+          country, region, product, platform, status, ops_owner, cs_owner, sales_owner,
+          'tracker' as source_type
         FROM tracker_data
         
         UNION ALL
         
-        -- Branding data (historical years) - use country to inherit filter values from tracker
+        -- Branding data (historical) - EXCLUDE current and last month
         SELECT 
-          b.month, b.year, b.revenue, b.spend, b.gross_margin_pct, b.net_margin_pct, b.cpm,
+          b.month, b.year, b.revenue, b.spend, b.gross_margin_pct, b.cpm,
           b.country, b.region,
-          -- For missing dimensions, try to inherit from tracker data for same country
+          -- Inherit filter values from tracker data for same country
           COALESCE(t.product, 'Historical') as product,
           COALESCE(t.platform, 'Historical') as platform, 
           COALESCE(t.status, 'Historical') as status,
           COALESCE(t.ops_owner, 'Historical') as ops_owner,
           COALESCE(t.cs_owner, 'Historical') as cs_owner,
-          COALESCE(t.sales_owner, 'Historical') as sales_owner
+          COALESCE(t.sales_owner, 'Historical') as sales_owner,
+          'branding' as source_type
         FROM branding_data b
         LEFT JOIN (
           -- Get representative values for each country from tracker data
@@ -579,6 +605,10 @@ async function getOverviewSeries(metric, filters = {}) {
           FROM tracker_data
           WHERE country IS NOT NULL
         ) t ON b.country = t.country
+        WHERE NOT (
+          (b.year = ${currentYear} AND b.month = '${currentMonth}') OR
+          (b.year = ${previousMonthYear} AND b.month = '${previousMonth}')
+        )
       )
       SELECT
         t.month AS month,

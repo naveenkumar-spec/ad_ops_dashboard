@@ -221,12 +221,11 @@ const TRANSITION_TABLE_SCHEMA = [
   { name: "spend", type: "FLOAT" },
   { name: "gross_profit", type: "FLOAT" },
   { name: "gross_margin_pct", type: "FLOAT" },
-  { name: "net_margin", type: "FLOAT" },
-  { name: "net_margin_pct", type: "FLOAT" },
   { name: "cpm", type: "FLOAT" },
   { name: "source_sheet_id", type: "STRING" },
   { name: "source_tab", type: "STRING" },
   { name: "source_country", type: "STRING" }
+  // NOTE: NO net_margin or net_margin_pct - these come from tracker sheet only
 ];
 
 async function ensureTable() {
@@ -500,12 +499,11 @@ function toTransitionRows(syncId, syncedAtIso, rawBrandingData) {
       spend: spend,
       gross_profit: grossProfit,
       gross_margin_pct: grossMarginPct,
-      net_margin: grossProfit, // Same as gross for legacy data
-      net_margin_pct: grossMarginPct,
       cpm: Number(row.ecpm || 0),
       source_sheet_id: "1MwWqMLj5b4FwIS6wD3FugfwgbWlyJD0xaQJLpmlRlQs",
       source_tab: "Raw Spends Data",
       source_country: row.country || null
+      // NOTE: NO net_margin fields - these come from tracker sheet only
     };
     
     // Log first few rows for debugging
