@@ -265,23 +265,46 @@ async function ensureTransitionTable() {
 
   const table = dataset.table(transitionTableId);
   const [tableExists] = await table.exists();
-  if (!tableExists) {
+  
+  if (tableExists) {
+    // Check if table has the correct schema
+    const [meta] = await table.getMetadata();
+    const existingFields = (meta.schema?.fields || []).map((f) => f.name);
+    const expectedFields = TRANSITION_TABLE_SCHEMA.map((f) => f.name);
+    
+    // Check if we have old schema columns that shouldn't be there
+    const hasOldColumns = existingFields.includes('quarter') || 
+                         existingFields.includes('booked_revenue_m') || 
+                         existingFields.includes('average_buying_cpm');
+    
+    const missingColumns = expectedFields.filter(field => !existingFields.includes(field));
+    const extraColumns = existingFields.filter(field => !expectedFields.includes(field));
+    
+    if (hasOldColumns || missingColumns.length > 0 || extraColumns.length > 0) {
+      console.log(`[ensureTransitionTable] Schema mismatch detected. Recreating table.`);
+      console.log(`[ensureTransitionTable] Missing columns: ${missingColumns.join(', ')}`);
+      console.log(`[ensureTransitionTable] Extra columns: ${extraColumns.join(', ')}`);
+      
+      // Drop and recreate table with correct schema
+      await table.delete();
+      console.log(`[ensureTransitionTable] Dropped existing table with old schema`);
+      
+      await table.create({
+        schema: TRANSITION_TABLE_SCHEMA,
+        description: "Overview transition metrics from Raw Spends Data tab - simplified schema for country-based JOIN"
+      });
+      console.log(`[ensureTransitionTable] Created new table with simplified schema`);
+    } else {
+      console.log(`[ensureTransitionTable] Table schema is correct`);
+    }
+  } else {
     await table.create({
       schema: TRANSITION_TABLE_SCHEMA,
-      description: "Overview transition metrics from Raw Spends Data tab for CPM/Revenue/Gross Margin visuals"
+      description: "Overview transition metrics from Raw Spends Data tab - simplified schema for country-based JOIN"
     });
-  } else {
-    const [meta] = await table.getMetadata();
-    const existing = new Set((meta.schema?.fields || []).map((f) => f.name));
-    const missing = TRANSITION_TABLE_SCHEMA.filter((f) => !existing.has(f.name));
-    if (missing.length) {
-      await table.setMetadata({
-        schema: {
-          fields: [...(meta.schema?.fields || []), ...missing]
-        }
-      });
-    }
+    console.log(`[ensureTransitionTable] Created new transition table`);
   }
+  
   return table;
 }
 
@@ -558,6 +581,12 @@ async function syncToBigQuery(options = {}) {
     const table = await ensureTable();
     const transitionTable = await ensureTransitionTable();
     await ensureStateTable();
+    
+    // Debug: Log transition table schema
+    const [transitionMeta] = await transitionTable.getMetadata();
+    const transitionFields = (transitionMeta.schema?.fields || []).map((f) => f.name);
+    console.log(`[BigQuery Sync] Transition table schema: ${transitionFields.join(', ')}`);
+    
     const issueLimit = Number(process.env.SYNC_VALIDATION_MAX_ISSUES || 500);
     const syncIssues = [];
     activeSyncStatus.step = "reading_sheets";
