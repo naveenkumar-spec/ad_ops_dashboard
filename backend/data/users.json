@@ -14,7 +14,9 @@
       ],
       "createdAt": "2026-03-25T17:11:33.605Z",
       "updatedAt": "2026-03-25T17:27:47.966Z",
-      "email": "admin@silverpush.local"
+      "email": "admin@silverpush.local",
+      "authProvider": "local",
+      "fullAccess": true
     },
     {
       "id": "0662b523-05b0-4ee4-b196-8f57e8b124ab",
@@ -38,7 +40,8 @@
       "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
       "username": "yogi.wadhwa@silverpush.co",
       "email": "yogi.wadhwa@silverpush.co",
-      "displayName": "yogi.wadhwa@silverpush.co",
+      "displayName": "Yogi Wadhwa",
+      "passwordHash": null,
       "authProvider": "google",
       "createdAt": "2026-04-02T14:00:00.000Z",
       "role": "user",
@@ -55,7 +58,8 @@
       "id": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e",
       "username": "mansi.matela@silverpush.co",
       "email": "mansi.matela@silverpush.co",
-      "displayName": "mansi.matela@silverpush.co",
+      "displayName": "Mansi Matela",
+      "passwordHash": null,
       "authProvider": "google",
       "createdAt": "2026-04-02T14:00:00.000Z",
       "role": "user",
