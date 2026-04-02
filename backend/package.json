@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "start": "node server.js",
-    "sync:bigquery": "node scripts/syncBigQuery.js"
+    "sync:bigquery": "node scripts/syncBigQuery.js",
+    "migrate:users": "node scripts/migrateUsersToBigQuery.js"
   },
   "dependencies": {
     "@azure/msal-node": "^5.1.0",

@@ -39,7 +39,7 @@ async function verifyPassword(password, hash) {
 
 function findUserByIdentity(identity) {
   const key = normalizeEmail(identity);
-  return userStore.getUsers().find((u) => {
+  return userStore.getUsersSync().find((u) => {
     const email = normalizeEmail(u.email || u.username);
     const username = normalizeEmail(u.username);
     return email === key || username === key;
@@ -47,12 +47,15 @@ function findUserByIdentity(identity) {
 }
 
 async function ensureDefaultAdmin() {
+  // Initialize BigQuery store if enabled
+  await userStore.initializeBigQueryStore();
+  
   const existing = findUserByIdentity("admin");
   if (existing) {
     if (!existing.email) {
       existing.email = ADMIN_LOGIN_EMAIL;
       existing.updatedAt = new Date().toISOString();
-      userStore.saveUser(existing);
+      await userStore.saveUser(existing);
     }
     return;
   }
@@ -70,10 +73,11 @@ async function ensureDefaultAdmin() {
     allowedCountries: [],
     allowedAdops: [],
     allowedTabs: ["overview", "management", "admin"],
+    chatbotEnabled: true,
     createdAt: now,
     updatedAt: now
   };
-  userStore.saveUser(admin);
+  await userStore.saveUser(admin);
   console.log(`[Auth] Default admin created. Login email: ${ADMIN_LOGIN_EMAIL}`);
 }
 
@@ -127,7 +131,7 @@ async function loginWithExternalProfile(profile, provider) {
   user.authProvider = user.authProvider || provider;
   user.displayName = profile.name || user.displayName;
   user.updatedAt = new Date().toISOString();
-  userStore.saveUser(user);
+  await userStore.saveUser(user);
 
   return {
     token: signToken(user),
@@ -214,7 +218,7 @@ async function upsertAccessUser(payload) {
   }
   user.updatedAt = now;
 
-  userStore.saveUser(user);
+  await userStore.saveUser(user);
   return sanitizeUser(user);
 }
 
@@ -250,21 +254,22 @@ async function resetPasswordWithCurrent(identity, currentPassword, newPassword) 
   if (!newPassword || String(newPassword).length < 6) throw new Error("New password must be at least 6 characters");
   user.passwordHash = await hashPassword(newPassword);
   user.updatedAt = new Date().toISOString();
-  userStore.saveUser(user);
+  await userStore.saveUser(user);
   return sanitizeUser(user);
 }
 
-function listUsers() {
-  return userStore.getUsers().map(sanitizeUser);
+async function listUsers() {
+  const users = await userStore.getUsers();
+  return users.map(sanitizeUser);
 }
 
-function deleteUser(identity) {
+async function deleteUser(identity) {
   const user = findUserByIdentity(identity);
   if (!user) return false;
   if ((user.username || "").toLowerCase() === "admin" || normalizeEmail(user.email) === ADMIN_LOGIN_EMAIL) {
     throw new Error("Default admin cannot be deleted");
   }
-  return userStore.deleteUser(user.username);
+  return await userStore.deleteUser(user.username);
 }
 
 module.exports = {

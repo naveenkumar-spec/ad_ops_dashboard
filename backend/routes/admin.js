@@ -7,9 +7,10 @@ const router = express.Router();
 
 router.use(requireRole("admin"));
 
-router.get("/users", (_req, res) => {
+router.get("/users", async (_req, res) => {
   try {
-    res.json(authService.listUsers());
+    const users = await authService.listUsers();
+    res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message || "Failed to fetch users" });
   }
@@ -33,9 +34,9 @@ router.put("/users/:email", async (req, res) => {
   }
 });
 
-router.delete("/users/:email", (req, res) => {
+router.delete("/users/:email", async (req, res) => {
   try {
-    const ok = authService.deleteUser(req.params.email);
+    const ok = await authService.deleteUser(req.params.email);
     if (!ok) return res.status(404).json({ error: "User not found" });
     return res.json({ ok: true });
   } catch (error) {
