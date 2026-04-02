@@ -1,13 +1,16 @@
 const axios = require('axios');
 
-// Hugging Face API configuration - Using serverless inference
-const HF_MODEL = 'mistralai/Mistral-7B-Instruct-v0.2';
+// Hugging Face API configuration - Using free tier compatible models
+// Mistral may require paid tier, so we'll use models that work on free tier
+const HF_MODELS = [
+  'HuggingFaceH4/zephyr-7b-beta',  // Good quality, free tier
+  'mistralai/Mixtral-8x7B-Instruct-v0.1',  // High quality if available
+  'google/flan-t5-large'  // Fallback, always available
+];
+
+const HF_MODEL = process.env.HF_MODEL || HF_MODELS[0];
 const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
 const HF_API_TOKEN = process.env.HUGGINGFACE_API_KEY;
-
-// Fallback to a smaller, faster model if main model fails
-const HF_FALLBACK_MODEL = 'microsoft/DialoGPT-medium';
-const HF_FALLBACK_URL = `https://api-inference.huggingface.co/models/${HF_FALLBACK_MODEL}`;
 
 /**
  * Call Hugging Face API for text generation
@@ -18,7 +21,7 @@ async function callHuggingFace(prompt, maxTokens = 500) {
       throw new Error('HUGGINGFACE_API_KEY environment variable is not set');
     }
 
-    console.log('[AI] Calling Hugging Face API...');
+    console.log('[AI] Calling Hugging Face API with model:', HF_MODEL);
     
     const response = await axios.post(
       HF_API_URL,
@@ -31,7 +34,8 @@ async function callHuggingFace(prompt, maxTokens = 500) {
           return_full_text: false
         },
         options: {
-          wait_for_model: true
+          wait_for_model: true,
+          use_cache: false
         }
       },
       {
@@ -43,7 +47,8 @@ async function callHuggingFace(prompt, maxTokens = 500) {
       }
     );
 
-    console.log('[AI] Response received:', JSON.stringify(response.data).substring(0, 200));
+    console.log('[AI] Response status:', response.status);
+    console.log('[AI] Response data:', JSON.stringify(response.data).substring(0, 200));
 
     if (response.data && response.data[0] && response.data[0].generated_text) {
       return response.data[0].generated_text.trim();
@@ -65,14 +70,15 @@ async function callHuggingFace(prompt, maxTokens = 500) {
     }
     
     if (error.response?.status === 410) {
-      // API endpoint deprecated - provide helpful error
-      console.error('[AI] Hugging Face API endpoint deprecated. Please update to use Inference Endpoints or Serverless API.');
-      throw new Error('Hugging Face API endpoint has been deprecated. Please contact support to update the integration.');
+      // This specific model is not available on free tier
+      console.error('[AI] Model not available on free tier. Error:', error.response?.data);
+      throw new Error(`Model ${HF_MODEL} is not available. The free Inference API may have restrictions on this model. Try using a different model or upgrade to a paid tier.`);
     }
     
     console.error('[AI] Hugging Face API error:', {
       message: error.message,
       status: error.response?.status,
+      statusText: error.response?.statusText,
       data: error.response?.data
     });
     
