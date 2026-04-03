@@ -12,7 +12,20 @@ import SortableHeader from "./SortableHeader.jsx";
 import "../../styles/Tables.css";
 
 const PRIORITY = ["CTV", "Meta", "OpenWeb", "Tiktok", "Youtube", "YT Mirrors"];
-const MONTH_ORDER = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+const MONTH_ORDER = { 
+  Jan: 1, January: 1,
+  Feb: 2, February: 2, 
+  Mar: 3, March: 3,
+  Apr: 4, April: 4,
+  May: 5,
+  Jun: 6, June: 6,
+  Jul: 7, July: 7,
+  Aug: 8, August: 8,
+  Sep: 9, September: 9,
+  Oct: 10, October: 10,
+  Nov: 11, November: 11,
+  Dec: 12, December: 12
+};
 
 export default function PlatformSpendsTable({ filters = {}, currencyContext = null }) {
   const [rows, setRows] = useState([]);
@@ -74,6 +87,9 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
         // This ensures proper chronological sorting
         av = a.year * 100 + (MONTH_ORDER[a.month] || 0);
         bv = b.year * 100 + (MONTH_ORDER[b.month] || 0);
+        
+        // Debug logging to see what's happening
+        console.log(`Sorting: ${a.label} (${av}) vs ${b.label} (${bv}), direction: ${sortDirection}`);
       } else if (sortField === "total") {
         av = a.total;
         bv = b.total;
