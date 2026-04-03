@@ -8,6 +8,7 @@ import {
   formatAbsoluteCurrencyByContext,
   formatCompactCurrency
 } from "../utils/currencyDisplay.js";
+import SortableHeader from "./SortableHeader.jsx";
 import "../../styles/Tables.css";
 
 const PRIORITY = ["CTV", "Meta", "OpenWeb", "Tiktok", "Youtube", "YT Mirrors"];
@@ -16,6 +17,8 @@ const MONTH_ORDER = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Au
 export default function PlatformSpendsTable({ filters = {}, currencyContext = null }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortField, setSortField] = useState(null);
+  const [sortDirection, setSortDirection] = useState("asc");
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   useEffect(() => {
@@ -24,6 +27,15 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
       .catch(() => setRows(mockPlatformSpends()))
       .finally(() => setLoading(false));
   }, [JSON.stringify(filters)]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
 
   const { tableRows, platforms } = useMemo(() => {
     const agg = {};
@@ -38,11 +50,37 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
     });
     const ordered = PRIORITY.filter((p) => pSet.has(p));
     pSet.forEach((p) => { if (!PRIORITY.includes(p)) ordered.push(p); });
-    const sortedRows = Object.values(agg).sort((a, b) =>
+
+    let sortedRows = Object.values(agg).sort((a, b) =>
       a.year !== b.year ? a.year - b.year : (MONTH_ORDER[a.month] || 0) - (MONTH_ORDER[b.month] || 0)
     );
+
+    if (sortField) {
+      sortedRows = [...sortedRows].sort((a, b) => {
+        let av, bv;
+        if (sortField === "label") {
+          av = `${a.year}${String(MONTH_ORDER[a.month] || 0).padStart(2, "0")}`;
+          bv = `${b.year}${String(MONTH_ORDER[b.month] || 0).padStart(2, "0")}`;
+        } else if (sortField === "total") {
+          av = a.total;
+          bv = b.total;
+        } else {
+          av = a.spends[sortField] || 0;
+          bv = b.spends[sortField] || 0;
+        }
+        const cmp = typeof av === "string" ? av.localeCompare(bv) : Number(av) - Number(bv);
+        return sortDirection === "asc" ? cmp : -cmp;
+      });
+    }
+
     return { tableRows: sortedRows, platforms: ordered };
-  }, [rows]);
+  }, [rows, sortField, sortDirection]);
+
+  const sh = (field, label) => (
+    <SortableHeader field={field} sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+      {label}
+    </SortableHeader>
+  );
 
   return (
     <div className="table-card">
@@ -53,11 +91,17 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
             : (
               <div className="overflow-wrapper">
                 <table className="data-table">
-                  <thead><tr>
-                    <th>Month</th>
-                    {platforms.map((p) => <th key={p} title={safeTitle(p)}>{p}</th>)}
-                    <th>Total</th>
-                  </tr></thead>
+                  <thead>
+                    <tr>
+                      {sh("label", "Month")}
+                      {platforms.map((p) => (
+                        <SortableHeader key={p} field={p} sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                          {p}
+                        </SortableHeader>
+                      ))}
+                      {sh("total", "Total")}
+                    </tr>
+                  </thead>
                   <tbody>
                     {tableRows.map((r) => (
                       <tr key={r.label}>
@@ -78,4 +122,3 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
     </div>
   );
 }
-

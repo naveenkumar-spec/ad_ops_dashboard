@@ -510,3 +510,31 @@
   color: #b45309;
   font-weight: 600;
 }
+
+/* ── Table refresh overlay (shown instead of clearing table on re-fetch) ── */
+.table-refresh-wrapper {
+  position: relative;
+}
+
+.table-refreshing-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 60px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.table-refreshing-spinner {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #c8d6cd;
+  border-radius: 20px;
+  padding: 5px 16px;
+  font-size: 12px;
+  color: #1f3550;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}

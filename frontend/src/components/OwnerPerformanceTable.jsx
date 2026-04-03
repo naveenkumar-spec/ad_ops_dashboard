@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../utils/apiClient";
 import { mockOwners } from "../mockData.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
@@ -7,6 +7,7 @@ import {
   formatAbsoluteCurrencyByContext,
   formatCompactCurrency
 } from "../utils/currencyDisplay.js";
+import SortableHeader from "./SortableHeader.jsx";
 import "../../styles/Tables.css";
 
 function fmtVal(v, fmt, currencyContext) {
@@ -25,7 +26,7 @@ function valueTitle(v, fmt, currencyContext) {
   return safeTitle(v);
 }
 
-const cols = [
+const COLS = [
   { header: "Owner", accessor: "owner" },
   { header: "Campaigns", accessor: "campaigns" },
   { header: "Booked Revenue", accessor: "revenue", format: "currency" },
@@ -37,17 +38,37 @@ const cols = [
 export default function OwnerPerformanceTable({ title, endpoint, filters = {}, currencyContext = null }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortField, setSortField] = useState(null);
+  const [sortDirection, setSortDirection] = useState("asc");
 
   useEffect(() => {
     const key = endpoint?.includes("ops") ? "ops" : endpoint?.includes("cs") ? "cs" : "sales";
-    apiGet(`${endpoint}`, {
-      timeout: 6000,
-      params: filters
-    })
+    apiGet(`${endpoint}`, { timeout: 6000, params: filters })
       .then((res) => setRows(res.data?.length ? res.data : mockOwners[key]))
       .catch(() => setRows(mockOwners[key]))
       .finally(() => setLoading(false));
   }, [endpoint, JSON.stringify(filters)]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortedRows = useMemo(() => {
+    if (!sortField) return rows;
+    return [...rows].sort((a, b) => {
+      const av = a[sortField], bv = b[sortField];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      const cmp = typeof av === "string" ? av.localeCompare(bv) : Number(av) - Number(bv);
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
+  }, [rows, sortField, sortDirection]);
 
   return (
     <div className="table-card">
@@ -58,13 +79,27 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {}, c
             : (
               <div className="overflow-wrapper">
                 <table className="data-table">
-                  <thead><tr>{cols.map((c) => <th key={c.accessor}>{c.header}</th>)}</tr></thead>
+                  <thead>
+                    <tr>
+                      {COLS.map((col) => (
+                        <SortableHeader
+                          key={col.accessor}
+                          field={col.accessor}
+                          sortField={sortField}
+                          sortDirection={sortDirection}
+                          onSort={handleSort}
+                        >
+                          {col.header}
+                        </SortableHeader>
+                      ))}
+                    </tr>
+                  </thead>
                   <tbody>
-                    {rows.map((r, i) => (
+                    {sortedRows.map((r, i) => (
                       <tr key={i}>
-                        {cols.map((c) => (
-                          <td key={c.accessor} title={valueTitle(r[c.accessor], c.format, currencyContext)}>
-                            {c.format ? fmtVal(r[c.accessor], c.format, currencyContext) : r[c.accessor]}
+                        {COLS.map((col) => (
+                          <td key={col.accessor} title={valueTitle(r[col.accessor], col.format, currencyContext)}>
+                            {col.format ? fmtVal(r[col.accessor], col.format, currencyContext) : r[col.accessor]}
                           </td>
                         ))}
                       </tr>
@@ -77,4 +112,3 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {}, c
     </div>
   );
 }
-
