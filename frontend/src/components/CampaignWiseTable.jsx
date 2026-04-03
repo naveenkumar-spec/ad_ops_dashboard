@@ -10,21 +10,17 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 function SortableHeader({ field, children, sortField, sortDirection, onSort }) {
   const isActive = sortField === field;
-  const isAsc = isActive && sortDirection === "asc";
-  const isDesc = isActive && sortDirection === "desc";
-  
+  const icon = isActive ? (sortDirection === "asc" ? "▲" : "▼") : "⇅";
+
   return (
-    <th 
-      className="sortable-header" 
+    <th
+      className="sortable-header"
       onClick={() => onSort(field)}
       style={{ cursor: 'pointer', userSelect: 'none' }}
     >
       <div className="header-content">
         <span>{children}</span>
-        <span className="sort-icons">
-          <span className={`sort-icon sort-asc ${isAsc ? 'active' : ''}`}>▲</span>
-          <span className={`sort-icon sort-desc ${isDesc ? 'active' : ''}`}>▼</span>
-        </span>
+        <span className={`sort-icon ${isActive ? 'active' : 'inactive'}`}>{icon}</span>
       </div>
     </th>
   );
@@ -88,8 +84,8 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [campaignFilter, setCampaignFilter] = useState("");
-  const [sortField, setSortField] = useState("");
-  const [sortDirection, setSortDirection] = useState("asc");
+  const [sortField, setSortField] = useState("name");
+  const [sortDirection, setSortDirection] = useState("desc");
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   const loadData = (isInitial = false) => {
