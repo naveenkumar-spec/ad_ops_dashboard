@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { apiGet } from "../utils/apiClient";
 import "../../styles/DashboardHeader.css";
 
 function formatIST(isoString) {
@@ -21,12 +22,15 @@ export default function DashboardHeader({ activeTab, currentUser, onLogout }) {
   const localIdentity = rawIdentity.split("@")[0] || rawIdentity;
   const logoutName = localIdentity.split(".")[0] || localIdentity;
 
+  const isAdmin = currentUser?.role === "admin";
+  const allowedTabs = currentUser?.allowedTabs || [];
+  const canSeeManagement = isAdmin || allowedTabs.includes("management");
+
   const [lastSync, setLastSync] = useState(null);
 
   useEffect(() => {
-    fetch("/api/overview/last-sync")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.lastSyncAt) setLastSync(data.lastSyncAt); })
+    apiGet("/api/overview/last-sync")
+      .then((res) => { if (res.data?.lastSyncAt) setLastSync(res.data.lastSyncAt); })
       .catch(() => {});
   }, []);
 
@@ -45,7 +49,9 @@ export default function DashboardHeader({ activeTab, currentUser, onLogout }) {
           ) : (
             <>
               <NavLink to="/" className={({ isActive }) => `tab-link ${isActive ? "active" : ""}`}>Overview</NavLink>
-              <NavLink to="/management" className={({ isActive }) => `tab-link ${isActive ? "active" : ""}`}>Management</NavLink>
+              {canSeeManagement && (
+                <NavLink to="/management" className={({ isActive }) => `tab-link ${isActive ? "active" : ""}`}>Management</NavLink>
+              )}
             </>
           )}
         </div>
