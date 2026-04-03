@@ -946,14 +946,25 @@ async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
         t.start_date AS startDate,
         t.end_date AS endDate,
         COALESCE(t.status, 'Unknown') AS status,
+        -- Calculate campaign duration in days
+        CASE 
+          WHEN t.start_date IS NOT NULL AND t.end_date IS NOT NULL 
+          THEN DATE_DIFF(t.end_date, t.start_date, DAY) + 1
+          ELSE 0 
+        END AS campaignDuration,
+        COALESCE(t.days_remaining, 0) AS daysRemaining,
+        COALESCE(t.days_passed, 0) AS daysPassed,
         COALESCE(t.planned_impressions, 0) AS plannedImpressions,
         COALESCE(t.delivered_impressions, 0) AS deliveredImpressions,
+        COALESCE(t.daily_required_pace, 0) AS dailyRequiredPace,
+        COALESCE(t.yesterday_pace, 0) AS yesterdayPace,
         COALESCE(t.revenue, 0) AS revenue,
         COALESCE(t.spend, 0) AS spend,
         COALESCE(t.gross_profit, 0) AS grossMargin,
         COALESCE(t.gross_margin_pct, 0) AS grossMarginPct,
         COALESCE(t.net_margin, 0) AS netMargin,
-        COALESCE(t.net_margin_pct, 0) AS netMarginPct
+        COALESCE(t.net_margin_pct, 0) AS netMarginPct,
+        COALESCE(t.pace_remarks, '') AS paceRemarks
       FROM ${latestMainTableSql()} t
       ${whereSql}
       ORDER BY t.campaign_name, t.start_date
@@ -992,14 +1003,20 @@ async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
       startDate: r.startDate ? String(r.startDate.value || r.startDate) : null,
       endDate: r.endDate ? String(r.endDate.value || r.endDate) : null,
       status: r.status,
+      campaignDuration: toNumber(r.campaignDuration),
+      daysRemaining: toNumber(r.daysRemaining),
+      daysPassed: toNumber(r.daysPassed),
       plannedImpressions: toNumber(r.plannedImpressions),
       deliveredImpressions: toNumber(r.deliveredImpressions),
+      dailyRequiredPace: toNumber(r.dailyRequiredPace),
+      yesterdayPace: toNumber(r.yesterdayPace),
       revenue: toNumber(r.revenue),
       spend: toNumber(r.spend),
       grossMargin: toNumber(r.grossMargin),
       grossMarginPct: toNumber(r.grossMarginPct),
       netMargin: toNumber(r.netMargin),
-      netMarginPct: toNumber(r.netMarginPct)
+      netMarginPct: toNumber(r.netMarginPct),
+      paceRemarks: r.paceRemarks || ''
     })),
     totals: {
       rowCount: toNumber(totals.rowCount),

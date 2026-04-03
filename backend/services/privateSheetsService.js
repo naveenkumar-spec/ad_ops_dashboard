@@ -105,7 +105,13 @@ const FIELD_ALIASES = {
   csOwner: ["CS Responsible"],
   salesOwner: ["Sale Responsible", "Sales Responsible"],
   budgetGroups: ["Budget Groups"],
-  cpm: ["Buying CPM"]
+  cpm: ["Buying CPM"],
+  // New pace and campaign tracking columns
+  daysRemaining: ["Days Remaining"],
+  daysPassed: ["% of Days Passed"],
+  dailyRequiredPace: ["Daily Required pace", "Daily Required Pace"],
+  yesterdayPace: ["Yesterday Pace", "Yesterday's Pace"],
+  paceRemarks: ["Pace Remarks", "Pace remarks"]
 };
 
 const COUNTRY_DEFAULT_CURRENCY = {
@@ -500,6 +506,13 @@ function normalizeRow(rowValues, headerMap, source) {
   // Buying CPM is stored in cents in the sheets, divide by 100 to get dollars
   const cpm = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.cpm)) / 100;
 
+  // New pace and campaign tracking fields
+  const daysRemaining = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.daysRemaining));
+  const daysPassed = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.daysPassed));
+  const dailyRequiredPace = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.dailyRequiredPace));
+  const yesterdayPace = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.yesterdayPace));
+  const paceRemarks = String(pickField(rowValues, headerMap, FIELD_ALIASES.paceRemarks) || "").trim();
+
   const startDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.startDate));
   const endDate = parseDate(pickField(rowValues, headerMap, FIELD_ALIASES.endDate));
   const monthFromField = parseMonthName(pickField(rowValues, headerMap, FIELD_ALIASES.month));
@@ -538,6 +551,12 @@ function normalizeRow(rowValues, headerMap, source) {
     opsOwner: String(pickField(rowValues, headerMap, FIELD_ALIASES.opsOwner) || "Unknown").trim(),
     csOwner: String(pickField(rowValues, headerMap, FIELD_ALIASES.csOwner) || "Unknown").trim(),
     salesOwner: String(pickField(rowValues, headerMap, FIELD_ALIASES.salesOwner) || "Unknown").trim(),
+    // New pace and campaign tracking fields
+    daysRemaining,
+    daysPassed,
+    dailyRequiredPace,
+    yesterdayPace,
+    paceRemarks,
     _sourceSheetId: source.sheetId,
     _sourceTab: source.tabName,
     _sourceCountry: source.country,
