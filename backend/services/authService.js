@@ -20,7 +20,7 @@ function sanitizeUser(user) {
     role: user.role || "user",
     allowedCountries: user.allowedCountries || [],
     allowedAdops: user.allowedAdops || [],
-    allowedTabs: user.allowedTabs || ["overview", "management"],
+    allowedTabs: user.allowedTabs || ["overview"], // Default to overview only
     authProvider: user.authProvider || "local",
     fullAccess: Boolean(user.fullAccess),
     chatbotEnabled: user.chatbotEnabled !== false,
@@ -92,7 +92,7 @@ function signToken(user) {
       fullAccess: Boolean(user.fullAccess),
       allowedCountries: user.allowedCountries || [],
       allowedAdops: user.allowedAdops || [],
-      allowedTabs: user.allowedTabs || ["overview", "management"],
+      allowedTabs: user.allowedTabs || ["overview"], // Default to overview only
       chatbotEnabled: user.chatbotEnabled !== false
     },
     JWT_SECRET,
@@ -145,7 +145,7 @@ async function loginWithGoogle(profile) {
 }
 
 function normalizeTabs(tabs, role = "user") {
-  const base = Array.isArray(tabs) && tabs.length ? tabs : ["overview", "management"];
+  const base = Array.isArray(tabs) && tabs.length ? tabs : ["overview"]; // Default to overview only
   const unique = Array.from(new Set(base.map((t) => String(t).toLowerCase())));
   if (role !== "admin") return unique.filter((t) => t !== "admin");
   return unique.includes("admin") ? unique : [...unique, "admin"];

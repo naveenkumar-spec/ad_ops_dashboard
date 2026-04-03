@@ -18,7 +18,7 @@ if (initialSession?.token) {
 
 function RouteGuard({ session, tab, children }) {
   if (!session?.token) return <Navigate to="/login" replace />;
-  const allowed = session.user?.allowedTabs || ["overview", "management"];
+  const allowed = session.user?.allowedTabs || ["overview"]; // Default to overview only
   if (session.user?.role !== "admin" && tab && !allowed.includes(tab)) return <Navigate to="/" replace />;
   return children;
 }

@@ -34,7 +34,7 @@ app.use("/api/admin", adminRoutes);
 function tabGuard(tab) {
   return (req, res, next) => {
     if (!req.user || req.user.role === "admin") return next();
-    const allowed = Array.isArray(req.user.allowedTabs) ? req.user.allowedTabs : ["overview", "management"];
+    const allowed = Array.isArray(req.user.allowedTabs) ? req.user.allowedTabs : ["overview"]; // Default to overview only
     if (!allowed.includes(tab)) return res.status(403).json({ error: "Access denied for this dashboard" });
     return next();
   };
