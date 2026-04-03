@@ -11,10 +11,13 @@ let bigQueryStore = null;
 if (USE_BIGQUERY) {
   try {
     bigQueryStore = require("./userStoreBigQuery");
-    console.log("[UserStore] Using BigQuery for user storage");
+    console.log("[UserStore] ✅ Using BigQuery for user storage (JSON fallbacks disabled)");
   } catch (error) {
-    console.error("[UserStore] Failed to load BigQuery store, falling back to JSON:", error.message);
+    console.error("[UserStore] ❌ Failed to load BigQuery store:", error.message);
+    throw new Error("BigQuery user storage is required but failed to initialize");
   }
+} else {
+  console.warn("[UserStore] ⚠️  BigQuery user storage is not enabled. Set USER_STORAGE=bigquery or DATA_SOURCE=bigquery");
 }
 
 function ensureStore() {
@@ -39,18 +42,15 @@ function writeStore(store) {
 
 async function getUsers() {
   if (bigQueryStore) {
-    try {
-      return await bigQueryStore.getUsers();
-    } catch (error) {
-      console.error("[UserStore] BigQuery getUsers failed, using JSON fallback:", error.message);
-      return readStore().users;
-    }
+    return await bigQueryStore.getUsers();
   }
-  return readStore().users;
+  
+  throw new Error("BigQuery user storage is not available. Check configuration.");
 }
 
 function getUsersSync() {
-  return readStore().users;
+  console.warn("[UserStore] getUsersSync() is deprecated. Use async getUsers() instead.");
+  throw new Error("Synchronous user access is not supported with BigQuery storage. Use async getUsers() instead.");
 }
 
 function findUserByUsername(username) {
@@ -60,40 +60,19 @@ function findUserByUsername(username) {
 
 async function saveUser(user) {
   if (bigQueryStore) {
-    try {
-      await bigQueryStore.saveUser(user);
-      return user;
-    } catch (error) {
-      console.error("[UserStore] BigQuery saveUser failed, using JSON fallback:", error.message);
-    }
+    await bigQueryStore.saveUser(user);
+    return user;
   }
   
-  // JSON fallback
-  const store = readStore();
-  const key = String(user.username || "").toLowerCase();
-  const idx = store.users.findIndex((u) => String(u.username || "").toLowerCase() === key);
-  if (idx >= 0) store.users[idx] = user;
-  else store.users.push(user);
-  writeStore(store);
-  return user;
+  throw new Error("BigQuery user storage is not available. Check configuration.");
 }
 
 async function deleteUser(username) {
   if (bigQueryStore) {
-    try {
-      return await bigQueryStore.deleteUser(username);
-    } catch (error) {
-      console.error("[UserStore] BigQuery deleteUser failed, using JSON fallback:", error.message);
-    }
+    return await bigQueryStore.deleteUser(username);
   }
   
-  // JSON fallback
-  const store = readStore();
-  const key = String(username || "").toLowerCase();
-  const before = store.users.length;
-  store.users = store.users.filter((u) => String(u.username || "").toLowerCase() !== key);
-  writeStore(store);
-  return before !== store.users.length;
+  throw new Error("BigQuery user storage is not available. Check configuration.");
 }
 
 async function initializeBigQueryStore() {
