@@ -1,8 +1,8 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import TrendChart from "./TrendChart";
 import "../../styles/Charts.css";
 
-export default function CombinedTrendsSecondary({ filters = {}, currencyContext = null }) {
+export default function NetMarginTrendChart({ filters = {}, currencyContext = null }) {
   const [selectedYears, setSelectedYears] = useState([]);
   const [availableYears, setAvailableYears] = useState([]);
   const [granularity, setGranularity] = useState("month");
@@ -11,6 +11,7 @@ export default function CombinedTrendsSecondary({ filters = {}, currencyContext 
 
   const sortYearsDesc = (arr) => [...arr].sort((a, b) => Number(b) - Number(a));
 
+  // Initialize with top 2 years when available years change
   useEffect(() => {
     if (availableYears.length) {
       setSelectedYears(sortYearsDesc(availableYears).slice(0, 2));
@@ -35,8 +36,11 @@ export default function CombinedTrendsSecondary({ filters = {}, currencyContext 
     : "No year selected";
 
   return (
-    <div className="combined-trends">
-      <div className="combined-controls-bar combined-controls-bar--right">
+    <div className="combined-trends net-margin-chart-section">
+      <div className="combined-controls-bar">
+        <div className="chart-note-pill chart-note-pill--tracker">
+          Net Margin data is sourced exclusively from Tracker Sheets (all months)
+        </div>
         <div className="combined-right-controls">
           <div className="year-select-wrap" ref={yearWrapRef}>
             <div className="year-select-label">Selected Years: {selectedYearsText}</div>
@@ -81,20 +85,7 @@ export default function CombinedTrendsSecondary({ filters = {}, currencyContext 
       </div>
 
       <TrendChart
-        title="Average Buying CPM Trend"
-        endpoint="/api/overview/cpm-trend"
-        isPercent={false}
-        isRaw={true}
-        filters={filters}
-        controlledYears={selectedYears}
-        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
-        controlledGranularity={granularity}
-        onAvailableYears={(years) => setAvailableYears(sortYearsDesc(Array.from(new Set((years || []).map(Number).filter(Boolean)))))}
-        currencyContext={currencyContext}
-      />
-
-      <TrendChart
-        title="Net Margin Trend ( Tracker Sheet )"
+        title="Net Margin Trend (Tracker Sheet)"
         endpoint="/api/overview/net-margin-trend"
         isPercent={true}
         filters={filters}
@@ -107,5 +98,3 @@ export default function CombinedTrendsSecondary({ filters = {}, currencyContext 
     </div>
   );
 }
-
-

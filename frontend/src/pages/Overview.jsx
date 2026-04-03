@@ -6,7 +6,7 @@ import FiltersPanel from "../components/FiltersPanel";
 import KPICards from "../components/KPICards";
 import ChatbotWidget from "../components/ChatbotWidget";
 import CombinedTrends from "../components/CombinedTrends";
-import CombinedTrendsSecondary from "../components/CombinedTrendsSecondary";
+import NetMarginTrendChart from "../components/NetMarginTrendChart";
 import BottomCampaignsTable from "../components/BottomCampaignsTable";
 import CountryWiseTable from "../components/CountryWiseTable";
 import ProductWiseTable from "../components/ProductWiseTable";
@@ -129,7 +129,7 @@ export default function Overview({ currentUser, onLogout }) {
           />
           <KPICards key={`kpi-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
           <CombinedTrends key={`ct1-${refreshTick}`} filters={trendFilters} currencyContext={currencyContext} />
-          <CombinedTrendsSecondary key={`ct2-${refreshTick}`} filters={trendFilters} currencyContext={currencyContext} />
+          <NetMarginTrendChart key={`nmt-${refreshTick}`} filters={trendFilters} currencyContext={currencyContext} />
           <div className="overview-tables-stack">
             <CountryWiseTable key={`cty-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
             <ProductWiseTable key={`prd-${refreshTick}`} filters={filters} currencyContext={currencyContext} />

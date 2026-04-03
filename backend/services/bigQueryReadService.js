@@ -541,12 +541,12 @@ async function getOverviewSeries(metric, filters = {}) {
     return monthYearSeriesFromRows(rows);
   }
 
-  // OTHER 3 CHARTS: Use country-based JOIN approach (branding historical + tracker recent)
+  // OTHER 3 CHARTS: Clean separation - NO OVERLAP between data sources
   let valueExpr = "SUM(COALESCE(t.revenue, 0)) / 1000000";
   if (metric === "margin") valueExpr = "AVG(COALESCE(t.gross_margin_pct, 0))";
   if (metric === "cpm") valueExpr = "AVG(CASE WHEN t.cpm > 0 THEN t.cpm ELSE NULL END)";
 
-  // Determine current and last month for tracker data priority
+  // Determine current and last month for clean separation
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonthIndex = now.getMonth(); // 0-11
@@ -570,16 +570,20 @@ async function getOverviewSeries(metric, filters = {}) {
         )
       ),
       combined_data AS (
-        -- Tracker data (ALL months - but current/last month takes priority)
+        -- TRACKER DATA: ONLY current and last month (no other months to avoid duplication)
         SELECT 
           month, year, revenue, spend, gross_margin_pct, cpm,
           country, region, product, platform, status, ops_owner, cs_owner, sales_owner,
           'tracker' as source_type
         FROM tracker_data
+        WHERE (
+          (year = ${currentYear} AND month = '${currentMonth}') OR
+          (year = ${previousMonthYear} AND month = '${previousMonth}')
+        )
         
         UNION ALL
         
-        -- Branding data (historical) - EXCLUDE current and last month
+        -- BRANDING DATA: ALL months EXCEPT current and last month (clean historical data)
         SELECT 
           b.month, b.year, b.revenue, b.spend, b.gross_margin_pct, b.cpm,
           b.country, b.region,

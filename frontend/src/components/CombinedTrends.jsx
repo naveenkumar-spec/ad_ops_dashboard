@@ -107,6 +107,19 @@ export default function CombinedTrends({ filters = {}, currencyContext = null })
         onAvailableYears={(years) => setAvailableYears(sortYearsDesc(Array.from(new Set((years || []).map(Number).filter(Boolean)))))}
         currencyContext={currencyContext}
       />
+
+      <TrendChart
+        title="Average Buying CPM Trend"
+        endpoint="/api/overview/cpm-trend"
+        isPercent={false}
+        isRaw={true}
+        filters={filters}
+        controlledYears={selectedYears}
+        onYearsChange={years => setSelectedYears(sortYearsDesc(Array.from(new Set(years)).map(Number).filter(Boolean)))}
+        controlledGranularity={granularity}
+        onAvailableYears={(years) => setAvailableYears(sortYearsDesc(Array.from(new Set((years || []).map(Number).filter(Boolean)))))}
+        currencyContext={currencyContext}
+      />
     </div>
   );
 }

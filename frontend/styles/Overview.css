@@ -13,6 +13,19 @@
   gap: 16px;
 }
 
+/* Net Margin chart section styling */
+.net-margin-chart-section {
+  margin-top: 20px;
+  border-top: 2px solid #c1d4c9;
+  padding-top: 20px;
+}
+
+.net-margin-chart-section .chart-note-pill--tracker {
+  background-color: #e8f4f8;
+  border: 1px solid #b3d9e6;
+  color: #2c5f7a;
+}
+
 /* Old side-by-side row kept for reference */
 .overview-tables-row {
   padding: 0 24px 28px;
