@@ -222,7 +222,7 @@ function monthYearSeriesFromRows(rows = []) {
   (rows || []).forEach((r) => {
     const monthRaw = String(r.month || "").trim();
     const year = String(Number(r.year || 0));
-    const value = toNumber(r.value, 2);
+    const value = toNumber(r.value, null);
     if (!monthRaw || !year || year === "0") return;
     const monthIdx = MONTH_INDEX[monthRaw.toLowerCase()];
     if (monthIdx === undefined) return;
@@ -429,7 +429,7 @@ function transitionSeries(rows, metric) {
     if (metric === "revenue") value = Number(r.bookedRevenueM || 0);
     if (metric === "margin") value = Number(r.grossMarginPct || 0);
     if (metric === "cpm") value = Number(r.averageBuyingCpm || 0);
-    out[idx][year] = Number(value.toFixed(2));
+    out[idx][year] = value;
   });
   return out;
 }

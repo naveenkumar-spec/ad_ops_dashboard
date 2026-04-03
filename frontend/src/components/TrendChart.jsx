@@ -271,10 +271,9 @@ export default function TrendChart({
                   const convertedValue = convertUsdToDisplay(actualValue, currencyContext) || actualValue;
                   const currencyCode = currencyContext?.currencyCode || "USD";
                   
-                  // Format with full precision (no rounding) using toLocaleString
-                  const formatted = `${currencyCode} ${convertedValue.toLocaleString(undefined, { 
-                    minimumFractionDigits: 0, 
-                    maximumFractionDigits: 10 // Reduced from 20 to 10 for cleaner display
+                  const formatted = `${currencyCode} ${convertedValue.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
                   })}`;
                   
                   return [formatted, name];
