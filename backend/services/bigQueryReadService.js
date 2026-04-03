@@ -1334,6 +1334,76 @@ async function getPlatformSpends(filters = {}) {
   }));
 }
 
+async function getManagementRegionTable(filters = {}) {
+  const { whereSql, params } = buildWhereClause(filters, "t");
+  const [regionRows, countryRows] = await Promise.all([
+    runQuery(
+      `
+        SELECT
+          COALESCE(NULLIF(TRIM(t.region), ''), 'Unknown') AS region,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS campaigns,
+          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+          SUM(COALESCE(t.revenue, 0)) AS revenue,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.ops_owner, '')), '')) AS opsCount,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.cs_owner, '')), '')) AS csCount,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.sales_owner, '')), '')) AS salesCount
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        GROUP BY region
+        ORDER BY revenue DESC
+      `,
+      params
+    ),
+    runQuery(
+      `
+        SELECT
+          COALESCE(NULLIF(TRIM(t.region), ''), 'Unknown') AS region,
+          COALESCE(NULLIF(TRIM(t.country), ''), 'Unknown') AS country,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS campaigns,
+          SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+          SUM(COALESCE(t.revenue, 0)) AS revenue,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.ops_owner, '')), '')) AS opsCount,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.cs_owner, '')), '')) AS csCount,
+          COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.sales_owner, '')), '')) AS salesCount
+        FROM ${latestMainTableSql()} t
+        ${whereSql}
+        GROUP BY region, country
+        ORDER BY region ASC, revenue DESC
+      `,
+      params
+    )
+  ]);
+
+  const countryByRegion = new Map();
+  countryRows.forEach((r) => {
+    const region = r.region;
+    if (!countryByRegion.has(region)) countryByRegion.set(region, []);
+    countryByRegion.get(region).push({
+      region: r.country,
+      adOps: toNumber(r.opsCount),
+      cs: toNumber(r.csCount),
+      sales: toNumber(r.salesCount),
+      bookedRevenue: toNumber(r.revenue),
+      totalCampaigns: toNumber(r.campaigns),
+      budgetGroups: toNumber(r.budgetGroups)
+    });
+  });
+
+  return regionRows.map((r) => {
+    const children = countryByRegion.get(r.region) || [];
+    return {
+      region: r.region,
+      adOps: toNumber(r.opsCount),
+      cs: toNumber(r.csCount),
+      sales: toNumber(r.salesCount),
+      bookedRevenue: toNumber(r.revenue),
+      totalCampaigns: toNumber(r.campaigns),
+      budgetGroups: toNumber(r.budgetGroups),
+      children
+    };
+  });
+}
+
 async function getAdminOptions() {
   const rows = await runQuery(
     `
@@ -1445,5 +1515,6 @@ module.exports = {
   getOwnerPerformance,
   getPlatformSpends,
   getAdminOptions,
+  getManagementRegionTable,
   debugCpmData
 };
