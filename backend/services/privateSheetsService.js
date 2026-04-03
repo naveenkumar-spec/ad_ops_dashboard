@@ -190,124 +190,54 @@ const OVERVIEW_RAW_ALIASES = {
   country: ["Country", "Region", "Market"],
   
   // === FINANCIAL COLUMNS (REQUIRED) ===
-  // TODO: UPDATE THESE WITH YOUR ACTUAL BRANDING SHEET COLUMN NAMES
+  // Based on your requirements:
+  // - Revenue: "Sales Value in USD" (branding) → "Revenue" (tracker)
+  // - CPM: "eCPM." (branding) → "Buying CPM" (tracker)
   salesValueUsd: [
-    "Sales Value in USD",
-    // ADD YOUR ACTUAL REVENUE/SALES COLUMN NAME HERE
-    // Examples: "Revenue", "Sales Value", "Booked Revenue", etc.
+    "Sales Value in USD",  // ✅ Your specified branding sheet column
   ],
   mediaSpendUsd: [
-    "Media Spend in USD", 
-    // ADD YOUR ACTUAL SPEND COLUMN NAME HERE
-    // Examples: "Media Spend", "Spend", "Cost", etc.
+    "Media Spend in USD",  // ✅ Your specified branding sheet column
   ],
   ecpm: [
+    "eCPM.",               // ✅ Your specified branding sheet column (with period)
+  ecpm: [
     "eCPM.",
+    "CPM",
+    "Buying CPM", 
+    "Average CPM",
+    "Cost Per Mille",
+    "Cost per Thousand",
     // ADD YOUR ACTUAL CPM COLUMN NAME HERE  
     // Examples: "eCPM", "CPM", "Buying CPM", "Average CPM", etc.
+  ],"Campaign Name", // ✅ Available in your branding sheet
   ],
   
-  // === CAMPAIGN COLUMNS (OPTIONAL - if available in branding sheet) ===
-  campaignName: [
-    "Campaign Name",
-    // ADD IF AVAILABLE: Campaign name column from branding sheet
-  ],
-  campaignId: [
-    "Campaign ID",
-    // ADD IF AVAILABLE: Campaign ID column from branding sheet
-  ],
-  
-  // === CLASSIFICATION COLUMNS (OPTIONAL - if available in branding sheet) ===
-  product: [
-    "Product",
-    // ADD IF AVAILABLE: Product column from branding sheet
-    // Examples: "Product Type", "Product Category", etc.
-  ],
-  platform: [
-    "Platform", 
-    // ADD IF AVAILABLE: Platform column from branding sheet
-    // Examples: "Ad Platform", "Media Platform", etc.
-  ],
-  status: [
-    "Status",
-    // ADD IF AVAILABLE: Campaign status from branding sheet
-    // Examples: "Campaign Status", "State", etc.
-  ],
-  
-  // === OWNER COLUMNS (OPTIONAL - if available in branding sheet) ===
-  opsOwner: [
-    "Ops Owner",
-    "Ops Responsible",
-    // ADD IF AVAILABLE: Operations owner from branding sheet
-  ],
-  csOwner: [
-    "CS Owner", 
-    "CS Responsible",
-    // ADD IF AVAILABLE: Customer Success owner from branding sheet
-  ],
-  salesOwner: [
-    "Sales Owner",
-    "Sales Responsible", 
-    // ADD IF AVAILABLE: Sales owner from branding sheet
-  ],
-  
-  // === BRAND/AGENCY COLUMNS (OPTIONAL - if available in branding sheet) ===
+  // === BRAND/AGENCY COLUMNS (AVAILABLE IN BRANDING SHEET) ===
   brandName: [
-    "Brand Name",
-    // ADD IF AVAILABLE: Brand name from branding sheet
+    "Brand Name",     // ✅ Available in your branding sheet
+    "New Brand",      // ✅ Available in your branding sheet
+    "Parent Brand",   // ✅ Available in your branding sheet
   ],
   agencyName: [
-    "Agency",
-    "Agency Name",
-    // ADD IF AVAILABLE: Agency name from branding sheet
+    "Agency",         // ✅ Available in your branding sheet
+    "New Agency",     // ✅ Available in your branding sheet
+    "Parent Agency",  // ✅ Available in your branding sheet
+    "New Parent Agency", // ✅ Available in your branding sheet
+    "IO Agency Name", // ✅ Available in your branding sheet
   ],
   
-  // === INDUSTRY COLUMNS (OPTIONAL - if available in branding sheet) ===
+  // === INDUSTRY COLUMNS (AVAILABLE IN BRANDING SHEET) ===
   industry: [
-    "Industry",
-    "Industry/Category",
-    "Category",
-    // ADD IF AVAILABLE: Industry category from branding sheet
-  ],
-  
-  // === ADDITIONAL FINANCIAL COLUMNS (OPTIONAL - if available) ===
-  grossProfit: [
-    "Gross Profit",
-    // ADD IF AVAILABLE: Gross profit column from branding sheet
-  ],
-  grossMarginPct: [
-    "Gross Margin %",
-    "Gross Profit %",
-    // ADD IF AVAILABLE: Gross margin percentage from branding sheet
-  ],
-  netMargin: [
-    "Net Margin",
-    // ADD IF AVAILABLE: Net margin column from branding sheet
-  ],
-  netMarginPct: [
-    "Net Margin %",
-    // ADD IF AVAILABLE: Net margin percentage from branding sheet
-  ],
-  
-  // === IMPRESSION COLUMNS (OPTIONAL - if available) ===
-  plannedImpressions: [
-    "Planned Impressions",
-    // ADD IF AVAILABLE: Planned impressions from branding sheet
-  ],
-  deliveredImpressions: [
-    "Delivered Impressions",
-    // ADD IF AVAILABLE: Delivered impressions from branding sheet
-  ],
-  
-  // === DATE RANGE COLUMNS (OPTIONAL - if available) ===
-  startDate: [
-    "Start Date",
-    // ADD IF AVAILABLE: Campaign start date from branding sheet
-  ],
-  endDate: [
-    "End Date",
-    // ADD IF AVAILABLE: Campaign end date from branding sheet
+    "Industry/Category",    // ✅ Available in your branding sheet
+    "New Industry Column",  // ✅ Available in your branding sheet
   ]
+  
+  // NOTE: Gross margin, net margin, planned impressions will be CALCULATED
+  // - gross_profit = salesValueUsd - mediaSpendUsd
+  // - gross_margin_pct = (gross_profit / salesValueUsd) * 100
+  // - net_margin = gross_profit (same as gross for branding data)
+  // - net_margin_pct = gross_margin_pct (same as gross for branding data)
 };
 
 const NORMALIZED_HEADER_CANDIDATES = new Set(
@@ -1232,6 +1162,12 @@ async function getBrandingSheetParsedData() {
   const ecpmColIdx = OVERVIEW_RAW_ALIASES.ecpm
     .map((alias) => headerMap[normalizeKey(alias)])
     .find((idx) => idx !== undefined);
+  
+  console.log(`[getBrandingSheetParsedData] eCPM column detection:`);
+  console.log(`[getBrandingSheetParsedData] - Looking for aliases:`, OVERVIEW_RAW_ALIASES.ecpm);
+  console.log(`[getBrandingSheetParsedData] - Found eCPM column at index:`, ecpmColIdx);
+  console.log(`[getBrandingSheetParsedData] - Total headers found:`, headers.length);
+  console.log(`[getBrandingSheetParsedData] - All headers:`, headers.join(", "));
 
   const parsed = [];
   let skippedRows = 0;
