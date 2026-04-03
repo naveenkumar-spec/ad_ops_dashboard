@@ -18,8 +18,8 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  const [sortField, setSortField] = useState(null);
-  const [sortDirection, setSortDirection] = useState("asc");
+  const [sortField, setSortField] = useState("label"); // Default sort by month
+  const [sortDirection, setSortDirection] = useState("desc"); // Default descending (latest first)
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   useEffect(() => {
@@ -64,15 +64,19 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
     const ordered = PRIORITY.filter((p) => pSet.has(p));
     pSet.forEach((p) => { if (!PRIORITY.includes(p)) ordered.push(p); });
 
-    let sortedRows = Object.values(agg).sort((a, b) =>
-      a.year !== b.year ? a.year - b.year : (MONTH_ORDER[a.month] || 0) - (MONTH_ORDER[b.month] || 0)
-    );
+    // Default sort by month+year (latest first) when no explicit sorting is applied
+    let sortedRows = Object.values(agg).sort((a, b) => {
+      // Sort by year first (descending), then by month (descending) for latest first
+      if (a.year !== b.year) return b.year - a.year; // Latest year first
+      return (MONTH_ORDER[b.month] || 0) - (MONTH_ORDER[a.month] || 0); // Latest month first
+    });
 
     if (sortField) {
       sortedRows = [...sortedRows].sort((a, b) => {
         let av, bv;
         if (sortField === "label") {
-          // For month sorting, use year + month order for proper chronological sorting
+          // For month sorting, create a sortable value: year * 100 + month
+          // This ensures proper chronological sorting
           av = a.year * 100 + (MONTH_ORDER[a.month] || 0);
           bv = b.year * 100 + (MONTH_ORDER[b.month] || 0);
         } else if (sortField === "total") {
