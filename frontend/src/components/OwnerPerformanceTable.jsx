@@ -42,6 +42,7 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {}, c
   const [sortDirection, setSortDirection] = useState("asc");
 
   useEffect(() => {
+    setLoading(true); // Set loading to true when filters change
     const key = endpoint?.includes("ops") ? "ops" : endpoint?.includes("cs") ? "cs" : "sales";
     apiGet(`${endpoint}`, { timeout: 6000, params: filters })
       .then((res) => setRows(res.data?.length ? res.data : mockOwners[key]))
