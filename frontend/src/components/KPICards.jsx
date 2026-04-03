@@ -100,8 +100,8 @@ DATA SOURCE:
 • Gross Profit = Revenue - Spend
 
 DATA SOURCE:
-• Revenue: "Sales Value in USD" (branding) + "Revenue" (tracker)
-• Spend: "Media Spend in USD" (branding) + "Spend" (tracker)`,
+• Revenue: "Revenue" (tracker)
+• Spend: "Spend" (tracker)`,
 
     "Net Margin %": `CALCULATION:
 • Percentage: (Net Margin / Revenue) × 100
@@ -119,8 +119,8 @@ DATA SOURCE:
 • Shows how much of booked revenue has been spent
 
 DATA SOURCE:
-• Revenue: "Sales Value in USD" (branding) + "Revenue" (tracker)
-• Spend: "Media Spend in USD" (branding) + "Spend" (tracker)`
+• Revenue:  "Revenue" (tracker)
+• Spend: "Spend" (tracker)`
   };
 
   useEffect(() => {
