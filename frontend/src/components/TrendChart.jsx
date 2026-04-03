@@ -62,7 +62,7 @@ function buildGroupedData(raw, granularity, selectedYears) {
     const v = Number(row[y]);
     if (Number.isFinite(v)) totals[y] = (totals[y] || 0) + v;
   }));
-  return selectedYears.map(y => ({ label: String(y), [y]: +(totals[y] || 0).toFixed(2) }));
+  return selectedYears.map(y => ({ label: String(y), [y]: +(totals[y] || 0) }));
 }
 
 function extractYears(raw) {
@@ -205,7 +205,7 @@ export default function TrendChart({
         if (out[year] == null) return;
         const usdValue = Number(out[year]) * 1_000_000;
         const converted = convertUsdToDisplay(usdValue, currencyContext);
-        out[year] = converted == null ? out[year] : Number((converted / 1_000_000).toFixed(4));
+        out[year] = converted == null ? out[year] : Number(converted / 1_000_000);
       });
       return out;
     });
