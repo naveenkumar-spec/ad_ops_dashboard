@@ -176,11 +176,6 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
               <span className="total-label">{barName}:</span>
               <span className="total-value">{formatAbsoluteInteger(totals[metric])}</span>
             </span>
-            <span className="total-separator">|</span>
-            <span className="total-item">
-              <span className="total-label">Revenue:</span>
-              <span className="total-value">{formatAbsoluteCurrencyByContext(totals.bookedRevenue, currencyContext)}</span>
-            </span>
           </div>
         )}
       </div>
