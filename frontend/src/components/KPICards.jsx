@@ -78,13 +78,13 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  // Check if current user is admin
-  const isAdmin = useMemo(() => {
+  // Check if current user has management page access
+  const hasManagementAccess = useMemo(() => {
     const session = loadSession();
-    return session?.user?.role === 'admin';
+    return session?.user?.allowedTabs?.includes('management') || session?.user?.role === 'admin';
   }, []);
 
-  // KPI explanations for admin users
+  // KPI explanations for users with management access
   const kpiExplanations = {
     "No of Campaigns": `CALCULATION:
 • Absolute: Direct count of unique campaigns from the data
@@ -264,7 +264,7 @@ DATA SOURCE:
           <p className="kpi-title" title={safeTitle(kpi.title)}>
             {kpi.title}
           </p>
-          {isAdmin && kpiExplanations[kpi.title] && (
+          {hasManagementAccess && kpiExplanations[kpi.title] && (
             <InfoIcon tooltip={kpiExplanations[kpi.title]} />
           )}
           <p className="kpi-value" title={kpi.valueTitle || getValueTitle(kpi, currencyContext)}>{kpi.value}</p>
