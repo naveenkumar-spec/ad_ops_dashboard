@@ -1,6 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const dummyService = require("../services/dummyDataService");
+const bigQueryService = require("../services/bigQueryReadService");
+
+const DATA_SOURCE = (process.env.DATA_SOURCE || "bigquery").toLowerCase();
+function getDataProvider() {
+  return DATA_SOURCE === "bigquery" ? bigQueryService : dummyService;
+}
 
 const handleRequest = async (req, res, handler, label) => {
   try {
@@ -57,33 +63,34 @@ router.get("/performance", (req, res) => {
   return handleRequest(
     req,
     res,
-    async () => applyUserScopeToRows(dummyService.getOwnerPerformance(type, filters), req.user),
+    async () => applyUserScopeToRows(await getDataProvider().getOwnerPerformance(type, filters), req.user),
     `${type} performance (chart)`
   );
 });
 
 router.get("/ops", (req, res) => {
   const filters = pickFilters(req.query);
-  return handleRequest(req, res, async () => applyUserScopeToRows(dummyService.getOwnerPerformance("ops", filters), req.user), "Ops performance");
+  return handleRequest(req, res, async () => applyUserScopeToRows(await getDataProvider().getOwnerPerformance("ops", filters), req.user), "Ops performance");
 });
 
 router.get("/cs", (req, res) => {
   const filters = pickFilters(req.query);
-  return handleRequest(req, res, async () => applyUserScopeToRows(dummyService.getOwnerPerformance("cs", filters), req.user), "CS performance");
+  return handleRequest(req, res, async () => applyUserScopeToRows(await getDataProvider().getOwnerPerformance("cs", filters), req.user), "CS performance");
 });
 
 router.get("/sales", (req, res) => {
   const filters = pickFilters(req.query);
-  return handleRequest(req, res, async () => applyUserScopeToRows(dummyService.getOwnerPerformance("sales", filters), req.user), "Sales performance");
+  return handleRequest(req, res, async () => applyUserScopeToRows(await getDataProvider().getOwnerPerformance("sales", filters), req.user), "Sales performance");
 });
 
 router.get("/filter-options", (req, res) => {
-  return handleRequest(req, res, () => dummyService.getFilterOptions(), "Filter options");
+  const filters = pickFilters(req.query);
+  return handleRequest(req, res, () => getDataProvider().getFilterOptions(filters), "Filter options");
 });
 
 router.get("/platform-spends", (req, res) => {
   const filters = pickFilters(req.query);
-  return handleRequest(req, res, () => dummyService.getPlatformSpends(filters), "Platform spends");
+  return handleRequest(req, res, () => getDataProvider().getPlatformSpends(filters), "Platform spends");
 });
 
 module.exports = router;

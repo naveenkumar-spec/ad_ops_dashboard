@@ -1263,6 +1263,77 @@ async function getFilterOptions(filters = {}) {
   };
 }
 
+async function getOwnerPerformance(ownerType, filters = {}) {
+  const ownerCol = ownerType === "cs" ? "cs_owner" : ownerType === "sales" ? "sales_owner" : "ops_owner";
+  const { whereSql, params } = buildWhereClause(filters, "t");
+  const rows = await runQuery(
+    `
+      SELECT
+        COALESCE(NULLIF(TRIM(t.${ownerCol}), ''), 'Unknown') AS owner,
+        COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS campaigns,
+        SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+        SUM(COALESCE(t.revenue, 0)) AS revenue,
+        SUM(COALESCE(t.spend, 0)) AS spend,
+        IFNULL(
+          SAFE_DIVIDE(
+            SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)),
+            NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+          ) * 100,
+          0
+        ) AS grossMarginPct,
+        IFNULL(
+          SAFE_DIVIDE(
+            SUM(COALESCE(t.net_margin, 0)),
+            NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+          ) * 100,
+          0
+        ) AS netMarginPct,
+        SUM(COALESCE(t.revenue, 0)) / 1000 AS bookedRevenue
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
+      GROUP BY owner
+      ORDER BY revenue DESC
+    `,
+    params
+  );
+
+  return rows.map((r) => ({
+    owner: r.owner,
+    campaigns: toNumber(r.campaigns),
+    budgetGroups: toNumber(r.budgetGroups),
+    revenue: toNumber(r.revenue),
+    spend: toNumber(r.spend),
+    grossMarginPct: toNumber(r.grossMarginPct, 2),
+    netMarginPct: toNumber(r.netMarginPct, 2),
+    bookedRevenue: toNumber(r.bookedRevenue, 1)
+  }));
+}
+
+async function getPlatformSpends(filters = {}) {
+  const { whereSql, params } = buildWhereClause(filters, "t");
+  const rows = await runQuery(
+    `
+      SELECT
+        COALESCE(NULLIF(TRIM(t.platform), ''), 'Unknown') AS platform,
+        t.month AS month,
+        SAFE_CAST(t.year AS INT64) AS year,
+        SUM(COALESCE(t.spend, 0)) AS spend
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
+      GROUP BY platform, month, year
+      ORDER BY year ASC, ${MONTH_ORDER_CASE}, platform ASC
+    `,
+    params
+  );
+
+  return rows.map((r) => ({
+    platform: r.platform,
+    month: r.month,
+    year: Number(r.year),
+    spend: toNumber(r.spend, 2)
+  }));
+}
+
 async function getAdminOptions() {
   const rows = await runQuery(
     `
@@ -1371,6 +1442,8 @@ module.exports = {
   getCampaignWiseTable,
   getProductWiseTable,
   getFilterOptions,
+  getOwnerPerformance,
+  getPlatformSpends,
   getAdminOptions,
   debugCpmData
 };
