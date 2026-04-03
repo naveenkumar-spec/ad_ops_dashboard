@@ -71,7 +71,7 @@ async function getUsers() {
   try {
     const bq = getBigQueryClient();
     const query = `
-      SELECT 
+      SELECT
         id,
         username,
         email,
@@ -86,7 +86,12 @@ async function getUsers() {
         chatbotEnabled,
         createdAt,
         updatedAt
-      FROM \`${PROJECT_ID}.${DATASET_ID}.${USERS_TABLE_ID}\`
+      FROM (
+        SELECT *,
+          ROW_NUMBER() OVER (PARTITION BY username ORDER BY updatedAt DESC) AS rn
+        FROM \`${PROJECT_ID}.${DATASET_ID}.${USERS_TABLE_ID}\`
+      )
+      WHERE rn = 1
       ORDER BY createdAt ASC
     `;
 
@@ -219,11 +224,7 @@ async function saveUser(user) {
             });
           } catch (deleteError) {
             if (deleteError.message.includes('streaming buffer')) {
-              console.log(`[UserStore] DELETE also failed due to streaming buffer, using streaming insert for: ${user.username}`);
-              // If DELETE also fails, just insert a new row (BigQuery will handle duplicates)
-              await table.insert([row]);
-              console.log(`[UserStore] Inserted user via streaming: ${user.username}`);
-              return true;
+              throw new Error("Cannot save user at this time — BigQuery streaming buffer is still active. Please wait a few minutes and try again.");
             }
             throw deleteError;
           }
@@ -269,10 +270,7 @@ async function deleteUser(username) {
     return true;
   } catch (error) {
     if (error.message.includes('streaming buffer')) {
-      console.log(`[UserStore] DELETE failed due to streaming buffer for: ${username}. User will be marked as deleted but may still appear until streaming buffer clears.`);
-      // In this case, we could mark the user as deleted instead of actually deleting
-      // For now, we'll just log and return true since the user will eventually be deletable
-      return true;
+      throw new Error("Cannot delete this user yet — BigQuery streaming buffer is still active. Please wait a few minutes and try again.");
     }
     console.error("[UserStore] Error deleting user:", error.message);
     return false;

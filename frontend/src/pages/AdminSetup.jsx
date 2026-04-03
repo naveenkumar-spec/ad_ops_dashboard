@@ -73,7 +73,7 @@ const EMPTY_FORM = {
   fullAccess: false,
   allowedCountries: [],
   allowedAdops: [],
-  allowedTabs: ["overview", "management"],
+  allowedTabs: ["overview"],
   chatbotEnabled: true
 };
 
