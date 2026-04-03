@@ -99,9 +99,9 @@ function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext, index
     absolute = formatAbsoluteCurrencyByContext(convertedValue, currencyContext);
   }
   
-  // Auto-detect overlapping labels and rotate if needed
-  const shouldRotate = data && data.length > 8; // Rotate if more than 8 data points
-  const rotation = shouldRotate ? -45 : 0;
+  // Auto-detect overlapping labels and rotate 90° when crowded
+  const shouldRotate = data && data.length > 6; // Rotate if more than 6 data points
+  const rotation = shouldRotate ? -90 : 0;
   const textAnchor = shouldRotate ? "end" : "middle";
   const yOffset = shouldRotate ? -8 : -4;
   const xOffset = shouldRotate ? -2 : 0;
@@ -226,14 +226,26 @@ export default function TrendChart({
                 axisLine={false} tickLine={false}
                 tickFormatter={yTickFmt} width={44} domain={yDomain} />
               <Tooltip
-                formatter={(v, name) => [
-                  isPercent
-                    ? formatAbsolutePercent(v, 2)
-                    : isRaw
-                      ? formatAbsoluteNumber(v, 2)
-                      : formatAbsoluteCurrencyByContext(Number(v) * 1_000_000, currencyContext),
-                  name
-                ]}
+                formatter={(v, name) => {
+                  if (isPercent) {
+                    return [formatAbsolutePercent(v, 2), name];
+                  }
+                  if (isRaw) {
+                    return [formatAbsoluteNumber(v, 2), name];
+                  }
+                  // For currency values: v is already in millions, so multiply by 1M to get actual value
+                  const actualValue = Number(v) * 1_000_000;
+                  const convertedValue = convertUsdToDisplay(actualValue, currencyContext) || actualValue;
+                  const currencyCode = currencyContext?.currencyCode || "USD";
+                  
+                  // Format with full precision (no rounding) using toLocaleString
+                  const formatted = `${currencyCode} ${convertedValue.toLocaleString(undefined, { 
+                    minimumFractionDigits: 0, 
+                    maximumFractionDigits: 20 // Allow up to 20 decimal places to avoid rounding
+                  })}`;
+                  
+                  return [formatted, name];
+                }}
                 contentStyle={{ fontSize: 11, border: "1px solid #c8d6cd", borderRadius: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
               />
               {selectedYears.map((y, i) => {
