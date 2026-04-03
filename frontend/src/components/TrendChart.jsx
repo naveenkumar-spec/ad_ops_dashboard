@@ -70,19 +70,52 @@ function extractYears(raw) {
   return Object.keys(raw[0]).filter(k => k !== "month" && k !== "label").sort();
 }
 
-function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext }) {
+function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext, index, data }) {
   if (value == null || value === 0) return null;
+  
   let display;
   let absolute;
-  if (isPercent)  display = `${Number(value).toFixed(2)}%`;
-  else if (isRaw) display = `${Number(value).toFixed(1)}`;
-  else            display = formatCompactCurrency(Number(value) * 1_000_000, currencyContext);
-  if (isPercent) absolute = formatAbsolutePercent(value, 2);
-  else if (isRaw) absolute = formatAbsoluteNumber(value, 2);
-  else absolute = formatAbsoluteCurrencyByContext(Number(value) * 1_000_000, currencyContext);
+  
+  if (isPercent) {
+    display = `${Number(value).toFixed(1)}%`;
+    absolute = formatAbsolutePercent(value, 2);
+  } else if (isRaw) {
+    display = `${Number(value).toFixed(1)}`;
+    absolute = formatAbsoluteNumber(value, 2);
+  } else {
+    // For revenue: show full number without currency symbol, but with proper formatting
+    const fullValue = Number(value) * 1_000_000;
+    const convertedValue = convertUsdToDisplay(fullValue, currencyContext) || fullValue;
+    
+    // Format without currency symbol - just the number with appropriate suffixes
+    if (convertedValue >= 1_000_000) {
+      display = `${(convertedValue / 1_000_000).toFixed(1)}M`;
+    } else if (convertedValue >= 1_000) {
+      display = `${(convertedValue / 1_000).toFixed(1)}K`;
+    } else {
+      display = `${convertedValue.toFixed(0)}`;
+    }
+    
+    absolute = formatAbsoluteCurrencyByContext(convertedValue, currencyContext);
+  }
+  
+  // Auto-detect overlapping labels and rotate if needed
+  const shouldRotate = data && data.length > 8; // Rotate if more than 8 data points
+  const rotation = shouldRotate ? -45 : 0;
+  const textAnchor = shouldRotate ? "end" : "middle";
+  const yOffset = shouldRotate ? -8 : -4;
+  const xOffset = shouldRotate ? -2 : 0;
+  
   return (
-    <text x={x + width / 2} y={y - 4} textAnchor="middle"
-      fontSize={9} fill="#444" fontFamily="Segoe UI, sans-serif">
+    <text 
+      x={x + width / 2 + xOffset} 
+      y={y + yOffset} 
+      textAnchor={textAnchor}
+      fontSize={9} 
+      fill="#444" 
+      fontFamily="Segoe UI, sans-serif"
+      transform={rotation !== 0 ? `rotate(${rotation} ${x + width / 2 + xOffset} ${y + yOffset})` : undefined}
+    >
       <title>{absolute}</title>
       {display}
     </text>
@@ -207,7 +240,7 @@ export default function TrendChart({
                 const color = colorForIndex(i, selectedYears.length);
                 return (
                   <Bar key={y} dataKey={y} fill={color} radius={[2, 2, 0, 0]}>
-                    <LabelList dataKey={y} content={props => <BarLabel {...props} isPercent={isPercent} isRaw={isRaw} currencyContext={currencyContext} />} />
+                    <LabelList dataKey={y} content={props => <BarLabel {...props} isPercent={isPercent} isRaw={isRaw} currencyContext={currencyContext} data={data} />} />
                   </Bar>
                 );
               })}
