@@ -142,7 +142,7 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
                         </td>
                       </tr>
                     </tfoot>
-                  )
+                  )}
                 </table>
               </div>
             )}
