@@ -77,26 +77,33 @@ function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext, index
   let absolute;
   
   if (isPercent) {
-    display = `${Number(value).toFixed(1)}%`;
-    absolute = formatAbsolutePercent(value, 2);
+    // Show more precision for percentages
+    display = `${Number(value).toFixed(2)}%`;
+    absolute = formatAbsolutePercent(value, 4);
   } else if (isRaw) {
-    display = `${Number(value).toFixed(1)}`;
-    absolute = formatAbsoluteNumber(value, 2);
+    // Show more precision for raw numbers
+    display = `${Number(value).toFixed(2)}`;
+    absolute = formatAbsoluteNumber(value, 4);
   } else {
-    // For revenue: show full number without currency symbol, but with proper formatting
+    // For revenue: show precise values without currency symbol
     const fullValue = Number(value) * 1_000_000;
     const convertedValue = convertUsdToDisplay(fullValue, currencyContext) || fullValue;
     
-    // Format without currency symbol - just the number with appropriate suffixes
+    // Format without currency symbol but with higher precision
     if (convertedValue >= 1_000_000) {
-      display = `${(convertedValue / 1_000_000).toFixed(1)}M`;
+      display = `${(convertedValue / 1_000_000).toFixed(2)}M`;
     } else if (convertedValue >= 1_000) {
-      display = `${(convertedValue / 1_000).toFixed(1)}K`;
+      display = `${(convertedValue / 1_000).toFixed(2)}K`;
     } else {
       display = `${convertedValue.toFixed(0)}`;
     }
     
-    absolute = formatAbsoluteCurrencyByContext(convertedValue, currencyContext);
+    // Create precise absolute value for tooltip
+    const currencyCode = currencyContext?.currencyCode || "USD";
+    absolute = `${currencyCode} ${convertedValue.toLocaleString(undefined, { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 20 
+    })}`;
   }
   
   // Auto-detect overlapping labels and rotate 90° when crowded
@@ -106,19 +113,38 @@ function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext, index
   const yOffset = shouldRotate ? -8 : -4;
   const xOffset = shouldRotate ? -2 : 0;
   
+  const textX = x + width / 2 + xOffset;
+  const textY = y + yOffset;
+  
   return (
-    <text 
-      x={x + width / 2 + xOffset} 
-      y={y + yOffset} 
-      textAnchor={textAnchor}
-      fontSize={9} 
-      fill="#444" 
-      fontFamily="Segoe UI, sans-serif"
-      transform={rotation !== 0 ? `rotate(${rotation} ${x + width / 2 + xOffset} ${y + yOffset})` : undefined}
-    >
-      <title>{absolute}</title>
-      {display}
-    </text>
+    <g>
+      {/* White background rectangle for better visibility */}
+      <rect
+        x={textX - (shouldRotate ? 12 : 20)}
+        y={textY - (shouldRotate ? 6 : 8)}
+        width={shouldRotate ? 24 : 40}
+        height={shouldRotate ? 12 : 12}
+        fill="white"
+        fillOpacity={0.9}
+        rx={2}
+        ry={2}
+        transform={rotation !== 0 ? `rotate(${rotation} ${textX} ${textY})` : undefined}
+      />
+      {/* Text label */}
+      <text 
+        x={textX} 
+        y={textY} 
+        textAnchor={textAnchor}
+        fontSize={9} 
+        fill="#444" 
+        fontFamily="Segoe UI, sans-serif"
+        fontWeight="500"
+        transform={rotation !== 0 ? `rotate(${rotation} ${textX} ${textY})` : undefined}
+      >
+        <title>{absolute}</title>
+        {display}
+      </text>
+    </g>
   );
 }
 
