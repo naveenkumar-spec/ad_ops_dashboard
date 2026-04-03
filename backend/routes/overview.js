@@ -437,6 +437,15 @@ router.get("/sources", (_req, res) => {
   }
 });
 
+router.get("/last-sync", async (_req, res) => {
+  try {
+    const iso = await bigQuerySyncService.getLastSyncTime();
+    res.json({ lastSyncAt: iso });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch last sync time", message: error.message });
+  }
+});
+
 router.get("/sync/bigquery/status", (_req, res) => {
   try {
     if (!_req.user || _req.user.role !== "admin") {

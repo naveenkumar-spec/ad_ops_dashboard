@@ -1,6 +1,5 @@
 .dashboard-header {
   width: 1280px;
-  height: 80px;
   min-height: 80px;
   background: #16243e;
   border-bottom: 2px solid #0f1f2f;
@@ -12,7 +11,14 @@
   color: #ffffff;
 }
 
-.header-brand { display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.header-brand { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+
+.header-last-sync {
+  font-size: 11px;
+  color: #8bb59a;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
 
 .dashboard-header h1 {
   font-size: 22px;

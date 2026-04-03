@@ -885,10 +885,33 @@ function requestStopSync() {
   return { ok: true, status: "stopping", syncId: activeSyncStatus.syncId, message: "Stop request accepted" };
 }
 
+async function getLastSyncTime() {
+  try {
+    const [rows] = await bigquery.query({
+      query: `
+        SELECT synced_at
+        FROM \`${projectId}.${datasetId}.${stateTableId}\`
+        WHERE status = 'success'
+        ORDER BY synced_at DESC
+        LIMIT 1
+      `,
+      location: process.env.BIGQUERY_LOCATION || "US"
+    });
+    if (!rows || rows.length === 0) return null;
+    const raw = rows[0].synced_at;
+    // BigQuery TIMESTAMP comes back as a BigQuery date object or ISO string
+    const iso = raw?.value || raw || null;
+    return iso ? new Date(iso).toISOString() : null;
+  } catch {
+    return null;
+  }
+}
+
 module.exports = {
   syncToBigQuery,
   getLastSyncResult,
   getSyncStatus,
   startSync,
-  requestStopSync
+  requestStopSync,
+  getLastSyncTime
 };
