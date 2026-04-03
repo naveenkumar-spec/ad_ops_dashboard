@@ -153,6 +153,7 @@ export default function TrendChart({
   const [rawData, setRawData]       = useState([]);
   const [localYears, setLocalYears] = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [error, setError]           = useState("");
 
   const selectedYears = controlledYears ?? localYears;
@@ -164,6 +165,7 @@ export default function TrendChart({
       setError("");
       setLoading(false);
       setRawData(rawDataOverride);
+      setInitialLoadComplete(true);
       const years = extractYears(rawDataOverride);
       if (!controlledYears?.length && years.length) setYears(years);
       if (onAvailableYears) onAvailableYears(years);
@@ -177,6 +179,7 @@ export default function TrendChart({
       .then(res => {
         const d = res.data?.length ? res.data : fallback;
         setRawData(d);
+        setInitialLoadComplete(true);
         const years = extractYears(d);
         if (!controlledYears?.length && years.length) setYears(years);
         if (onAvailableYears) onAvailableYears(years);
@@ -184,12 +187,14 @@ export default function TrendChart({
       .catch(() => {
         if (ENABLE_MOCK_FALLBACK) {
           setRawData(fallback);
+          setInitialLoadComplete(true);
           const years = extractYears(fallback);
           if (!controlledYears?.length && years.length) setYears(years);
           if (onAvailableYears) onAvailableYears(years);
           return;
         }
         setRawData([]);
+        setInitialLoadComplete(true);
         if (onAvailableYears) onAvailableYears([]);
         setError("Failed to load trend data");
       })
@@ -197,6 +202,11 @@ export default function TrendChart({
   }, [endpoint, JSON.stringify(filters), JSON.stringify(rawDataOverride)]);
 
   const data = useMemo(() => {
+    // Don't show any data until initial load is complete
+    if (!initialLoadComplete) {
+      return [];
+    }
+
     const grouped = buildGroupedData(rawData, granularity, selectedYears);
     if (isPercent || isRaw) return grouped;
     return grouped.map((row) => {
@@ -209,7 +219,7 @@ export default function TrendChart({
       });
       return out;
     });
-  }, [rawData, granularity, selectedYears, isPercent, isRaw, currencyContext]);
+  }, [rawData, granularity, selectedYears, isPercent, isRaw, currencyContext, initialLoadComplete]);
   const barSize = granularity === "year" ? 40 : granularity === "quarter" ? 28 : 16;
   const yTickFmt = v => isPercent ? `${v}%` : isRaw ? `${v}` : formatCompactCurrency(Number(v) * 1_000_000, currencyContext, 1);
   const yDomain  = isPercent ? [0, 80] : [0, "auto"];

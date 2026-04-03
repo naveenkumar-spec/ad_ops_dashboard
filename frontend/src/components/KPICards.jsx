@@ -74,6 +74,7 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -110,20 +111,25 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
         const ordered = CARD_ORDER.map((t) => normalized.find((i) => i.title === t)).filter(Boolean);
         setKpis(ordered);
         setHasLoadedOnce(true);
+        setInitialLoadComplete(true);
       })
       .catch(() => {
         if (ENABLE_MOCK_FALLBACK) {
           const ordered = CARD_ORDER.map((t) => mockKPIs.find((i) => i.title === t)).filter(Boolean);
           setKpis(ordered);
+          setInitialLoadComplete(true);
           return;
         }
         setError("Failed to load KPI data");
+        setInitialLoadComplete(true);
       })
       .finally(() => setLoading(false));
   }, [JSON.stringify(filters)]);
 
   const display = useMemo(() => {
-    if (!kpis.length) return [];
+    // Don't show any data until initial load is complete
+    if (!initialLoadComplete || !kpis.length) return [];
+    
     const toDisplay = (value) => convertUsdToDisplay(value, currencyContext);
 
     const bookedRevenueCard = kpis.find((k) => k.title === "Booked Revenue");
@@ -189,7 +195,7 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
       }
       return { ...kpi, subtitleText: sub, subtitleTitle: subtitleTitle || undefined };
     });
-  }, [kpis, currencyContext]);
+  }, [kpis, currencyContext, initialLoadComplete]);
 
   const fallbackCards = CARD_ORDER.map((title) => ({
     title,

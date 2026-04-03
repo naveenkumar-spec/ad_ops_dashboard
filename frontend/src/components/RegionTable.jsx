@@ -12,6 +12,7 @@ const fmtMoneyShort = (v, ctx) => formatCompactCurrency(convertUsdToDisplay(v, c
 export default function RegionTable({ title = "Region Performance", variant = "overview", forceData = null, filters = {}, currencyContext = null }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [expanded, setExpanded] = useState(new Set());
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
@@ -47,15 +48,23 @@ export default function RegionTable({ title = "Region Performance", variant = "o
     if (forceData) {
       setData(forceData);
       setLoading(false);
+      setInitialLoadComplete(true);
       return;
     }
+    setLoading(true);
     const isManagement = variant === "management";
     const endpoint = isManagement ? "/api/management/regions" : "/api/overview/regions";
     const fallback = isManagement ? mockManagementRegions : mockRegions;
     const params = isManagement ? filters : {};
     apiGet(endpoint, { timeout: 6000, params })
-      .then(res => setData(res.data?.length ? res.data : fallback))
-      .catch(() => setData(fallback))
+      .then(res => {
+        setData(res.data?.length ? res.data : fallback);
+        setInitialLoadComplete(true);
+      })
+      .catch(() => {
+        setData(fallback);
+        setInitialLoadComplete(true);
+      })
       .finally(() => setLoading(false));
   }, [variant, forceData, JSON.stringify(filters)]);
 
@@ -69,6 +78,11 @@ export default function RegionTable({ title = "Region Performance", variant = "o
   };
 
   const sortedData = useMemo(() => {
+    // Don't show any data until initial load is complete
+    if (!initialLoadComplete) {
+      return [];
+    }
+    
     if (!sortField) return data;
     return [...data].sort((a, b) => {
       const av = a[sortField], bv = b[sortField];
@@ -78,7 +92,7 @@ export default function RegionTable({ title = "Region Performance", variant = "o
       const cmp = typeof av === "string" ? av.localeCompare(bv) : Number(av) - Number(bv);
       return sortDirection === "asc" ? cmp : -cmp;
     });
-  }, [data, sortField, sortDirection]);
+  }, [data, sortField, sortDirection, initialLoadComplete]);
 
   const toggle = (idx) => {
     setExpanded(prev => {

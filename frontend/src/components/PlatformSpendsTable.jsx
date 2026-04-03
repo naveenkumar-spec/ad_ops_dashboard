@@ -17,6 +17,7 @@ const MONTH_ORDER = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Au
 export default function PlatformSpendsTable({ filters = {}, currencyContext = null }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
@@ -24,8 +25,14 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
   useEffect(() => {
     setLoading(true);
     apiGet("/api/management/platform-spends", { timeout: 6000, params: toApiParams(filters) })
-      .then((res) => setRows(res.data?.length ? res.data : mockPlatformSpends()))
-      .catch(() => setRows(mockPlatformSpends()))
+      .then((res) => {
+        setRows(res.data?.length ? res.data : mockPlatformSpends());
+        setInitialLoadComplete(true);
+      })
+      .catch(() => {
+        setRows(mockPlatformSpends());
+        setInitialLoadComplete(true);
+      })
       .finally(() => setLoading(false));
   }, [JSON.stringify(filters)]);
 
@@ -39,6 +46,11 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
   };
 
   const { tableRows, platforms, totals } = useMemo(() => {
+    // Don't process data until initial load is complete
+    if (!initialLoadComplete) {
+      return { tableRows: [], platforms: [], totals: null };
+    }
+
     const agg = {};
     const pSet = new Set();
     rows.forEach((r) => {
@@ -87,7 +99,7 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
     });
 
     return { tableRows: sortedRows, platforms: ordered, totals };
-  }, [rows, sortField, sortDirection]);
+  }, [rows, sortField, sortDirection, initialLoadComplete]);
 
   const sh = (field, label) => (
     <SortableHeader field={field} sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>

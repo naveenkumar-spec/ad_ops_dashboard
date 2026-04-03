@@ -89,7 +89,8 @@ const renderLineLabel = (currencyContext) => (props) => {
 
 export default function PerformanceChart({ title = "Ops Performance", variant = "ops", data, filters = {}, currencyContext = null, metric = "budgetGroups" }) {
   const [remoteData, setRemoteData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -100,8 +101,10 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
           timeout: 6000
         });
         setRemoteData(res.data || []);
+        setInitialLoadComplete(true); // Mark initial load as complete
       } catch (_err) {
         setRemoteData([]);
+        setInitialLoadComplete(true); // Even on error, mark as complete to show fallback
       } finally {
         setLoading(false);
       }
@@ -110,6 +113,11 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
   }, [variant, JSON.stringify(filters)]);
 
   const chartData = useMemo(() => {
+    // Don't show any data until initial load is complete
+    if (!initialLoadComplete) {
+      return [];
+    }
+
     const source = data && data.length
       ? data
       : remoteData.length
@@ -132,7 +140,7 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
       ...row,
       bookedRevenue: convertUsdToDisplay(row.bookedRevenue, currencyContext) ?? row.bookedRevenue
     }));
-  }, [data, remoteData, variant, currencyContext, metric]);
+  }, [data, remoteData, variant, currencyContext, metric, initialLoadComplete]);
 
   const leftMax = useMemo(() => {
     const vals = chartData.map(d => Number(d[metric] || 0)).filter(v => Number.isFinite(v) && v >= 0);

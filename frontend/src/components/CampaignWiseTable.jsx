@@ -62,6 +62,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
   const [data, setData] = useState([]);
   const [totals, setTotals] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -121,10 +122,12 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
           setTotals(res.data.totals);
           setHasMore(res.data.hasMore !== false);
           setOffset(currentOffset + res.data.rows.length);
+          if (isInitial) setInitialLoadComplete(true);
         } else if (isInitial) {
           setData(mockCampaignWise.map(deriveRow));
           setTotals(mockCampaignWiseTotals);
           setHasMore(false);
+          setInitialLoadComplete(true);
         }
       })
       .catch(() => {
@@ -132,6 +135,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
           setData(mockCampaignWise.map(deriveRow));
           setTotals(mockCampaignWiseTotals);
           setHasMore(false);
+          setInitialLoadComplete(true);
         }
       })
       .finally(() => {
@@ -278,7 +282,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
                 </tr>
               </thead>
               <tbody>
-                {data.map((r, i) => (
+                {initialLoadComplete && data.map((r, i) => (
                   <tr key={i}>
                     <td className="col-name" title={safeTitle(r.name)}>{r.name}</td>
                     <td title={formatAbsoluteInteger(r.budgetGroups)}>{r.budgetGroups}</td>
