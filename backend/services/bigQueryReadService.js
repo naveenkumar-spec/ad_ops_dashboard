@@ -179,8 +179,10 @@ function buildWhereClause(filters = {}, alias = "t") {
 
   // Special handling for campaign name filter (partial matching)
   if (f.campaign && String(f.campaign).trim()) {
+    const campaignSearch = String(f.campaign).trim().toLowerCase();
     conditions.push(`LOWER(TRIM(COALESCE(${alias}.campaign_name, ''))) LIKE @campaignNameFilter`);
-    params.campaignNameFilter = `%${String(f.campaign).trim().toLowerCase()}%`;
+    params.campaignNameFilter = `%${campaignSearch}%`;
+    console.log(`[Campaign Filter] Searching for: "${campaignSearch}"`);
   }
 
   return {
@@ -944,6 +946,36 @@ async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
   const safeOffset = Math.max(0, Number(offset || 0));
   const { whereSql, params } = buildWhereClause(filters, "t");
 
+  // Handle sorting
+  const sortBy = filters.sortBy || "name";
+  const sortOrder = (filters.sortOrder || "asc").toLowerCase() === "desc" ? "DESC" : "ASC";
+  
+  // Map frontend field names to database column names
+  const sortFieldMap = {
+    name: "t.campaign_name",
+    budgetGroups: "t.budget_groups",
+    startDate: "t.start_date",
+    endDate: "t.end_date",
+    status: "t.status",
+    duration: "campaignDuration",
+    daysRemaining: "t.days_remaining",
+    pctPassed: "t.days_passed",
+    plannedImpressions: "t.planned_impressions",
+    deliveredImpressions: "t.delivered_impressions",
+    dailyRequiredPace: "t.daily_required_pace",
+    yesterdayPace: "t.yesterday_pace",
+    revenue: "t.revenue",
+    spend: "t.spend",
+    grossMargin: "t.gross_profit",
+    grossMarginPct: "t.gross_margin_pct",
+    netMargin: "t.net_margin",
+    netMarginPct: "t.net_margin_pct",
+    paceRemarks: "t.pace_remarks"
+  };
+  
+  const sortColumn = sortFieldMap[sortBy] || "t.campaign_name";
+  const orderByClause = `ORDER BY ${sortColumn} ${sortOrder}, t.campaign_name ASC`;
+
   const rows = await runQuery(
     `
       SELECT
@@ -973,7 +1005,7 @@ async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
         COALESCE(t.pace_remarks, '') AS paceRemarks
       FROM ${latestMainTableSql()} t
       ${whereSql}
-      ORDER BY t.campaign_name, t.start_date
+      ${orderByClause}
       LIMIT @limit OFFSET @offset
     `,
     { ...params, limit: safeLimit, offset: safeOffset }

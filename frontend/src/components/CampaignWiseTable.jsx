@@ -8,6 +8,28 @@ import "../../styles/Tables.css";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
+function SortableHeader({ field, children, sortField, sortDirection, onSort }) {
+  const isActive = sortField === field;
+  const isAsc = isActive && sortDirection === "asc";
+  const isDesc = isActive && sortDirection === "desc";
+  
+  return (
+    <th 
+      className="sortable-header" 
+      onClick={() => onSort(field)}
+      style={{ cursor: 'pointer', userSelect: 'none' }}
+    >
+      <div className="header-content">
+        <span>{children}</span>
+        <span className="sort-icons">
+          <span className={`sort-icon sort-asc ${isAsc ? 'active' : ''}`}>▲</span>
+          <span className={`sort-icon sort-desc ${isDesc ? 'active' : ''}`}>▼</span>
+        </span>
+      </div>
+    </th>
+  );
+}
+
 function fmtDate(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -66,6 +88,8 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [campaignFilter, setCampaignFilter] = useState("");
+  const [sortField, setSortField] = useState("");
+  const [sortDirection, setSortDirection] = useState("asc");
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   const loadData = (isInitial = false) => {
@@ -86,6 +110,10 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
     };
     if (campaignFilter.trim()) {
       apiParams.campaign = campaignFilter.trim();
+    }
+    if (sortField) {
+      apiParams.sortBy = sortField;
+      apiParams.sortOrder = sortDirection;
     }
 
     apiGet("/api/overview/campaign-wise", { 
@@ -120,9 +148,23 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
 
   useEffect(() => {
     loadData(true);
-  }, [JSON.stringify(filters), campaignFilter]);
+  }, [JSON.stringify(filters), campaignFilter, sortField, sortDirection]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
 
   const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !loadingMore) {
+      loadData(false);
+    }
+  };
     const { scrollTop, scrollHeight, clientHeight } = e.target;
     if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !loadingMore) {
       loadData(false);
@@ -178,25 +220,63 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
           <table className="adv-table">
             <thead>
               <tr>
-                <th>Campaign Name</th>
-                <th>Budget Groups</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Status</th>
-                <th>Campaign Duration</th>
-                <th>Days Remaining</th>
-                <th>% of Days Passed</th>
-                <th>Planned Impressions</th>
-                <th>Delivered Impressions</th>
-                <th>Daily Required Pace</th>
-                <th>Yesterday's Pace</th>
-                <th>Booked Revenue</th>
-                <th>Spend</th>
-                <th>Gross Margin</th>
-                <th>Gross Margin %</th>
-                <th>Net Margin</th>
-                <th>Net Margin %</th>
-                <th>Pace Remarks</th>
+                <SortableHeader field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Campaign Name
+                </SortableHeader>
+                <SortableHeader field="budgetGroups" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Budget Groups
+                </SortableHeader>
+                <SortableHeader field="startDate" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Start Date
+                </SortableHeader>
+                <SortableHeader field="endDate" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  End Date
+                </SortableHeader>
+                <SortableHeader field="status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Status
+                </SortableHeader>
+                <SortableHeader field="duration" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Campaign Duration
+                </SortableHeader>
+                <SortableHeader field="daysRemaining" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Days Remaining
+                </SortableHeader>
+                <SortableHeader field="pctPassed" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  % of Days Passed
+                </SortableHeader>
+                <SortableHeader field="plannedImpressions" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Planned Impressions
+                </SortableHeader>
+                <SortableHeader field="deliveredImpressions" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Delivered Impressions
+                </SortableHeader>
+                <SortableHeader field="dailyRequiredPace" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Daily Required Pace
+                </SortableHeader>
+                <SortableHeader field="yesterdayPace" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Yesterday's Pace
+                </SortableHeader>
+                <SortableHeader field="revenue" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Booked Revenue
+                </SortableHeader>
+                <SortableHeader field="spend" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Spend
+                </SortableHeader>
+                <SortableHeader field="grossMargin" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Gross Margin
+                </SortableHeader>
+                <SortableHeader field="grossMarginPct" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Gross Margin %
+                </SortableHeader>
+                <SortableHeader field="netMargin" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Net Margin
+                </SortableHeader>
+                <SortableHeader field="netMarginPct" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Net Margin %
+                </SortableHeader>
+                <SortableHeader field="paceRemarks" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
+                  Pace Remarks
+                </SortableHeader>
               </tr>
             </thead>
             <tbody>

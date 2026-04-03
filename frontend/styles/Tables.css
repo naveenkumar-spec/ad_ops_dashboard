@@ -250,6 +250,56 @@
   font-style: italic;
 }
 
+/* Sortable header styling */
+.sortable-header {
+  cursor: pointer !important;
+  user-select: none;
+  transition: background-color 0.15s;
+}
+
+.sortable-header:hover {
+  background: linear-gradient(180deg, #1a2f47 0%, #243b55 100%) !important;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sort-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.sortable-header:hover .sort-icons {
+  opacity: 0.8;
+}
+
+.sort-icon {
+  font-size: 8px;
+  line-height: 1;
+  color: #e8f0f5;
+  transition: color 0.15s;
+}
+
+.sort-icon.active {
+  color: #8fba8f;
+  opacity: 1;
+}
+
+.sort-asc {
+  margin-bottom: 1px;
+}
+
+.sort-desc {
+  margin-top: 1px;
+}
+
 /* Bottom / Top toggle */
 .bottom-top-toggle {
   display: flex;
