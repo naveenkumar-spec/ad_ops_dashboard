@@ -530,13 +530,10 @@ async function getOverviewSeries(metric, filters = {}) {
         SELECT
           t.month AS month,
           SAFE_CAST(t.year AS INT64) AS year,
-          ROUND(
-            SAFE_DIVIDE(
-              SUM(COALESCE(t.net_margin, 0)),
-              NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
-            ) * 100, 
-            2
-          ) AS value
+          SAFE_DIVIDE(
+            SUM(COALESCE(t.net_margin, 0)),
+            NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+          ) * 100 AS value
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY month, year
@@ -549,8 +546,17 @@ async function getOverviewSeries(metric, filters = {}) {
 
   // OTHER 3 CHARTS: Clean separation - NO OVERLAP between data sources
   let valueExpr = "SUM(COALESCE(t.revenue, 0)) / 1000000";
-  if (metric === "margin") valueExpr = "ROUND(SAFE_DIVIDE(SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)), NULLIF(SUM(COALESCE(t.revenue, 0)), 0)) * 100, 2)";
-  if (metric === "cpm") valueExpr = "AVG(CASE WHEN t.cpm > 0 THEN t.cpm ELSE NULL END)";
+  let needsRounding = true;
+  let roundDigits = 6; // High precision for revenue values
+  
+  if (metric === "margin") {
+    valueExpr = "SAFE_DIVIDE(SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)), NULLIF(SUM(COALESCE(t.revenue, 0)), 0)) * 100";
+    roundDigits = 6; // High precision for margin percentages too
+  }
+  if (metric === "cpm") {
+    valueExpr = "AVG(CASE WHEN t.cpm > 0 THEN t.cpm ELSE NULL END)";
+    roundDigits = 6; // High precision for CPM values
+  }
 
   // Determine current and last month for clean separation
   const now = new Date();
@@ -623,7 +629,7 @@ async function getOverviewSeries(metric, filters = {}) {
       SELECT
         t.month AS month,
         SAFE_CAST(t.year AS INT64) AS year,
-        ROUND(${valueExpr}, 2) AS value
+        ROUND(${valueExpr}, ${roundDigits}) AS value
       FROM combined_data t
       ${whereSql}
       GROUP BY month, year
