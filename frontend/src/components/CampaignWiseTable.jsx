@@ -65,6 +65,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
+  const [campaignFilter, setCampaignFilter] = useState("");
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   const loadData = (isInitial = false) => {
@@ -77,9 +78,19 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
       setLoadingMore(true);
     }
 
+    // Add campaign filter to API params
+    const apiParams = { 
+      ...toApiParams(filters), 
+      limit: 50, 
+      offset: currentOffset 
+    };
+    if (campaignFilter.trim()) {
+      apiParams.campaign = campaignFilter.trim();
+    }
+
     apiGet("/api/overview/campaign-wise", { 
         timeout: 12000, 
-        params: { ...toApiParams(filters), limit: 50, offset: currentOffset }
+        params: apiParams
       })
       .then((res) => {
         if (res.data?.rows?.length) {
@@ -109,7 +120,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
 
   useEffect(() => {
     loadData(true);
-  }, [JSON.stringify(filters)]);
+  }, [JSON.stringify(filters), campaignFilter]);
 
   const handleScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
@@ -149,6 +160,15 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
         <h3 className="adv-table-title">
           Campaign Wise Data ({totalsDerived?.rowCount || data.length} budget groups)
         </h3>
+        <div className="campaign-filter-container">
+          <input
+            type="text"
+            placeholder="Filter by campaign name..."
+            value={campaignFilter}
+            onChange={(e) => setCampaignFilter(e.target.value)}
+            className="campaign-filter-input"
+          />
+        </div>
       </div>
 
       {loading ? (

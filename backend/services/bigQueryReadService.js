@@ -177,6 +177,12 @@ function buildWhereClause(filters = {}, alias = "t") {
     params[param] = list;
   });
 
+  // Special handling for campaign name filter (partial matching)
+  if (f.campaign && String(f.campaign).trim()) {
+    conditions.push(`LOWER(TRIM(COALESCE(${alias}.campaign_name, ''))) LIKE @campaignNameFilter`);
+    params.campaignNameFilter = `%${String(f.campaign).trim().toLowerCase()}%`;
+  }
+
   return {
     whereSql: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "",
     params

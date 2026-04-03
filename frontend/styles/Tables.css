@@ -220,6 +220,36 @@
   margin: 0;
 }
 
+/* Campaign filter styling */
+.campaign-filter-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.campaign-filter-input {
+  padding: 6px 12px;
+  border: 1px solid #c8d6cd;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: "Segoe UI", sans-serif;
+  background: #fff;
+  color: #444;
+  min-width: 200px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.campaign-filter-input:focus {
+  outline: none;
+  border-color: #8fba8f;
+  box-shadow: 0 0 0 2px rgba(143, 186, 143, 0.2);
+}
+
+.campaign-filter-input::placeholder {
+  color: #999;
+  font-style: italic;
+}
+
 /* Bottom / Top toggle */
 .bottom-top-toggle {
   display: flex;
