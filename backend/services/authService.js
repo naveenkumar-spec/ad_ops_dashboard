@@ -37,9 +37,10 @@ async function verifyPassword(password, hash) {
   return bcrypt.compare(String(password || ""), String(hash || ""));
 }
 
-function findUserByIdentity(identity) {
+async function findUserByIdentity(identity) {
   const key = normalizeEmail(identity);
-  return userStore.getUsersSync().find((u) => {
+  const users = await userStore.getUsers();
+  return users.find((u) => {
     const email = normalizeEmail(u.email || u.username);
     const username = normalizeEmail(u.username);
     return email === key || username === key;
@@ -50,7 +51,7 @@ async function ensureDefaultAdmin() {
   // Initialize BigQuery store if enabled
   await userStore.initializeBigQueryStore();
   
-  const existing = findUserByIdentity("admin");
+  const existing = await findUserByIdentity("admin");
   if (existing) {
     if (!existing.email) {
       existing.email = ADMIN_LOGIN_EMAIL;
@@ -104,7 +105,7 @@ function verifyToken(token) {
 }
 
 async function login(identity, password) {
-  const user = findUserByIdentity(identity);
+  const user = await findUserByIdentity(identity);
   if (!user) throw new Error("Invalid email/username or password");
   if (!user.passwordHash) throw new Error("This account uses company email sign-in. Use Microsoft login.");
   const ok = await verifyPassword(password, user.passwordHash);
@@ -121,7 +122,7 @@ async function loginWithMicrosoft(idToken) {
 }
 
 async function loginWithExternalProfile(profile, provider) {
-  const user = findUserByIdentity(profile.email);
+  const user = await findUserByIdentity(profile.email);
   if (!user) throw new Error("Your email is not allowed for this portal. Contact admin.");
 
   if (user.authProvider && user.authProvider !== provider && user.role !== "admin") {
@@ -174,7 +175,7 @@ async function upsertAccessUser(payload) {
   const allowedTabs = normalizeTabs(payload.allowedTabs, role);
   const chatbotEnabled = payload.chatbotEnabled !== false;
 
-  const existing = findUserByIdentity(email);
+  const existing = await findUserByIdentity(email);
   const authProvider = String(payload.authProvider || existing?.authProvider || "google").toLowerCase();
   if (!["google", "microsoft", "local"].includes(authProvider)) {
     throw new Error("authProvider must be one of: local, google, microsoft");
@@ -224,12 +225,12 @@ async function upsertAccessUser(payload) {
 
 async function createUser(payload) {
   const email = normalizeEmail(payload.email || payload.username);
-  if (findUserByIdentity(email)) throw new Error("Email already exists");
+  if (await findUserByIdentity(email)) throw new Error("Email already exists");
   return upsertAccessUser(payload);
 }
 
 async function updateUser(identity, updates) {
-  const existing = findUserByIdentity(identity);
+  const existing = await findUserByIdentity(identity);
   if (!existing) throw new Error("User not found");
 
   if (updates.password) {
@@ -246,7 +247,7 @@ async function updateUser(identity, updates) {
 }
 
 async function resetPasswordWithCurrent(identity, currentPassword, newPassword) {
-  const user = findUserByIdentity(identity);
+  const user = await findUserByIdentity(identity);
   if (!user) throw new Error("User not found");
   if (!user.passwordHash) throw new Error("Password reset is only available for local-password accounts");
   const ok = await verifyPassword(currentPassword, user.passwordHash);
@@ -264,7 +265,7 @@ async function listUsers() {
 }
 
 async function deleteUser(identity) {
-  const user = findUserByIdentity(identity);
+  const user = await findUserByIdentity(identity);
   if (!user) return false;
   if ((user.username || "").toLowerCase() === "admin" || normalizeEmail(user.email) === ADMIN_LOGIN_EMAIL) {
     throw new Error("Default admin cannot be deleted");
