@@ -93,7 +93,7 @@ const FIELD_ALIASES = {
   grossMarginPct: ["Gross Profit %"],
   netMarginPct: ["% Net gross margin", "% Net gross margin "],
   netMargin: ["Net gross margin", "Net gross margin ", " Net gross margin "],
-  plannedImpressions: ["Planned Impression"],
+  plannedImpressions: ["Planned Impressions", "Planned Impression"],
   deliveredImpressions: ["Delivered Impressions"],
   month: ["Month"],
   year: ["Year"],
