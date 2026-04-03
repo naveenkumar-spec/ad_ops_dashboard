@@ -13,6 +13,8 @@ const records = [
   { ownerType: "ops", owner: "Utkarsh", campaigns: 12, budgetGroups: 86, revenue: 1160000, spend: 590000, grossMarginPct: 43.4, netMarginPct: 21.5, bookedRevenue: 1159.7, region: "Americas", year: 2025, month: "Nov", status: "Active", product: "Display", platform: "OpenWeb" },
   { ownerType: "ops", owner: "Shubh", campaigns: 9, budgetGroups: 82, revenue: 885000, spend: 430000, grossMarginPct: 38.7, netMarginPct: 18.9, bookedRevenue: 885.3, region: "Americas", year: 2025, month: "Dec", status: "Active", product: "Search", platform: "CTV" },
   { ownerType: "ops", owner: "Ranjith", campaigns: 8, budgetGroups: 77, revenue: 308000, spend: 150000, grossMarginPct: 34.0, netMarginPct: 14.5, bookedRevenue: 308.2, region: "APAC", year: 2026, month: "Jan", status: "Active", product: "Display", platform: "Youtube" },
+  { ownerType: "ops", owner: "Rishav", campaigns: 7, budgetGroups: 72, revenue: 220000, spend: 110000, grossMarginPct: 33.5, netMarginPct: 13.8, bookedRevenue: 219.5, region: "APAC", year: 2026, month: "Feb", status: "Active", product: "Video", platform: "OpenWeb" },
+  { ownerType: "ops", owner: "Sanjana", campaigns: 9, budgetGroups: 72, revenue: 840000, spend: 390000, grossMarginPct: 40.2, netMarginPct: 19.4, bookedRevenue: 839.8, region: "EMEA", year: 2026, month: "Mar", status: "Active", product: "Display", platform: "Youtube" },
 
   // CS
   { ownerType: "cs", owner: "Apoorva", campaigns: 37, budgetGroups: 306, revenue: 1984000, spend: 820000, grossMarginPct: 48.5, netMarginPct: 23.2, bookedRevenue: 1984.3, region: "APAC", year: 2025, month: "Jan", status: "Active", product: "Video", platform: "Youtube" },

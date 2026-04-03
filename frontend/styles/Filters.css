@@ -247,10 +247,10 @@
 }
 
 .filters-currency-corner {
-  position: absolute;
-  right: 16px;
-  bottom: 12px;
-  z-index: 1;
+  align-self: end;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
 }
 
 .filters-currency-toggle {
@@ -287,10 +287,5 @@
 @media (max-width: 1300px) {
   .filters-section {
     padding-right: 16px;
-  }
-
-  .filters-currency-corner {
-    position: static;
-    justify-self: start;
   }
 }
