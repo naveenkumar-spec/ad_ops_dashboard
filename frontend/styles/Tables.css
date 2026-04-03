@@ -1,4 +1,69 @@
-﻿/* ── Basic table card (existing components) ── */
+﻿/* ══════════════════════════════════════════════════
+   FROZEN FIRST COLUMN STYLING
+   ══════════════════════════════════════════════════ */
+
+/* Frozen first column for basic data tables */
+.data-table th:first-child,
+.data-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: inherit;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+}
+
+.data-table th:first-child {
+  z-index: 5; /* Higher than regular sticky headers */
+}
+
+.data-table .table-total td:first-child {
+  z-index: 6; /* Highest for total row first column */
+}
+
+/* Frozen first column for advanced tables */
+.adv-table th:first-child,
+.adv-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: inherit;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+}
+
+.adv-table th:first-child {
+  z-index: 5; /* Higher than regular sticky headers */
+}
+
+.adv-table tfoot .total-row td:first-child {
+  z-index: 6; /* Highest for total row first column */
+}
+
+/* Ensure proper background colors are maintained for frozen columns */
+.data-table tbody tr:nth-child(even) td:first-child {
+  background: #f4f9f6;
+}
+
+.data-table tbody tr:hover td:first-child {
+  background: #e4f0ea;
+}
+
+.adv-table tbody tr:nth-child(even) td:first-child {
+  background: #f7fbf8;
+}
+
+.adv-table tbody tr:hover td:first-child {
+  background: #eaf4ee;
+}
+
+.child-row td:first-child {
+  background: #f7fbf8;
+}
+
+.child-row:hover td:first-child {
+  background: #edf5f0;
+}
+
+/* ── Basic table card (existing components) ── */
 .table-card {
   background: #f6faf7;
   border-radius: 8px;
