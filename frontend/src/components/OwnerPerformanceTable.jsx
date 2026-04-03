@@ -70,6 +70,23 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {}, c
     });
   }, [rows, sortField, sortDirection]);
 
+  const totals = useMemo(() => {
+    if (!rows.length) return null;
+    const sum = (key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+    const totalRevenue = sum("revenue");
+    const totalSpend = sum("spend");
+    const totalGrossMargin = rows.reduce((s, r) => s + (Number(r.revenue) || 0) * (Number(r.grossMarginPct) || 0) / 100, 0);
+    const totalNetMargin = rows.reduce((s, r) => s + (Number(r.revenue) || 0) * (Number(r.netMarginPct) || 0) / 100, 0);
+    return {
+      owner: "Total",
+      campaigns: sum("campaigns"),
+      revenue: totalRevenue,
+      spend: totalSpend,
+      grossMarginPct: totalRevenue ? (totalGrossMargin / totalRevenue) * 100 : 0,
+      netMarginPct: totalRevenue ? (totalNetMargin / totalRevenue) * 100 : 0
+    };
+  }, [rows]);
+
   return (
     <div className="table-card">
       <div className="table-card-header"><h3>{title}</h3></div>
@@ -104,6 +121,15 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {}, c
                         ))}
                       </tr>
                     ))}
+                    {totals && (
+                      <tr className="table-total">
+                        {COLS.map((col) => (
+                          <td key={col.accessor} title={valueTitle(totals[col.accessor], col.format, currencyContext)}>
+                            {col.format ? fmtVal(totals[col.accessor], col.format, currencyContext) : totals[col.accessor]}
+                          </td>
+                        ))}
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

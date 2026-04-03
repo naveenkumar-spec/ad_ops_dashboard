@@ -93,4 +93,9 @@ router.get("/platform-spends", (req, res) => {
   return handleRequest(req, res, () => getDataProvider().getPlatformSpends(filters), "Platform spends");
 });
 
+router.get("/regions", (req, res) => {
+  const filters = pickFilters(req.query);
+  return handleRequest(req, res, () => getDataProvider().getManagementRegionTable(filters), "Management regions");
+});
+
 module.exports = router;

@@ -247,10 +247,11 @@
 }
 
 .filters-currency-corner {
-  align-self: end;
+  grid-column: 1 / -1;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: flex-end;
+  padding-top: 2px;
 }
 
 .filters-currency-toggle {

@@ -163,6 +163,17 @@
   border-top: 1px solid #243b55;
 }
 
+/* Prevent hover from overriding total row background */
+.data-table .table-total:hover td {
+  background: #11283f;
+  color: #e8f0f5;
+}
+
+.data-table .table-total:hover td:first-child {
+  background: #11283f;
+  color: #e8f0f5;
+}
+
 .table-expander {
   margin-right: 6px;
   width: 18px;
@@ -382,6 +393,14 @@
 }
 .adv-table tfoot .total-row td:last-child { border-right: none; }
 .adv-table tfoot .total-row strong { color: #e8f0f5; font-weight: 700; }
+.adv-table tfoot .total-row:hover td {
+  background: linear-gradient(180deg, #14253a 0%, #1f3550 100%);
+  color: #e8f0f5;
+}
+.adv-table tfoot .total-row:hover td:first-child {
+  background: linear-gradient(180deg, #14253a 0%, #1f3550 100%);
+  color: #e8f0f5;
+}
 
 /* Expand + button in country table */
 .expand-btn {

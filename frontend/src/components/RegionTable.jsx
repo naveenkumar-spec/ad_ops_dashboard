@@ -9,7 +9,7 @@ import "../../styles/Tables.css";
 const fmtN = v => (Number(v) || 0).toLocaleString();
 const fmtMoneyShort = (v, ctx) => formatCompactCurrency(convertUsdToDisplay(v, ctx), ctx);
 
-export default function RegionTable({ title = "Region Performance", variant = "overview", forceData = null, currencyContext = null }) {
+export default function RegionTable({ title = "Region Performance", variant = "overview", forceData = null, filters = {}, currencyContext = null }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(new Set());
@@ -19,6 +19,16 @@ export default function RegionTable({ title = "Region Performance", variant = "o
   const totals = useMemo(() => {
     if (!data.length) return null;
     const sum = (fn) => data.reduce((s, r) => s + (Number(fn(r)) || 0), 0);
+    if (variant === "management") {
+      return {
+        adOps: sum(r => r.adOps),
+        cs: sum(r => r.cs),
+        sales: sum(r => r.sales),
+        bookedRevenue: sum(r => r.bookedRevenue),
+        totalCampaigns: sum(r => r.totalCampaigns),
+        budgetGroups: sum(r => r.budgetGroups)
+      };
+    }
     const booked = sum(r => r.bookedRevenue);
     const gross = sum(r => r.grossMargin);
     return {
@@ -31,7 +41,7 @@ export default function RegionTable({ title = "Region Performance", variant = "o
       grossMargin: gross,
       grossMarginPct: booked ? ((gross / booked) * 100).toFixed(2) : "0.00"
     };
-  }, [data]);
+  }, [data, variant]);
 
   useEffect(() => {
     if (forceData) {
@@ -42,11 +52,12 @@ export default function RegionTable({ title = "Region Performance", variant = "o
     const isManagement = variant === "management";
     const endpoint = isManagement ? "/api/management/regions" : "/api/overview/regions";
     const fallback = isManagement ? mockManagementRegions : mockRegions;
-    apiGet(endpoint, { timeout: 6000 })
+    const params = isManagement ? filters : {};
+    apiGet(endpoint, { timeout: 6000, params })
       .then(res => setData(res.data?.length ? res.data : fallback))
       .catch(() => setData(fallback))
       .finally(() => setLoading(false));
-  }, [variant, forceData]);
+  }, [variant, forceData, JSON.stringify(filters)]);
 
   const handleSort = (field) => {
     if (sortField === field) {

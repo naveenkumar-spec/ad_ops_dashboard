@@ -1,12 +1,12 @@
-﻿import DashboardHeader from "../components/DashboardHeader";
+import DashboardHeader from "../components/DashboardHeader";
 import AppLayout from "../components/AppLayout";
 import FiltersPanel from "../components/FiltersPanel";
 import OwnerPerformanceTable from "../components/OwnerPerformanceTable";
 import PlatformSpendsTable from "../components/PlatformSpendsTable";
 import RegionTable from "../components/RegionTable";
 import PerformanceChart from "../components/PerformanceChart";
-import { mockManagementRegions } from "../mockData";
 import "../../styles/ManagementView.css";
+import "../../styles/Tables.css";
 import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../utils/apiClient";
 import { toApiParams } from "../utils/apiFilters";
@@ -35,6 +35,8 @@ export default function ManagementView({ currentUser, onLogout }) {
 
   const [filterOptions, setFilterOptions] = useState({});
   const [currency, setCurrency] = useState("USD");
+  const [chartMetric, setChartMetric] = useState("budgetGroups");
+
   const currencyContext = useMemo(
     () =>
       resolveCurrencyContext({
@@ -93,29 +95,49 @@ export default function ManagementView({ currentUser, onLogout }) {
       <div className="app-shell">
         <DashboardHeader activeTab="management" currentUser={currentUser} onLogout={onLogout} />
         <div className="management-page">
-        <FiltersPanel
-          filters={managementFilters}
-          values={filters}
-          options={filterOptions}
-          currency={currency}
-          onCurrencyChange={setCurrency}
-          onChange={handleFilterChange}
-          onClear={handleClear}
-        />
+          <FiltersPanel
+            filters={managementFilters}
+            values={filters}
+            options={filterOptions}
+            currency={currency}
+            onCurrencyChange={setCurrency}
+            onChange={handleFilterChange}
+            onClear={handleClear}
+          />
 
-        <div className="management-stack">
-          <PerformanceChart title="Ops Performance" variant="ops" filters={filters} currencyContext={currencyContext} />
-          <PerformanceChart title="CS Performance" variant="cs" filters={filters} currencyContext={currencyContext} />
-          <PlatformSpendsTable filters={filters} currencyContext={currencyContext} />
-          <RegionTable title="Region / Country wise data" variant="management" forceData={mockManagementRegions} currencyContext={currencyContext} />
-          <OwnerPerformanceTable title="KPI Performance by Ops Responsible" endpoint="/api/management/ops" filters={filters} currencyContext={currencyContext} />
-          <OwnerPerformanceTable title="KPI Performance by CS Responsible" endpoint="/api/management/cs" filters={filters} currencyContext={currencyContext} />
-          <OwnerPerformanceTable title="KPI Performance by Sales Responsible" endpoint="/api/management/sales" filters={filters} currencyContext={currencyContext} />
-        </div>
+          <div className="management-stack">
+            {/* Grouped performance charts with Budget Groups / Campaigns toggle */}
+            <div className="charts-group-card">
+              <div className="charts-group-header">
+                <div className="bottom-top-toggle">
+                  <button
+                    className={`bt-btn ${chartMetric === "budgetGroups" ? "active" : ""}`}
+                    onClick={() => setChartMetric("budgetGroups")}
+                  >
+                    Budget Groups
+                  </button>
+                  <button
+                    className={`bt-btn ${chartMetric === "campaigns" ? "active" : ""}`}
+                    onClick={() => setChartMetric("campaigns")}
+                  >
+                    Campaigns
+                  </button>
+                </div>
+              </div>
+              <div className="charts-group-body">
+                <PerformanceChart title="Ops Performance" variant="ops" metric={chartMetric} filters={filters} currencyContext={currencyContext} />
+                <PerformanceChart title="CS Performance" variant="cs" metric={chartMetric} filters={filters} currencyContext={currencyContext} />
+              </div>
+            </div>
+
+            <PlatformSpendsTable filters={filters} currencyContext={currencyContext} />
+            <RegionTable title="Region / Country wise data" variant="management" filters={filters} currencyContext={currencyContext} />
+            <OwnerPerformanceTable title="KPI Performance by Ops Responsible" endpoint="/api/management/ops" filters={filters} currencyContext={currencyContext} />
+            <OwnerPerformanceTable title="KPI Performance by CS Responsible" endpoint="/api/management/cs" filters={filters} currencyContext={currencyContext} />
+            <OwnerPerformanceTable title="KPI Performance by Sales Responsible" endpoint="/api/management/sales" filters={filters} currencyContext={currencyContext} />
+          </div>
         </div>
       </div>
     </AppLayout>
   );
 }
-
-

@@ -11,3 +11,35 @@
   flex-direction: column;
   gap: 14px;
 }
+
+.charts-group-card {
+  background: #f9fbfa;
+  border: 1px solid #d3e0d9;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+
+.charts-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 14px 0;
+}
+
+.charts-group-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.charts-group-body .performance-card {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  border-right: 1px solid #e0ebe5;
+}
+
+.charts-group-body .performance-card:last-child {
+  border-right: none;
+}

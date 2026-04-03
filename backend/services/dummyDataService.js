@@ -133,8 +133,13 @@ function getPlatformSpends(filters = {}) {
   });
 }
 
+function getManagementRegionTable() {
+  return [];
+}
+
 module.exports = {
   getOwnerPerformance,
   getFilterOptions,
-  getPlatformSpends
+  getPlatformSpends,
+  getManagementRegionTable
 };

@@ -15,36 +15,36 @@ import { convertUsdToDisplay, formatAbsoluteCurrencyByContext } from "../utils/c
 import "../../styles/PerformanceChart.css";
 
 const fallbackOps = [
-  { name: "Lakshman", budgetGroups: 235, bookedRevenue: 1865.52 },
-  { name: "Ravi Arya", budgetGroups: 231, bookedRevenue: 1298.19 },
-  { name: "Susanketh", budgetGroups: 187, bookedRevenue: 1161.72 },
-  { name: "Abhishek", budgetGroups: 177, bookedRevenue: 641.97 },
-  { name: "Shivam", budgetGroups: 127, bookedRevenue: 511.27 },
-  { name: "Kamlesh", budgetGroups: 109, bookedRevenue: 1245.95 },
-  { name: "Abhinav", budgetGroups: 100, bookedRevenue: 619.91 },
-  { name: "Hrishikesh", budgetGroups: 96, bookedRevenue: 861.39 },
-  { name: "Rohit", budgetGroups: 89, bookedRevenue: 369.99 },
-  { name: "Sumit", budgetGroups: 88, bookedRevenue: 1870.20 },
-  { name: "Utkarsh", budgetGroups: 86, bookedRevenue: 1159.68 },
-  { name: "Shubh", budgetGroups: 82, bookedRevenue: 885.28 },
-  { name: "Ranjith", budgetGroups: 77, bookedRevenue: 308.23 },
-  { name: "Rishav", budgetGroups: 72, bookedRevenue: 219.52 },
-  { name: "Sanjana", budgetGroups: 72, bookedRevenue: 839.84 }
+  { name: "Lakshman", budgetGroups: 235, campaigns: 18, bookedRevenue: 1865.52 },
+  { name: "Ravi Arya", budgetGroups: 231, campaigns: 14, bookedRevenue: 1298.19 },
+  { name: "Susanketh", budgetGroups: 187, campaigns: 12, bookedRevenue: 1161.72 },
+  { name: "Abhishek", budgetGroups: 177, campaigns: 11, bookedRevenue: 641.97 },
+  { name: "Shivam", budgetGroups: 127, campaigns: 9, bookedRevenue: 511.27 },
+  { name: "Kamlesh", budgetGroups: 109, campaigns: 10, bookedRevenue: 1245.95 },
+  { name: "Abhinav", budgetGroups: 100, campaigns: 8, bookedRevenue: 619.91 },
+  { name: "Hrishikesh", budgetGroups: 96, campaigns: 7, bookedRevenue: 861.39 },
+  { name: "Rohit", budgetGroups: 89, campaigns: 6, bookedRevenue: 369.99 },
+  { name: "Sumit", budgetGroups: 88, campaigns: 13, bookedRevenue: 1870.20 },
+  { name: "Utkarsh", budgetGroups: 86, campaigns: 12, bookedRevenue: 1159.68 },
+  { name: "Shubh", budgetGroups: 82, campaigns: 9, bookedRevenue: 885.28 },
+  { name: "Ranjith", budgetGroups: 77, campaigns: 8, bookedRevenue: 308.23 },
+  { name: "Rishav", budgetGroups: 72, campaigns: 7, bookedRevenue: 219.52 },
+  { name: "Sanjana", budgetGroups: 72, campaigns: 9, bookedRevenue: 839.84 }
 ];
 
 const fallbackCs = [
-  { name: "Apoorva", budgetGroups: 306, bookedRevenue: 1984.25 },
-  { name: "Puja", budgetGroups: 201, bookedRevenue: 354.39 },
-  { name: "Christian", budgetGroups: 190, bookedRevenue: 283.81 },
-  { name: "Debrata", budgetGroups: 85, bookedRevenue: 306.31 },
-  { name: "Sagar", budgetGroups: 84, bookedRevenue: 300.33 },
-  { name: "Achala", budgetGroups: 73, bookedRevenue: 390.09 },
-  { name: "Natercia", budgetGroups: 70, bookedRevenue: 1169.67 },
-  { name: "Mayank", budgetGroups: 57, bookedRevenue: 1264.18 },
-  { name: "Graham", budgetGroups: 56, bookedRevenue: 1714.40 },
-  { name: "Abhishek", budgetGroups: 45, bookedRevenue: 354.39 },
-  { name: "Sydney", budgetGroups: 44, bookedRevenue: 1070.89 },
-  { name: "Alexandra", budgetGroups: 43, bookedRevenue: 1984.25 }
+  { name: "Apoorva", budgetGroups: 306, campaigns: 37, bookedRevenue: 1984.25 },
+  { name: "Puja", budgetGroups: 201, campaigns: 22, bookedRevenue: 354.39 },
+  { name: "Christian", budgetGroups: 190, campaigns: 18, bookedRevenue: 283.81 },
+  { name: "Debrata", budgetGroups: 85, campaigns: 14, bookedRevenue: 306.31 },
+  { name: "Sagar", budgetGroups: 84, campaigns: 12, bookedRevenue: 300.33 },
+  { name: "Achala", budgetGroups: 73, campaigns: 17, bookedRevenue: 390.09 },
+  { name: "Natercia", budgetGroups: 70, campaigns: 16, bookedRevenue: 1169.67 },
+  { name: "Mayank", budgetGroups: 57, campaigns: 15, bookedRevenue: 1264.18 },
+  { name: "Graham", budgetGroups: 56, campaigns: 13, bookedRevenue: 1714.40 },
+  { name: "Abhishek", budgetGroups: 45, campaigns: 12, bookedRevenue: 354.39 },
+  { name: "Sydney", budgetGroups: 44, campaigns: 11, bookedRevenue: 1070.89 },
+  { name: "Alexandra", budgetGroups: 43, campaigns: 10, bookedRevenue: 1984.25 }
 ];
 
 function valueLabel(v) {
@@ -70,7 +70,7 @@ const renderLineLabel = (currencyContext) => (props) => {
   const { x, y, value, payload } = props;
   const txt = valueLabel(value);
   if (!txt) return null;
-  const barVal = Number(payload?.budgetGroups);
+  const barVal = Number(payload?.budgetGroups ?? payload?.campaigns);
   const hasBar = Number.isFinite(barVal) && barVal > 0;
   const lift = hasBar ? -20 : -10;
   const width = Math.max(32, txt.length * 7 + 10);
@@ -87,7 +87,7 @@ const renderLineLabel = (currencyContext) => (props) => {
   );
 };
 
-export default function PerformanceChart({ title = "Ops Performance", variant = "ops", data, filters = {}, currencyContext = null }) {
+export default function PerformanceChart({ title = "Ops Performance", variant = "ops", data, filters = {}, currencyContext = null, metric = "budgetGroups" }) {
   const [remoteData, setRemoteData] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -115,18 +115,32 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
       : remoteData.length
         ? remoteData.map((d) => ({
           name: d.owner,
-          budgetGroups: d.budgetGroups ?? d.campaigns,
-          bookedRevenue: d.bookedRevenue ?? d.revenue
+          budgetGroups: d.budgetGroups ?? 0,
+          campaigns: d.campaigns ?? 0,
+          bookedRevenue: d.bookedRevenue ?? d.revenue ?? 0
         }))
         : (variant === "cs" ? fallbackCs : fallbackOps);
 
     return source.map((row) => ({
       ...row,
-      bookedRevenue: convertUsdToDisplay(row.bookedRevenue, currencyContext)
+      bookedRevenue: convertUsdToDisplay(row.bookedRevenue, currencyContext) ?? row.bookedRevenue
     }));
   }, [data, remoteData, variant, currencyContext]);
 
+  const leftMax = useMemo(() => {
+    const vals = chartData.map(d => Number(d[metric] || 0)).filter(v => Number.isFinite(v) && v >= 0);
+    if (!vals.length) return 10;
+    return Math.ceil(Math.max(...vals) * 1.3) || 10;
+  }, [chartData, metric]);
+
+  const rightMax = useMemo(() => {
+    const vals = chartData.map(d => Number(d.bookedRevenue || 0)).filter(v => Number.isFinite(v) && v >= 0);
+    if (!vals.length) return 10;
+    return Math.ceil(Math.max(...vals) * 1.3) || 10;
+  }, [chartData]);
+
   const minWidthPx = Math.max(1400, chartData.length * 90);
+  const barName = metric === "campaigns" ? "Campaigns" : "Budget Groups";
 
   return (
     <div className="performance-card">
@@ -139,8 +153,8 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 30, right: 24, left: 8, bottom: 36 }}>
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#3d4d45" }} interval={0} angle={-20} textAnchor="end" height={50} />
-              <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#3d4d45" }} domain={[0, (dataMax) => dataMax * 1.15]} />
-              <YAxis yAxisId="right" orientation="right" hide domain={[0, (dataMax) => dataMax * 1.15]} />
+              <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#3d4d45" }} domain={[0, leftMax]} />
+              <YAxis yAxisId="right" orientation="right" hide domain={[0, rightMax]} />
               <Tooltip
                 formatter={(v, name) => {
                   const metricName = String(name || "");
@@ -148,8 +162,8 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
                   return formatAbsoluteInteger(v);
                 }}
               />
-              <Bar yAxisId="left" dataKey="budgetGroups" name="Budget Groups" barSize={32} fill="#3b5e57" radius={[3, 3, 0, 0]}>
-                <LabelList dataKey="budgetGroups" position="top" offset={0} content={renderBarLabel} />
+              <Bar yAxisId="left" dataKey={metric} name={barName} barSize={32} fill="#3b5e57" radius={[3, 3, 0, 0]}>
+                <LabelList dataKey={metric} position="top" offset={0} content={renderBarLabel} />
               </Bar>
               <Line
                 yAxisId="right"
@@ -170,11 +184,10 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
       {loading && <div className="chart-loading">Loading...</div>}
 
       <div className="perf-legend perf-legend-bottom">
-        <span className="legend-dot budget" /> Budget Groups
+        <span className="legend-dot budget" /> {barName}
         <span className="legend-sep" />
         <span className="legend-line" /> Booked Revenue ({currencyContext?.currencyCode || "USD"})
       </div>
     </div>
   );
 }
-
