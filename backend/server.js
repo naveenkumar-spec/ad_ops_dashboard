@@ -45,17 +45,19 @@ app.use("/api/management", tabGuard("management"), managementRoutes);
 app.use("/api/ai", aiRoutes);
 
 const PORT = process.env.PORT || 5000;
-authService.ensureDefaultAdmin().then(() => {
-  app.listen(PORT, () => {
+
+// Bind the port immediately so Render's health check passes, then init in background
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log("CORS enabled for all origins");
+  console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`Power BI Dataset ID: ${process.env.POWERBI_DATASET_ID || "not-set"}`);
+  console.log(`Data source: ${(process.env.DATA_SOURCE || "google_sheets").toLowerCase()}`);
+
+  authService.ensureDefaultAdmin().then(() => {
     const schedulerInfo = bigQueryScheduler.startBigQueryScheduler();
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log("CORS enabled for all origins");
-    console.log(`Health check: http://localhost:${PORT}/health`);
-    console.log(`Power BI Dataset ID: ${process.env.POWERBI_DATASET_ID || "not-set"}`);
-    console.log(`Data source: ${(process.env.DATA_SOURCE || "google_sheets").toLowerCase()}`);
     console.log(`BigQuery scheduler: ${schedulerInfo.enabled ? `enabled (${schedulerInfo.cron})` : `disabled (${schedulerInfo.reason})`}`);
+  }).catch((error) => {
+    console.error("Failed to initialize auth:", error.message);
   });
-}).catch((error) => {
-  console.error("Failed to initialize auth:", error.message);
-  process.exit(1);
 });
