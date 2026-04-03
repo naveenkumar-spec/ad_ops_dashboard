@@ -1,7 +1,7 @@
 const { createRemoteJWKSet, jwtVerify } = require("jose");
 
-const tenantId = process.env.ENTRA_TENANT_ID || process.env.POWERBI_TENANT_ID;
-const clientId = process.env.ENTRA_CLIENT_ID || process.env.POWERBI_CLIENT_ID;
+const tenantId = process.env.ENTRA_TENANT_ID;
+const clientId = process.env.ENTRA_CLIENT_ID;
 
 function getIssuer() {
   return `https://login.microsoftonline.com/${tenantId}/v2.0`;

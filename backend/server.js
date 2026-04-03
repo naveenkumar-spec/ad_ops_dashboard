@@ -51,7 +51,6 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log("CORS enabled for all origins");
   console.log(`Health check: http://localhost:${PORT}/health`);
-  console.log(`Power BI Dataset ID: ${process.env.POWERBI_DATASET_ID || "not-set"}`);
   console.log(`Data source: ${(process.env.DATA_SOURCE || "google_sheets").toLowerCase()}`);
 
   authService.ensureDefaultAdmin().then(() => {

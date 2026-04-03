@@ -1,7 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const powerBiService = require("../services/powerBiService");
-const dummyService = require("../services/dummyDataService");
 const privateSheetsService = require("../services/privateSheetsService");
 const bigQueryReadService = require("../services/bigQueryReadService");
 const bigQuerySyncService = require("../services/bigQuerySyncService");
@@ -60,7 +58,6 @@ function withUserScope(filters, user) {
 
 function getDataProvider() {
   if (DATA_SOURCE === "google_sheets") return privateSheetsService;
-  if (DATA_SOURCE === "powerbi") return powerBiService;
   return bigQueryReadService;
 }
 
@@ -226,9 +223,7 @@ router.get("/kpis", async (_req, res) => {
     const cached = getCached(key);
     if (cached) return res.json(cached);
 
-    const kpis = DATA_SOURCE === "powerbi"
-      ? await powerBiService.getKPIData()
-      : await provider.getKpis(filters);
+    const kpis = await provider.getKpis(filters);
 
     const response = (kpis || []).slice(0, 4).map((kpi, idx) => {
       const fallbackTitles = ["No of Campaigns", "Gross Margin %", "Net Margin %", "Booked Revenue"];
@@ -270,9 +265,7 @@ router.get("/margin-trend", async (_req, res) => {
 router.get("/campaigns", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const campaigns = DATA_SOURCE === "powerbi"
-      ? await powerBiService.getCampaignData()
-      : await provider.getBottomCampaignsSimple(8, filters);
+    const campaigns = await provider.getBottomCampaignsSimple(8, filters);
     res.json(campaigns);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch campaign data", message: error.message });
@@ -282,9 +275,7 @@ router.get("/campaigns", async (_req, res) => {
 router.get("/regions", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const regions = DATA_SOURCE === "powerbi"
-      ? await powerBiService.getRegionData()
-      : await provider.getRegionTable(filters);
+    const regions = await provider.getRegionTable(filters);
     res.json(regions);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch regional data", message: error.message });
@@ -294,9 +285,7 @@ router.get("/regions", async (_req, res) => {
 router.get("/summary", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
-    const summary = DATA_SOURCE === "powerbi"
-      ? await powerBiService.getSummaryMetrics()
-      : (await provider.getKpis(filters)).map((k) => ({ title: k.title, value: k.value, subtitle: k.subtitle }));
+    const summary = (await provider.getKpis(filters)).map((k) => ({ title: k.title, value: k.value, subtitle: k.subtitle }));
     res.json(summary);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch summary data", message: error.message });
@@ -309,11 +298,6 @@ router.get("/filter-options", async (_req, res) => {
     const cached = getCached(key);
     if (cached) return res.json(cached);
     const filters = withUserScope(parseFilters(_req.query), _req.user);
-    if (DATA_SOURCE === "powerbi") {
-      const payload = dummyService.getFilterOptions();
-      setCached(key, payload);
-      return res.json(payload);
-    }
     const options = await provider.getFilterOptions(filters);
     setCached(key, options);
     return res.json(options);
@@ -330,12 +314,8 @@ router.get("/trends", async (_req, res) => {
 
     const trendFilters = {};
     const netMarginFilters = {};
-    const revenueBase = DATA_SOURCE === "powerbi"
-      ? await powerBiService.getRevenueTrendData()
-      : await provider.getRevenueTrend(trendFilters);
-    const marginBase = DATA_SOURCE === "powerbi"
-      ? await powerBiService.getRevenueTrendData()
-      : await provider.getMarginTrend(trendFilters);
+    const revenueBase = await provider.getRevenueTrend(trendFilters);
+    const marginBase = await provider.getMarginTrend(trendFilters);
     const cpmBase = await provider.getCpmTrend(trendFilters);
     const netMarginBase = await provider.getNetMarginTrend(netMarginFilters);
 
