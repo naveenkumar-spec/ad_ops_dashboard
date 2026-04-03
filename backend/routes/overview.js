@@ -381,9 +381,10 @@ router.get("/campaign-wise", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
     
-    // Add sorting parameters to filters
+    // Add sorting and search parameters to filters
     if (_req.query.sortBy) filters.sortBy = _req.query.sortBy;
     if (_req.query.sortOrder) filters.sortOrder = _req.query.sortOrder;
+    if (_req.query.campaign) filters.campaign = _req.query.campaign;
     
     const limit = Number(_req.query.limit) || 50;
     const offset = Number(_req.query.offset) || 0;

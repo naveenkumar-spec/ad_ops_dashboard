@@ -218,7 +218,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
               <span className={`hierarchy-caret ${filterOpen ? "open" : ""}`} />
             </button>
             {filterOpen && (
-              <div className="hierarchy-menu" style={{ minWidth: "240px" }}>
+              <div className="hierarchy-menu" style={{ minWidth: "240px", left: "auto", right: 0 }}>
                 <div className="hierarchy-search-wrap">
                   <input
                     type="text"
