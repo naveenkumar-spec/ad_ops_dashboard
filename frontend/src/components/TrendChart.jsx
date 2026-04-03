@@ -78,12 +78,20 @@ function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext, index
   
   if (isPercent) {
     // Show more precision for percentages
-    display = `${Number(value).toFixed(2)}%`;
-    absolute = formatAbsolutePercent(value, 4);
+    const precise = Number(value);
+    display = `${precise.toFixed(2)}%`;
+    absolute = `${precise.toLocaleString(undefined, { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 10 
+    })}%`;
   } else if (isRaw) {
     // Show more precision for raw numbers
-    display = `${Number(value).toFixed(2)}`;
-    absolute = formatAbsoluteNumber(value, 4);
+    const precise = Number(value);
+    display = `${precise.toFixed(2)}`;
+    absolute = precise.toLocaleString(undefined, { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 10 
+    });
   } else {
     // For revenue: show precise values without currency symbol
     const fullValue = Number(value) * 1_000_000;
@@ -102,7 +110,7 @@ function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext, index
     const currencyCode = currencyContext?.currencyCode || "USD";
     absolute = `${currencyCode} ${convertedValue.toLocaleString(undefined, { 
       minimumFractionDigits: 0, 
-      maximumFractionDigits: 20 
+      maximumFractionDigits: 10 
     })}`;
   }
   
@@ -110,41 +118,30 @@ function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext, index
   const shouldRotate = data && data.length > 6; // Rotate if more than 6 data points
   const rotation = shouldRotate ? -90 : 0;
   const textAnchor = shouldRotate ? "end" : "middle";
-  const yOffset = shouldRotate ? -8 : -4;
-  const xOffset = shouldRotate ? -2 : 0;
+  // Position labels on top of bars (negative y offset to go above the bar)
+  const yOffset = shouldRotate ? -12 : -8;
+  const xOffset = shouldRotate ? -4 : 0;
   
   const textX = x + width / 2 + xOffset;
   const textY = y + yOffset;
   
   return (
-    <g>
-      {/* White background rectangle for better visibility */}
-      <rect
-        x={textX - (shouldRotate ? 12 : 20)}
-        y={textY - (shouldRotate ? 6 : 8)}
-        width={shouldRotate ? 24 : 40}
-        height={shouldRotate ? 12 : 12}
-        fill="white"
-        fillOpacity={0.9}
-        rx={2}
-        ry={2}
-        transform={rotation !== 0 ? `rotate(${rotation} ${textX} ${textY})` : undefined}
-      />
-      {/* Text label */}
-      <text 
-        x={textX} 
-        y={textY} 
-        textAnchor={textAnchor}
-        fontSize={9} 
-        fill="#444" 
-        fontFamily="Segoe UI, sans-serif"
-        fontWeight="500"
-        transform={rotation !== 0 ? `rotate(${rotation} ${textX} ${textY})` : undefined}
-      >
-        <title>{absolute}</title>
-        {display}
-      </text>
-    </g>
+    <text 
+      x={textX} 
+      y={textY} 
+      textAnchor={textAnchor}
+      fontSize={9} 
+      fill="#444" 
+      fontFamily="Segoe UI, sans-serif"
+      fontWeight="600"
+      stroke="white"
+      strokeWidth="2"
+      paintOrder="stroke fill"
+      transform={rotation !== 0 ? `rotate(${rotation} ${textX} ${textY})` : undefined}
+    >
+      <title>{absolute}</title>
+      {display}
+    </text>
   );
 }
 
@@ -254,10 +251,20 @@ export default function TrendChart({
               <Tooltip
                 formatter={(v, name) => {
                   if (isPercent) {
-                    return [formatAbsolutePercent(v, 2), name];
+                    // For percentages, show full precision
+                    const precise = Number(v);
+                    return [`${precise.toLocaleString(undefined, { 
+                      minimumFractionDigits: 0, 
+                      maximumFractionDigits: 10 
+                    })}%`, name];
                   }
                   if (isRaw) {
-                    return [formatAbsoluteNumber(v, 2), name];
+                    // For raw numbers, show full precision
+                    const precise = Number(v);
+                    return [precise.toLocaleString(undefined, { 
+                      minimumFractionDigits: 0, 
+                      maximumFractionDigits: 10 
+                    }), name];
                   }
                   // For currency values: v is already in millions, so multiply by 1M to get actual value
                   const actualValue = Number(v) * 1_000_000;
@@ -267,7 +274,7 @@ export default function TrendChart({
                   // Format with full precision (no rounding) using toLocaleString
                   const formatted = `${currencyCode} ${convertedValue.toLocaleString(undefined, { 
                     minimumFractionDigits: 0, 
-                    maximumFractionDigits: 20 // Allow up to 20 decimal places to avoid rounding
+                    maximumFractionDigits: 10 // Reduced from 20 to 10 for cleaner display
                   })}`;
                   
                   return [formatted, name];
