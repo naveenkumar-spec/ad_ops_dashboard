@@ -523,14 +523,20 @@ async function getKpis(filters = {}) {
 async function getOverviewSeries(metric, filters = {}) {
   const { whereSql, params } = buildWhereClause(filters, "t");
 
-  // NET MARGIN: Use tracker data ONLY (all months)
+  // NET MARGIN: Use tracker data ONLY (all months) - FIXED CALCULATION
   if (metric === "net_margin") {
     const rows = await runQuery(
       `
         SELECT
           t.month AS month,
           SAFE_CAST(t.year AS INT64) AS year,
-          ROUND(AVG(COALESCE(t.net_margin_pct, 0)), 2) AS value
+          ROUND(
+            SAFE_DIVIDE(
+              SUM(COALESCE(t.net_margin, 0)),
+              NULLIF(SUM(COALESCE(t.revenue, 0)), 0)
+            ) * 100, 
+            2
+          ) AS value
         FROM ${latestMainTableSql()} t
         ${whereSql}
         GROUP BY month, year
@@ -543,7 +549,7 @@ async function getOverviewSeries(metric, filters = {}) {
 
   // OTHER 3 CHARTS: Clean separation - NO OVERLAP between data sources
   let valueExpr = "SUM(COALESCE(t.revenue, 0)) / 1000000";
-  if (metric === "margin") valueExpr = "AVG(COALESCE(t.gross_margin_pct, 0))";
+  if (metric === "margin") valueExpr = "ROUND(SAFE_DIVIDE(SUM(COALESCE(t.revenue, 0) - COALESCE(t.spend, 0)), NULLIF(SUM(COALESCE(t.revenue, 0)), 0)) * 100, 2)";
   if (metric === "cpm") valueExpr = "AVG(CASE WHEN t.cpm > 0 THEN t.cpm ELSE NULL END)";
 
   // Determine current and last month for clean separation
