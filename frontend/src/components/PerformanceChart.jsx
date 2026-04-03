@@ -139,7 +139,7 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
     return Math.ceil(Math.max(...vals) * 1.3) || 10;
   }, [chartData]);
 
-  const minWidthPx = Math.max(1400, chartData.length * 90);
+  const minWidthPx = Math.max(1200, chartData.length * 100); // Increased from 90 to 100 for better spacing
   const barName = metric === "campaigns" ? "Campaigns" : "Budget Groups";
 
   return (

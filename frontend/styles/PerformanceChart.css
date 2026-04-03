@@ -55,8 +55,31 @@
 .perf-chart-wrapper {
   width: 100%;
   overflow-x: auto;
-  padding-bottom: 6px;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  /* Ensure scrollbar is visible */
+  scrollbar-width: thin;
+  scrollbar-color: #c1d4ca #f0f5f2;
 }
+
+.perf-chart-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.perf-chart-wrapper::-webkit-scrollbar-track {
+  background: #f0f5f2;
+  border-radius: 4px;
+}
+
+.perf-chart-wrapper::-webkit-scrollbar-thumb {
+  background: #c1d4ca;
+  border-radius: 4px;
+}
+
+.perf-chart-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8bfb1;
+}
+
 .perf-chart-inner {
   min-width: 1200px;
   height: 380px;
