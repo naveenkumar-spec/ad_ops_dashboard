@@ -64,32 +64,31 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
     const ordered = PRIORITY.filter((p) => pSet.has(p));
     pSet.forEach((p) => { if (!PRIORITY.includes(p)) ordered.push(p); });
 
-    // Default sort by month+year (latest first) when no explicit sorting is applied
-    let sortedRows = Object.values(agg).sort((a, b) => {
-      // Sort by year first (descending), then by month (descending) for latest first
-      if (a.year !== b.year) return b.year - a.year; // Latest year first
-      return (MONTH_ORDER[b.month] || 0) - (MONTH_ORDER[a.month] || 0); // Latest month first
-    });
+    let sortedRows = Object.values(agg);
 
-    if (sortField) {
-      sortedRows = [...sortedRows].sort((a, b) => {
-        let av, bv;
-        if (sortField === "label") {
-          // For month sorting, create a sortable value: year * 100 + month
-          // This ensures proper chronological sorting
-          av = a.year * 100 + (MONTH_ORDER[a.month] || 0);
-          bv = b.year * 100 + (MONTH_ORDER[b.month] || 0);
-        } else if (sortField === "total") {
-          av = a.total;
-          bv = b.total;
-        } else {
-          av = a.spends[sortField] || 0;
-          bv = b.spends[sortField] || 0;
-        }
-        const cmp = typeof av === "string" ? av.localeCompare(bv) : Number(av) - Number(bv);
-        return sortDirection === "asc" ? cmp : -cmp;
-      });
-    }
+    // Apply sorting logic
+    sortedRows = [...sortedRows].sort((a, b) => {
+      let av, bv;
+      if (sortField === "label") {
+        // For month sorting, create a sortable value: year * 100 + month
+        // This ensures proper chronological sorting
+        av = a.year * 100 + (MONTH_ORDER[a.month] || 0);
+        bv = b.year * 100 + (MONTH_ORDER[b.month] || 0);
+      } else if (sortField === "total") {
+        av = a.total;
+        bv = b.total;
+      } else if (sortField) {
+        av = a.spends[sortField] || 0;
+        bv = b.spends[sortField] || 0;
+      } else {
+        // Default sorting when no sortField is set - shouldn't happen now since we set default
+        av = a.year * 100 + (MONTH_ORDER[a.month] || 0);
+        bv = b.year * 100 + (MONTH_ORDER[b.month] || 0);
+      }
+      
+      const cmp = typeof av === "string" ? av.localeCompare(bv) : Number(av) - Number(bv);
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
 
     // Calculate totals for each platform
     const totals = { total: 0, spends: {} };
