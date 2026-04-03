@@ -629,7 +629,7 @@ async function getOverviewSeries(metric, filters = {}) {
       SELECT
         t.month AS month,
         SAFE_CAST(t.year AS INT64) AS year,
-        ROUND(${valueExpr}, ${roundDigits}) AS value
+        ${valueExpr} AS value
       FROM combined_data t
       ${whereSql}
       GROUP BY month, year
