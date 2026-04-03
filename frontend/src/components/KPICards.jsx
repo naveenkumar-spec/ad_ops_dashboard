@@ -8,6 +8,7 @@ import {
   formatAbsoluteCurrencyByContext,
   formatCompactCurrency
 } from "../utils/currencyDisplay.js";
+import InfoIcon from "./InfoIcon.jsx";
 import "../../styles/KPICards.css";
 
 const CARD_ORDER = ["No of Campaigns", "Gross Margin %", "Net Margin %", "Booked Revenue"];
@@ -214,7 +215,12 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
       <div className="kpi-cards-container">
       {visibleCards.map((kpi, i) => (
         <article className={`kpi-card${showOverlayLoading || showInitialLoading ? " kpi-card--loading" : ""}`} key={i}>
-          <p className="kpi-title" title={safeTitle(kpi.title)}>{kpi.title}</p>
+          <p className="kpi-title" title={safeTitle(kpi.title)}>
+            {kpi.title}
+            {kpi.title === "Net Margin %" && (
+              <InfoIcon tooltip="Net Margin % = (Net Margin / Revenue) × 100. Net Margin = Gross Profit - Rebate, where Gross Profit = Revenue - Spend. Rebate can be either a percentage of gross profit or an absolute amount." />
+            )}
+          </p>
           <p className="kpi-value" title={kpi.valueTitle || getValueTitle(kpi, currencyContext)}>{kpi.value}</p>
           <div className="kpi-divider" />
           <p className="kpi-subtitle" title={kpi.subtitleTitle || getSubtitleTitle(kpi.subtitleText, currencyContext)}>{kpi.subtitleText}</p>

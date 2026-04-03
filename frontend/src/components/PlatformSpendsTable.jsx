@@ -130,10 +130,12 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
     <div className="table-card">
       <div className="table-card-header"><h3>Platform-wise Monthly Spends</h3></div>
       <div className="table-card-body">
-        {loading ? <div className="table-loading">Loading...</div>
-          : tableRows.length === 0 ? <div className="table-empty">No data</div>
-            : (
-              <div className="overflow-wrapper">
+        {loading ? (
+          <div className="table-loading">Loading...</div>
+        ) : tableRows.length === 0 ? (
+          <div className="table-empty">No data</div>
+        ) : (
+          <div className="overflow-wrapper">
                 <table className="data-table">
                   <thead>
                     <tr>
