@@ -9,9 +9,10 @@
 .perf-header {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 .perf-header h3 {
@@ -19,6 +20,39 @@
   font-size: 18px;
   color: #15263a;
   font-weight: 800;
+}
+
+.perf-totals {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #33443c;
+  font-weight: 600;
+  background: #f0f5f2;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #d3e0d9;
+}
+
+.total-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.total-label {
+  color: #5a6b5d;
+}
+
+.total-value {
+  color: #15263a;
+  font-weight: 700;
+}
+
+.total-separator {
+  color: #8a9a8d;
+  margin: 0 4px;
 }
 
 .perf-legend {

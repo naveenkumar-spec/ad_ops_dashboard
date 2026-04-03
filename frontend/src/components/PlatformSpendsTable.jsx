@@ -22,6 +22,7 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
   const c = (v) => convertUsdToDisplay(v, currencyContext) ?? 0;
 
   useEffect(() => {
+    setLoading(true);
     apiGet("/api/management/platform-spends", { timeout: 6000, params: toApiParams(filters) })
       .then((res) => setRows(res.data?.length ? res.data : mockPlatformSpends()))
       .catch(() => setRows(mockPlatformSpends()))
@@ -37,7 +38,7 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
     }
   };
 
-  const { tableRows, platforms } = useMemo(() => {
+  const { tableRows, platforms, totals } = useMemo(() => {
     const agg = {};
     const pSet = new Set();
     rows.forEach((r) => {
@@ -59,8 +60,9 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
       sortedRows = [...sortedRows].sort((a, b) => {
         let av, bv;
         if (sortField === "label") {
-          av = `${a.year}${String(MONTH_ORDER[a.month] || 0).padStart(2, "0")}`;
-          bv = `${b.year}${String(MONTH_ORDER[b.month] || 0).padStart(2, "0")}`;
+          // For month sorting, use year + month order for proper chronological sorting
+          av = a.year * 100 + (MONTH_ORDER[a.month] || 0);
+          bv = b.year * 100 + (MONTH_ORDER[b.month] || 0);
         } else if (sortField === "total") {
           av = a.total;
           bv = b.total;
@@ -73,7 +75,18 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
       });
     }
 
-    return { tableRows: sortedRows, platforms: ordered };
+    // Calculate totals for each platform
+    const totals = { total: 0, spends: {} };
+    ordered.forEach(p => { totals.spends[p] = 0; });
+    
+    sortedRows.forEach(row => {
+      totals.total += row.total;
+      ordered.forEach(p => {
+        totals.spends[p] += row.spends[p] || 0;
+      });
+    });
+
+    return { tableRows: sortedRows, platforms: ordered, totals };
   }, [rows, sortField, sortDirection]);
 
   const sh = (field, label) => (
@@ -115,6 +128,21 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
                       </tr>
                     ))}
                   </tbody>
+                  {totals && (
+                    <tfoot>
+                      <tr className="table-total">
+                        <td style={{ fontWeight: 700 }}>Total</td>
+                        {platforms.map((p) => (
+                          <td key={p} style={{ fontWeight: 700 }} title={formatAbsoluteCurrencyByContext(c(totals.spends[p]), currencyContext)}>
+                            {formatCompactCurrency(c(totals.spends[p]), currencyContext)}
+                          </td>
+                        ))}
+                        <td style={{ fontWeight: 700 }} title={formatAbsoluteCurrencyByContext(c(totals.total), currencyContext)}>
+                          {formatCompactCurrency(c(totals.total), currencyContext)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )
                 </table>
               </div>
             )}

@@ -121,11 +121,18 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
         }))
         : (variant === "cs" ? fallbackCs : fallbackOps);
 
-    return source.map((row) => ({
+    // Sort by the current metric (budgetGroups or campaigns) in descending order by default
+    const sorted = source.sort((a, b) => {
+      const aVal = Number(a[metric] || 0);
+      const bVal = Number(b[metric] || 0);
+      return bVal - aVal; // Descending order (highest first)
+    });
+
+    return sorted.map((row) => ({
       ...row,
       bookedRevenue: convertUsdToDisplay(row.bookedRevenue, currencyContext) ?? row.bookedRevenue
     }));
-  }, [data, remoteData, variant, currencyContext]);
+  }, [data, remoteData, variant, currencyContext, metric]);
 
   const leftMax = useMemo(() => {
     const vals = chartData.map(d => Number(d[metric] || 0)).filter(v => Number.isFinite(v) && v >= 0);
@@ -139,6 +146,15 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
     return Math.ceil(Math.max(...vals) * 1.3) || 10;
   }, [chartData]);
 
+  const totals = useMemo(() => {
+    if (!chartData.length) return null;
+    return {
+      budgetGroups: chartData.reduce((sum, d) => sum + (Number(d.budgetGroups) || 0), 0),
+      campaigns: chartData.reduce((sum, d) => sum + (Number(d.campaigns) || 0), 0),
+      bookedRevenue: chartData.reduce((sum, d) => sum + (Number(d.bookedRevenue) || 0), 0)
+    };
+  }, [chartData]);
+
   const minWidthPx = Math.max(1200, chartData.length * 100); // Increased from 90 to 100 for better spacing
   const barName = metric === "campaigns" ? "Campaigns" : "Budget Groups";
 
@@ -146,8 +162,23 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
     <div className="performance-card">
       <div className="perf-header">
         <h3 title={safeTitle(title)}>{title}</h3>
+        {totals && (
+          <div className="perf-totals">
+            <span className="total-item">
+              <span className="total-label">{barName}:</span>
+              <span className="total-value">{formatAbsoluteInteger(totals[metric])}</span>
+            </span>
+            <span className="total-separator">|</span>
+            <span className="total-item">
+              <span className="total-label">Revenue:</span>
+              <span className="total-value">{formatAbsoluteCurrencyByContext(totals.bookedRevenue, currencyContext)}</span>
+            </span>
+          </div>
+        )}
       </div>
 
+      {loading && <div className="chart-loading">Loading...</div>}
+      
       <div className="perf-chart-wrapper">
         <div className="perf-chart-inner" style={{ minWidth: `${minWidthPx}px` }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -181,7 +212,6 @@ export default function PerformanceChart({ title = "Ops Performance", variant = 
           </ResponsiveContainer>
         </div>
       </div>
-      {loading && <div className="chart-loading">Loading...</div>}
 
       <div className="perf-legend perf-legend-bottom">
         <span className="legend-dot budget" /> {barName}
