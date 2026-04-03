@@ -23,7 +23,8 @@ function parseFilters(query = {}) {
     platform: get("platform"),
     ops: get("ops"),
     cs: get("cs"),
-    sales: get("sales")
+    sales: get("sales"),
+    campaign: query.campaign // Pass campaign filter directly for partial matching
   };
 }
 

@@ -380,6 +380,11 @@ router.get("/country-wise", async (_req, res) => {
 router.get("/campaign-wise", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
+    
+    // Add sorting parameters to filters
+    if (_req.query.sortBy) filters.sortBy = _req.query.sortBy;
+    if (_req.query.sortOrder) filters.sortOrder = _req.query.sortOrder;
+    
     const limit = Number(_req.query.limit) || 50;
     const offset = Number(_req.query.offset) || 0;
     const payload = await provider.getCampaignWiseTable(limit, offset, filters);

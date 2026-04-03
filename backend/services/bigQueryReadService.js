@@ -944,7 +944,14 @@ async function getCountryWiseTable(limit = 50, offset = 0, filters = {}) {
 async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
   const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
   const safeOffset = Math.max(0, Number(offset || 0));
-  const { whereSql, params } = buildWhereClause(filters, "t");
+  
+  // Extract sorting parameters from filters
+  const sortBy = filters.sortBy || "name";
+  const sortOrder = (filters.sortOrder || "asc").toLowerCase() === "desc" ? "DESC" : "ASC";
+  
+  // Remove sorting parameters from filters before building where clause
+  const { sortBy: _, sortOrder: __, ...filtersForWhere } = filters;
+  const { whereSql, params } = buildWhereClause(filtersForWhere, "t");
 
   // Handle sorting
   const sortBy = filters.sortBy || "name";

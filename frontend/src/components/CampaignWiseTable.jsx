@@ -165,11 +165,6 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
       loadData(false);
     }
   };
-    const { scrollTop, scrollHeight, clientHeight } = e.target;
-    if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !loadingMore) {
-      loadData(false);
-    }
-  };
 
   const totalsDerived = useMemo(() => {
     if (totals) return totals;
@@ -383,5 +378,3 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
     </div>
   );
 }
-
-
