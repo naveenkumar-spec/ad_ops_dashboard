@@ -8,6 +8,7 @@ import {
   formatAbsoluteCurrencyByContext,
   formatCompactCurrency
 } from "../utils/currencyDisplay.js";
+import { loadSession } from "../auth/session.js";
 import InfoIcon from "./InfoIcon.jsx";
 import "../../styles/KPICards.css";
 
@@ -76,6 +77,51 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
   const [error, setError] = useState("");
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+  // Check if current user is admin
+  const isAdmin = useMemo(() => {
+    const session = loadSession();
+    return session?.user?.role === 'admin';
+  }, []);
+
+  // KPI explanations for admin users
+  const kpiExplanations = {
+    "No of Campaigns": `CALCULATION:
+• Absolute: Direct count of unique campaigns from the data
+• Subtitle shows Budget Groups count
+
+DATA SOURCE:
+• Campaigns: Counted from tracker sheet data
+• Budget Groups: Sum of budget groups across all campaigns`,
+
+    "Gross Margin %": `CALCULATION:
+• Percentage: (Gross Profit / Revenue) × 100
+• Absolute: Revenue × (Gross Margin % / 100)
+• Gross Profit = Revenue - Spend
+
+DATA SOURCE:
+• Revenue: "Sales Value in USD" (branding) + "Revenue" (tracker)
+• Spend: "Media Spend in USD" (branding) + "Spend" (tracker)`,
+
+    "Net Margin %": `CALCULATION:
+• Percentage: (Net Margin / Revenue) × 100
+• Absolute: Revenue × (Net Margin % / 100)
+• Net Margin = Gross Profit - Rebate
+• Gross Profit = Revenue - Spend
+• Rebate: Can be percentage of gross profit or absolute amount
+
+DATA SOURCE:
+• Same as Gross Margin plus Rebate column from sheets`,
+
+    "Booked Revenue": `CALCULATION:
+• Absolute: Sum of all revenue values in USD
+• Percentage in parentheses: (Total Spend / Total Revenue) × 100
+• Shows how much of booked revenue has been spent
+
+DATA SOURCE:
+• Revenue: "Sales Value in USD" (branding) + "Revenue" (tracker)
+• Spend: "Media Spend in USD" (branding) + "Spend" (tracker)`
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -214,13 +260,13 @@ export default function KPICards({ filters = {}, currencyContext = null }) {
     <>
       <div className="kpi-cards-container">
       {visibleCards.map((kpi, i) => (
-        <article className={`kpi-card${showOverlayLoading || showInitialLoading ? " kpi-card--loading" : ""}`} key={i}>
+        <article className={`kpi-card${showOverlayLoading || showInitialLoading ? " kpi-card--loading" : ""}`} key={i} style={{ position: 'relative' }}>
           <p className="kpi-title" title={safeTitle(kpi.title)}>
             {kpi.title}
-            {kpi.title === "Net Margin %" && (
-              <InfoIcon tooltip="Net Margin % = (Net Margin / Revenue) × 100. Net Margin = Gross Profit - Rebate, where Gross Profit = Revenue - Spend. Rebate can be either a percentage of gross profit or an absolute amount." />
-            )}
           </p>
+          {isAdmin && kpiExplanations[kpi.title] && (
+            <InfoIcon tooltip={kpiExplanations[kpi.title]} />
+          )}
           <p className="kpi-value" title={kpi.valueTitle || getValueTitle(kpi, currencyContext)}>{kpi.value}</p>
           <div className="kpi-divider" />
           <p className="kpi-subtitle" title={kpi.subtitleTitle || getSubtitleTitle(kpi.subtitleText, currencyContext)}>{kpi.subtitleText}</p>
