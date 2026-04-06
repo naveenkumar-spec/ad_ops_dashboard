@@ -5,10 +5,11 @@ let scheduledTask = null;
 let lastScheduledRun = null;
 
 function startBigQueryScheduler() {
-  const enabledEnv = String(process.env.BIGQUERY_SYNC_ENABLED ?? "true").toLowerCase();
-  const enabled = enabledEnv !== "false";
+  const enabledEnv = String(process.env.BIGQUERY_SYNC_ENABLED ?? "false").toLowerCase(); // Default to false for safety
+  const enabled = enabledEnv === "true"; // Only enable if explicitly set to true
   if (!enabled) {
-    return { enabled: false, reason: "BIGQUERY_SYNC_ENABLED is false" };
+    console.log("[BigQuery Scheduler] Sync disabled (BIGQUERY_SYNC_ENABLED is not 'true')");
+    return { enabled: false, reason: "BIGQUERY_SYNC_ENABLED is not 'true'" };
   }
 
   const cronExpr = process.env.BIGQUERY_SYNC_CRON || "0 * * * *";
