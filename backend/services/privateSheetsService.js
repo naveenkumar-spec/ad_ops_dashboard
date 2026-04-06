@@ -130,7 +130,7 @@ const COUNTRY_DEFAULT_CURRENCY = {
   "New Zealand": "NZD",
   Japan: "JPY",
   India: "INR",
-  Canada: "USD",
+  Canada: "CAD",
   Portugal: "USD",
   Netherlands: "USD",
   UK: "USD",
@@ -170,12 +170,13 @@ const LOCAL_TO_USD_BY_CURRENCY = {
   THB: 0.03155,
   SGD: 0.76564,
   RM: 0.25,
-  AUD: 0.659318,
+  AUD: 0.69,
   IDR: 0.00006,
   NZD: 0.6,
   JPY: 0.0064,
   INR: 0.011,
-  GBP: 1.35
+  GBP: 1.35,
+  CAD: 0.72
 };
 
 const OVERVIEW_RAW_SPENDS_SOURCE = {
