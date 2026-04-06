@@ -21,7 +21,7 @@ function startBigQueryScheduler() {
 
   // Transition table refresh mode
   const transitionMode = "daily"; // Set to daily mode
-  const transitionCron = "30 6 * * *"; // 12 PM IST = 6:30 AM UTC
+  const transitionCron = "30 18 * * *"; // 12 AM IST = 6:30 PM UTC (previous day)
 
   // Main hourly sync (tracker data only for incremental)
   scheduledTask = cron.schedule(cronExpr, async () => {
@@ -77,11 +77,11 @@ function startBigQueryScheduler() {
       }
     });
   } else if (transitionMode === "daily") {
-    console.log(`[BigQuery Scheduler] Transition table will update daily at 12:00 PM IST (${transitionCron} UTC)`);
+    console.log(`[BigQuery Scheduler] Transition table will update daily at 12:00 AM IST (${transitionCron} UTC)`);
     // Separate daily task for transition table
     transitionTask = cron.schedule(transitionCron, async () => {
       const startedAt = new Date().toISOString();
-      console.log("[BigQuery Scheduler] Starting daily transition table refresh (12:00 PM IST)...");
+      console.log("[BigQuery Scheduler] Starting daily transition table refresh (12:00 AM IST)...");
       
       try {
         const result = await bigQuerySyncService.syncToBigQuery({
@@ -103,7 +103,7 @@ function startBigQueryScheduler() {
   }
 
   console.log(`[BigQuery Scheduler] Tracker sync: ${cronExpr} (incremental, hourly)`);
-  console.log(`[BigQuery Scheduler] Transition refresh: Daily at 12:00 PM IST (${transitionCron} UTC)`);
+  console.log(`[BigQuery Scheduler] Transition refresh: Daily at 12:00 AM IST (${transitionCron} UTC)`);
   console.log(`[BigQuery Scheduler] Manual sync: Full refresh including transition table`);
   
   return { 
