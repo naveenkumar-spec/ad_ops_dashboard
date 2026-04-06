@@ -2,12 +2,6 @@ const cron = require("node-cron");
 const bigQuerySyncService = require("./bigQuerySyncService");
 
 let scheduledTask = null;
-let lastScheduledRun = null;
-
-const cron = require("node-cron");
-const bigQuerySyncService = require("./bigQuerySyncService");
-
-let scheduledTask = null;
 let transitionTask = null;
 let lastScheduledRun = null;
 let lastTransitionRun = null;
@@ -26,8 +20,8 @@ function startBigQueryScheduler() {
   }
 
   // Transition table refresh mode
-  const transitionMode = String(process.env.TRANSITION_TABLE_REFRESH_MODE || "daily").toLowerCase();
-  const transitionCron = process.env.TRANSITION_TABLE_DAILY_CRON || "0 0 * * *"; // Daily at midnight
+  const transitionMode = "daily"; // Set to daily mode
+  const transitionCron = "30 6 * * *"; // 12 PM IST = 6:30 AM UTC
 
   // Main hourly sync (tracker data only for incremental)
   scheduledTask = cron.schedule(cronExpr, async () => {
@@ -83,11 +77,11 @@ function startBigQueryScheduler() {
       }
     });
   } else if (transitionMode === "daily") {
-    console.log(`[BigQuery Scheduler] Transition table will update daily at: ${transitionCron}`);
+    console.log(`[BigQuery Scheduler] Transition table will update daily at 12:00 PM IST (${transitionCron} UTC)`);
     // Separate daily task for transition table
     transitionTask = cron.schedule(transitionCron, async () => {
       const startedAt = new Date().toISOString();
-      console.log("[BigQuery Scheduler] Starting daily transition table refresh...");
+      console.log("[BigQuery Scheduler] Starting daily transition table refresh (12:00 PM IST)...");
       
       try {
         const result = await bigQuerySyncService.syncToBigQuery({
@@ -108,8 +102,9 @@ function startBigQueryScheduler() {
     console.log("[BigQuery Scheduler] Transition table updates: Manual only");
   }
 
-  console.log(`[BigQuery Scheduler] Tracker sync: ${cronExpr} (incremental)`);
-  console.log(`[BigQuery Scheduler] Transition refresh mode: ${transitionMode}`);
+  console.log(`[BigQuery Scheduler] Tracker sync: ${cronExpr} (incremental, hourly)`);
+  console.log(`[BigQuery Scheduler] Transition refresh: Daily at 12:00 PM IST (${transitionCron} UTC)`);
+  console.log(`[BigQuery Scheduler] Manual sync: Full refresh including transition table`);
   
   return { 
     enabled: true, 
