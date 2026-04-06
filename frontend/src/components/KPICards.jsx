@@ -126,7 +126,11 @@ DATA SOURCE:
   useEffect(() => {
     setLoading(true);
     setError("");
-    apiGet("/api/overview/kpis", { timeout: 20000, params: toApiParams(filters) })
+    const apiParams = {
+      ...toApiParams(filters),
+      currencyMode: currencyContext?.mode === "Native" ? "native" : "usd"
+    };
+    apiGet("/api/overview/kpis", { timeout: 20000, params: apiParams })
       .then((res) => {
         const source = Array.isArray(res.data) ? res.data : [];
         const normalized = source.map((item) => {
@@ -171,7 +175,7 @@ DATA SOURCE:
         setInitialLoadComplete(true);
       })
       .finally(() => setLoading(false));
-  }, [JSON.stringify(filters)]);
+  }, [JSON.stringify(filters), currencyContext?.mode]);
 
   const display = useMemo(() => {
     // Don't show any data until initial load is complete
@@ -261,12 +265,17 @@ DATA SOURCE:
       <div className="kpi-cards-container">
       {visibleCards.map((kpi, i) => (
         <article className={`kpi-card${showOverlayLoading || showInitialLoading ? " kpi-card--loading" : ""}`} key={i} style={{ position: 'relative' }}>
-          <p className="kpi-title" title={safeTitle(kpi.title)}>
-            {kpi.title}
-          </p>
-          {hasManagementAccess && kpiExplanations[kpi.title] && (
-            <InfoIcon tooltip={kpiExplanations[kpi.title]} />
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <p className="kpi-title" title={safeTitle(kpi.title)} style={{ margin: 0 }}>
+              {kpi.title}
+            </p>
+            {hasManagementAccess && kpiExplanations[kpi.title] && (
+              <InfoIcon 
+                tooltip={kpiExplanations[kpi.title]} 
+                style={{ position: 'relative', top: '0', right: '0' }}
+              />
+            )}
+          </div>
           <p className="kpi-value" title={kpi.valueTitle || getValueTitle(kpi, currencyContext)}>{kpi.value}</p>
           <div className="kpi-divider" />
           <p className="kpi-subtitle" title={kpi.subtitleTitle || getSubtitleTitle(kpi.subtitleText, currencyContext)}>{kpi.subtitleText}</p>

@@ -257,6 +257,7 @@
 .filters-currency-toggle {
   display: inline-flex;
   gap: 4px;
+  align-items: center;
   padding: 3px;
   border: 1px solid #c8d6cd;
   border-radius: 8px;

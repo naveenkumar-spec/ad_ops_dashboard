@@ -55,12 +55,17 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
       setLoadingMore(true);
     }
 
+    const apiParams = {
+      ...toApiParams(filters),
+      currencyMode: currencyContext?.mode === "Native" ? "native" : "usd"
+    };
+    
     Promise.all([
       apiGet("/api/overview/country-wise", {
         timeout: 12000,
-        params: { ...toApiParams(filters), limit: 50, offset: currentOffset }
+        params: { ...apiParams, limit: 50, offset: currentOffset }
       }),
-      apiGet("/api/overview/regions", { timeout: 12000, params: toApiParams(filters) })
+      apiGet("/api/overview/regions", { timeout: 12000, params: apiParams })
     ])
       .then(([countryRes, regionRes]) => {
         if (countryRes.data?.rows?.length) {
@@ -117,7 +122,7 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
       loadData(true, prev);
       return prev;
     });
-  }, [JSON.stringify(filters)]);
+  }, [JSON.stringify(filters), currencyContext?.mode]);
 
   const handleSort = (field) => {
     if (sortField === field) {

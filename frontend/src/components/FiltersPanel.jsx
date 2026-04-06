@@ -1,4 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
+import InfoIcon from "./InfoIcon";
+import { getCountryRate, resolveSelectedCountries } from "../utils/currencyRates";
 import "../../styles/Filters.css";
 
 export default function FiltersPanel({
@@ -381,9 +383,75 @@ export default function FiltersPanel({
           >
             Native Currency
           </button>
+          <CurrencyRatesInfo 
+            regionFilter={values?.region} 
+            regionTree={regionTree}
+            currency={currency}
+          />
         </div>
       </div>
     </div>
+  );
+}
+
+function CurrencyRatesInfo({ regionFilter, regionTree, currency }) {
+  const selectedCountries = useMemo(() => {
+    return resolveSelectedCountries(regionFilter, regionTree);
+  }, [regionFilter, regionTree]);
+
+  const ratesInfo = useMemo(() => {
+    if (!selectedCountries.length) {
+      return "Showing all countries. Select specific countries/regions to see their conversion rates.";
+    }
+
+    const rates = selectedCountries
+      .map(country => {
+        const rate = getCountryRate(country);
+        if (!rate) return null;
+        
+        // Skip USD countries as they have 1:1 rate
+        if (rate.currencyCode === "USD") return null;
+        
+        return {
+          country: rate.country,
+          currencyCode: rate.currencyCode,
+          rate: rate.oneUnitUsd
+        };
+      })
+      .filter(Boolean);
+
+    if (!rates.length) {
+      return "Selected countries use USD (1:1 conversion rate).";
+    }
+
+    const rateLines = rates.map(r => 
+      `${r.country}: 1 ${r.currencyCode} = $${r.rate.toFixed(4)} USD`
+    );
+
+    return (
+      <div style={{ textAlign: "left" }}>
+        <div style={{ fontWeight: 600, marginBottom: "8px" }}>
+          Currency Conversion Rates:
+        </div>
+        {rateLines.map((line, i) => (
+          <div key={i} style={{ fontSize: "12px", marginBottom: "4px" }}>
+            {line}
+          </div>
+        ))}
+        <div style={{ marginTop: "8px", fontSize: "11px", color: "#666", fontStyle: "italic" }}>
+          {currency === "Native" 
+            ? "Currently showing native currency values" 
+            : "Currently showing USD values"}
+        </div>
+      </div>
+    );
+  }, [selectedCountries, currency]);
+
+  return (
+    <InfoIcon 
+      content={ratesInfo}
+      style={{ marginLeft: "8px", verticalAlign: "middle" }}
+    />
   );
 }
 

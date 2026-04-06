@@ -1,7 +1,10 @@
 import { useState } from "react";
 
-export default function InfoIcon({ tooltip, className = "" }) {
+export default function InfoIcon({ tooltip, content, className = "", style = {} }) {
   const [showTooltip, setShowTooltip] = useState(false);
+  
+  // Support both 'tooltip' (legacy) and 'content' (new) props
+  const displayContent = content || tooltip;
 
   return (
     <div 
@@ -9,11 +12,11 @@ export default function InfoIcon({ tooltip, className = "" }) {
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
       style={{ 
-        position: 'absolute',
-        top: '8px',
-        right: '8px',
+        position: 'relative',
+        display: 'inline-block',
         cursor: 'help',
-        zIndex: 10
+        zIndex: 10,
+        ...style
       }}
     >
       <span style={{
@@ -47,9 +50,14 @@ export default function InfoIcon({ tooltip, className = "" }) {
           minWidth: '280px',
           maxWidth: '400px',
           lineHeight: '1.5',
-          border: '1px solid #34495e'
+          border: '1px solid #34495e',
+          whiteSpace: 'normal'
         }}>
-          <div style={{ whiteSpace: 'pre-line' }}>{tooltip}</div>
+          {typeof displayContent === 'string' ? (
+            <div style={{ whiteSpace: 'pre-line' }}>{displayContent}</div>
+          ) : (
+            displayContent
+          )}
           <div style={{
             position: 'absolute',
             top: '-6px',

@@ -57,11 +57,21 @@ export function resolveCurrencyContext({
   };
 }
 
+/**
+ * NO CONVERSION - Backend already returns the correct values based on currency mode.
+ * This function now just passes through the value and updates the currency code for display.
+ * 
+ * @param {number} value - Value from backend (already in correct currency)
+ * @param {object} context - Currency context with mode and currencyCode
+ * @returns {number|null} - Value as-is (no conversion)
+ */
 export function convertUsdToDisplay(value, context) {
   const n = toNumber(value);
   if (n === null) return null;
-  const factor = Number(context?.usdToLocal || 1);
-  return Number((n * factor).toFixed(6));
+  
+  // Backend already returns the correct values based on currency mode
+  // No conversion needed on frontend
+  return n;
 }
 
 export function formatCompactCurrency(value, context, digits = 2) {

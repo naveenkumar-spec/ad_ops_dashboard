@@ -57,9 +57,17 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
       setLoadingMore(true);
     }
 
+    const apiParams = {
+      ...toApiParams(filters),
+      currencyMode: currencyContext?.mode === "Native" ? "native" : "usd",
+      view,
+      limit: 50,
+      offset: currentOffset
+    };
+    
     apiGet("/api/overview/campaigns-detailed", {
       timeout: 6000,
-      params: { ...toApiParams(filters), view, limit: 50, offset: currentOffset }
+      params: apiParams
     })
       .then((res) => {
         if (res.data?.rows?.length) {
@@ -93,7 +101,7 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
       loadData(true, prev);
       return prev;
     });
-  }, [JSON.stringify(filters), view]);
+  }, [JSON.stringify(filters), view, currencyContext?.mode]);
 
   const handleSort = (field) => {
     if (sortField === field) {

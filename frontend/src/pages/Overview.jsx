@@ -133,7 +133,7 @@ export default function Overview({ currentUser, onLogout }) {
           <div className="overview-tables-stack">
             <CountryWiseTable key={`cty-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
             <ProductWiseTable key={`prd-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
-            <CampaignWiseTable key={`cpg-${refreshTick}`} filters={filters} />
+            <CampaignWiseTable key={`cpg-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
             <BottomCampaignsTable key={`btm-${refreshTick}`} filters={filters} currencyContext={currencyContext} />
           </div>
           {currentUser?.chatbotEnabled !== false && <ChatbotWidget filters={filters} />}

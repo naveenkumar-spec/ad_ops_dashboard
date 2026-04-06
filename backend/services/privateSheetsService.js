@@ -483,20 +483,27 @@ function normalizeRow(rowValues, headerMap, source) {
   const currencyCode = normalizeCurrencyCode(currencyRaw || COUNTRY_DEFAULT_CURRENCY[country] || "USD");
   const localToUsd = resolveLocalToUsdRate(country, currencyCode);
 
+  // Parse native currency values from sheets
   const revenueLocal = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.revenue));
   const spendLocal = parseNumber(pickField(rowValues, headerMap, FIELD_ALIASES.spend));
+  
+  // Convert to USD
   const revenue = revenueLocal * localToUsd;
   const spend = spendLocal * localToUsd;
 
-  // Gross margin amount is always derived from revenue and spend.
+  // Calculate gross profit in both currencies
   const grossProfit = revenue - spend;
+  const grossProfitLocal = revenueLocal - spendLocal;
+  
   // Net margin is derived strictly from gross margin minus rebate amount.
   const rebateCell = pickField(rowValues, headerMap, FIELD_ALIASES.rebate);
   const rebateText = String(rebateCell || "").trim();
   const rebateRaw = parseNumber(rebateCell);
   const rebateIsPercent = rebateText.includes("%");
   const rebate = rebateIsPercent ? grossProfit * (rebateRaw / 100) : rebateRaw * localToUsd;
+  const rebateLocal = rebateIsPercent ? grossProfitLocal * (rebateRaw / 100) : rebateRaw;
   const netMargin = grossProfit - rebate;
+  const netMarginLocal = grossProfitLocal - rebateLocal;
 
   const grossMarginPct = revenue ? (grossProfit / revenue) * 100 : 0;
   const netMarginPct = revenue ? (netMargin / revenue) * 100 : 0;
@@ -533,12 +540,19 @@ function normalizeRow(rowValues, headerMap, source) {
     status,
     country,
     region: mapCountryToRegion(country, sourceCountry),
+    currencyCode,
+    // USD values (converted)
     revenue,
     spend,
     grossProfit,
     grossMarginPct,
     netMargin,
     netMarginPct,
+    // Native currency values (original from sheets)
+    revenueLocal,
+    spendLocal,
+    grossProfitLocal,
+    netMarginLocal,
     plannedImpressions,
     deliveredImpressions,
     budgetGroups,
@@ -564,6 +578,24 @@ function normalizeRow(rowValues, headerMap, source) {
     _sourceGid: source.gid,
     _sourceCurrency: currencyCode
   };
+
+  // Log first Australia row to debug
+  if (country === "Australia" && !global._australiaLogged) {
+    console.log(`[normalizeRow] Australia sample:`, {
+      country,
+      currencyCode,
+      localToUsd,
+      revenueLocal,
+      revenue,
+      spendLocal,
+      spend,
+      grossProfitLocal,
+      grossProfit,
+      netMarginLocal,
+      netMargin
+    });
+    global._australiaLogged = true;
+  }
 
   if (
     !normalized.month ||

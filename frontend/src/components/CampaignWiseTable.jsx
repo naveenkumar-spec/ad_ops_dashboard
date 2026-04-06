@@ -100,6 +100,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
 
     const apiParams = {
       ...toApiParams(filters),
+      currencyMode: currencyContext?.mode === "Native" ? "native" : "usd",
       limit: 50,
       offset: currentOffset
     };
@@ -110,6 +111,13 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
       apiParams.sortBy = sortField;
       apiParams.sortOrder = sortDirection;
     }
+
+    console.log(`[CampaignWiseTable] API call params:`, {
+      currencyMode: apiParams.currencyMode,
+      currencyContextMode: currencyContext?.mode,
+      offset: currentOffset,
+      sortBy: apiParams.sortBy
+    });
 
     apiGet("/api/overview/campaign-wise", {
       timeout: 12000,
@@ -150,7 +158,7 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
       loadData(true, prev);
       return prev;
     });
-  }, [JSON.stringify(filters), campaignFilter, sortField, sortDirection]);
+  }, [JSON.stringify(filters), campaignFilter, sortField, sortDirection, currencyContext?.mode]);
 
   const handleSort = (field) => {
     if (sortField === field) {

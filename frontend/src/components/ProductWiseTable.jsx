@@ -58,9 +58,14 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
       setLoadingMore(true);
     }
 
+    const apiParams = {
+      ...toApiParams(filters),
+      currencyMode: currencyContext?.mode === "Native" ? "native" : "usd"
+    };
+    
     apiGet("/api/overview/product-wise", {
       timeout: 6000,
-      params: { ...toApiParams(filters), limit: 50, offset: currentOffset }
+      params: { ...apiParams, limit: 50, offset: currentOffset }
     })
       .then((res) => {
         if (res.data?.rows?.length) {
@@ -94,7 +99,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
       loadData(true, prev);
       return prev;
     });
-  }, [JSON.stringify(filters)]);
+  }, [JSON.stringify(filters), currencyContext?.mode]);
 
   const handleSort = (field) => {
     if (sortField === field) {

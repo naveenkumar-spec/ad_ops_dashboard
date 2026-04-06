@@ -185,12 +185,18 @@ const TABLE_SCHEMA = [
   { name: "status", type: "STRING" },
   { name: "country", type: "STRING" },
   { name: "region", type: "STRING" },
+  { name: "currency_code", type: "STRING" },
   { name: "revenue", type: "FLOAT" },
   { name: "spend", type: "FLOAT" },
   { name: "gross_profit", type: "FLOAT" },
   { name: "gross_margin_pct", type: "FLOAT" },
   { name: "net_margin", type: "FLOAT" },
   { name: "net_margin_pct", type: "FLOAT" },
+  // Native currency values (original from sheets)
+  { name: "revenue_local", type: "FLOAT" },
+  { name: "spend_local", type: "FLOAT" },
+  { name: "gross_profit_local", type: "FLOAT" },
+  { name: "net_margin_local", type: "FLOAT" },
   { name: "planned_impressions", type: "FLOAT" },
   { name: "delivered_impressions", type: "FLOAT" },
   { name: "budget_groups", type: "INT64" },
@@ -405,6 +411,25 @@ async function writeState(state) {
 }
 
 function toBigQueryRows(rows, syncId, syncedAtIso) {
+  console.log(`[toBigQueryRows] Processing ${rows.length} rows`);
+  
+  // Log first row to see what data we're getting
+  if (rows.length > 0) {
+    const firstRow = rows[0];
+    console.log(`[toBigQueryRows] First row sample:`, {
+      country: firstRow.country,
+      currencyCode: firstRow.currencyCode,
+      revenue: firstRow.revenue,
+      revenueLocal: firstRow.revenueLocal,
+      spend: firstRow.spend,
+      spendLocal: firstRow.spendLocal,
+      grossProfit: firstRow.grossProfit,
+      grossProfitLocal: firstRow.grossProfitLocal,
+      netMargin: firstRow.netMargin,
+      netMarginLocal: firstRow.netMarginLocal
+    });
+  }
+  
   return rows.map((row) => ({
     sync_id: syncId,
     synced_at: syncedAtIso,
@@ -413,12 +438,19 @@ function toBigQueryRows(rows, syncId, syncedAtIso) {
     status: row.status || null,
     country: row.country || null,
     region: row.region || null,
+    currency_code: row.currencyCode || null,
+    // USD values (converted)
     revenue: Number(row.revenue || 0),
     spend: Number(row.spend || 0),
     gross_profit: Number(row.grossProfit || 0),
     gross_margin_pct: Number(row.grossMarginPct || 0),
     net_margin: Number(row.netMargin || 0),
     net_margin_pct: Number(row.netMarginPct || 0),
+    // Native currency values (original from sheets)
+    revenue_local: Number(row.revenueLocal || 0),
+    spend_local: Number(row.spendLocal || 0),
+    gross_profit_local: Number(row.grossProfitLocal || 0),
+    net_margin_local: Number(row.netMarginLocal || 0),
     planned_impressions: Number(row.plannedImpressions || 0),
     delivered_impressions: Number(row.deliveredImpressions || 0),
     budget_groups: Math.round(Number(row.budgetGroups || 0)),

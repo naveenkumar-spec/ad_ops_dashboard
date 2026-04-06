@@ -76,6 +76,9 @@ function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext, index
   let display;
   let absolute;
   
+  // Trend charts always use USD
+  const usdContext = { currencyCode: "USD", mode: "USD" };
+  
   if (isPercent) {
     // Show more precision for percentages
     const precise = Number(value);
@@ -93,22 +96,20 @@ function BarLabel({ x, y, width, value, isPercent, isRaw, currencyContext, index
       maximumFractionDigits: 10 
     });
   } else {
-    // For revenue: show precise values without currency symbol
+    // For revenue: show USD values (no conversion)
     const fullValue = Number(value) * 1_000_000;
-    const convertedValue = convertUsdToDisplay(fullValue, currencyContext) || fullValue;
     
     // Format without currency symbol but with higher precision
-    if (convertedValue >= 1_000_000) {
-      display = `${(convertedValue / 1_000_000).toFixed(2)}M`;
-    } else if (convertedValue >= 1_000) {
-      display = `${(convertedValue / 1_000).toFixed(2)}K`;
+    if (fullValue >= 1_000_000) {
+      display = `${(fullValue / 1_000_000).toFixed(2)}M`;
+    } else if (fullValue >= 1_000) {
+      display = `${(fullValue / 1_000).toFixed(2)}K`;
     } else {
-      display = `${convertedValue.toFixed(0)}`;
+      display = `${fullValue.toFixed(0)}`;
     }
     
-    // Create precise absolute value for tooltip
-    const currencyCode = currencyContext?.currencyCode || "USD";
-    absolute = `${currencyCode} ${convertedValue.toLocaleString(undefined, { 
+    // Create precise absolute value for tooltip - always USD
+    absolute = `USD ${fullValue.toLocaleString(undefined, { 
       minimumFractionDigits: 0, 
       maximumFractionDigits: 10 
     })}`;
@@ -175,6 +176,7 @@ export default function TrendChart({
     const fallback = getFallback(endpoint, isPercent, isRaw);
     setLoading(true);
     setError("");
+    // Trend charts always use USD, don't pass currencyMode
     apiGet(endpoint, { timeout: 20000, params: toApiParams(filters) })
       .then(res => {
         const d = res.data?.length ? res.data : fallback;
@@ -208,20 +210,14 @@ export default function TrendChart({
     }
 
     const grouped = buildGroupedData(rawData, granularity, selectedYears);
-    if (isPercent || isRaw) return grouped;
-    return grouped.map((row) => {
-      const out = { ...row };
-      selectedYears.forEach((year) => {
-        if (out[year] == null) return;
-        const usdValue = Number(out[year]) * 1_000_000;
-        const converted = convertUsdToDisplay(usdValue, currencyContext);
-        out[year] = converted == null ? out[year] : Number(converted / 1_000_000);
-      });
-      return out;
-    });
-  }, [rawData, granularity, selectedYears, isPercent, isRaw, currencyContext, initialLoadComplete]);
+    // Trend charts always show USD values as-is (no conversion)
+    return grouped;
+  }, [rawData, granularity, selectedYears, initialLoadComplete]);
+  
   const barSize = granularity === "year" ? 40 : granularity === "quarter" ? 28 : 16;
-  const yTickFmt = v => isPercent ? `${v}%` : isRaw ? `${v}` : formatCompactCurrency(Number(v) * 1_000_000, currencyContext, 1);
+  // Trend charts always show USD
+  const usdContext = { currencyCode: "USD", mode: "USD" };
+  const yTickFmt = v => isPercent ? `${v}%` : isRaw ? `${v}` : formatCompactCurrency(Number(v) * 1_000_000, usdContext, 1);
   const yDomain  = isPercent ? [0, 80] : [0, "auto"];
 
   return (

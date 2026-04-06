@@ -43,7 +43,8 @@ function parseFilters(query = {}) {
     platform: get("platform"),
     ops: get("ops"),
     cs: get("cs"),
-    sales: get("sales")
+    sales: get("sales"),
+    currencyMode: query.currencyMode === "native" ? "native" : "usd"
   };
 }
 
@@ -359,12 +360,25 @@ router.get("/country-wise", async (_req, res) => {
 
 router.get("/campaign-wise", async (_req, res) => {
   try {
+    // Log the raw query parameters to debug currency mode
+    console.log(`[campaign-wise route] Raw query params:`, {
+      currencyMode: _req.query.currencyMode,
+      region: _req.query.region,
+      sortBy: _req.query.sortBy
+    });
+    
     const filters = withUserScope(parseFilters(_req.query), _req.user);
     
     // Add sorting and search parameters to filters
     if (_req.query.sortBy) filters.sortBy = _req.query.sortBy;
     if (_req.query.sortOrder) filters.sortOrder = _req.query.sortOrder;
     if (_req.query.campaign) filters.campaign = _req.query.campaign;
+    
+    console.log(`[campaign-wise route] Parsed filters:`, {
+      currencyMode: filters.currencyMode,
+      region: filters.region,
+      sortBy: filters.sortBy
+    });
     
     const limit = Number(_req.query.limit) || 50;
     const offset = Number(_req.query.offset) || 0;
@@ -480,6 +494,49 @@ router.get("/debug/cpm-data", async (req, res) => {
     return res.json(diagnostics);
   } catch (error) {
     return res.status(500).json({ error: "Failed to fetch CPM diagnostics", message: error.message });
+  }
+});
+
+// Debug endpoint to check native currency data
+router.get("/debug/native-currency", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    
+    const { BigQuery } = require("@google-cloud/bigquery");
+    const bigquery = new BigQuery();
+    const projectId = process.env.GCP_PROJECT_ID;
+    const datasetId = process.env.BIGQUERY_DATASET_ID || "adops_dashboard";
+    const tableId = process.env.BIGQUERY_TABLE_ID || "campaign_tracker_consolidated";
+    
+    const [rows] = await bigquery.query({
+      query: `
+        SELECT 
+          country,
+          currency_code,
+          revenue,
+          revenue_local,
+          spend,
+          spend_local,
+          gross_profit,
+          gross_profit_local,
+          net_margin,
+          net_margin_local
+        FROM \`${projectId}.${datasetId}.${tableId}\`
+        WHERE sync_id = (
+          SELECT sync_id FROM \`${projectId}.${datasetId}.${tableId}\`
+          ORDER BY synced_at DESC LIMIT 1
+        )
+        AND country = 'Australia'
+        LIMIT 5
+      `,
+      location: process.env.BIGQUERY_LOCATION || "US"
+    });
+    
+    return res.json({ rows, count: rows.length });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to fetch native currency debug data", message: error.message });
   }
 });
 
