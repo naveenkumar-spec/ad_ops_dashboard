@@ -1,0 +1,76 @@
+services:
+  # Production Backend
+  - type: web
+    name: adops-dashboard-backend
+    env: node
+    region: singapore
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GCP_PROJECT_ID
+        sync: false
+      - key: BIGQUERY_DATASET_ID
+        value: adops_dashboard
+      - key: BIGQUERY_TABLE_ID
+        value: campaign_tracker_consolidated
+      - key: BIGQUERY_TRANSITION_TABLE_ID
+        value: overview_transition_metrics
+      - key: BIGQUERY_LOCATION
+        value: US
+      - key: GOOGLE_SERVICE_ACCOUNT_KEY_FILE
+        value: ./secrets/google-sa.json
+      - key: ENTRA_TENANT_ID
+        sync: false
+      - key: ENTRA_CLIENT_ID
+        sync: false
+      - key: ENTRA_CLIENT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://ad-ops-dashboard.vercel.app
+
+  # Development Backend
+  - type: web
+    name: adops-dashboard-backend-dev
+    env: node
+    region: singapore
+    plan: free
+    branch: dev
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: development
+      - key: GCP_PROJECT_ID
+        sync: false
+      - key: BIGQUERY_DATASET_ID
+        value: adops_dashboard_dev
+      - key: BIGQUERY_TABLE_ID
+        value: campaign_tracker_consolidated
+      - key: BIGQUERY_TRANSITION_TABLE_ID
+        value: overview_transition_metrics
+      - key: BIGQUERY_LOCATION
+        value: US
+      - key: GOOGLE_SERVICE_ACCOUNT_KEY_FILE
+        value: ./secrets/google-sa.json
+      - key: ENTRA_TENANT_ID
+        sync: false
+      - key: ENTRA_CLIENT_ID
+        sync: false
+      - key: ENTRA_CLIENT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://ad-ops-dashboard-git-dev-naveenkumar-specs-projects.vercel.app
