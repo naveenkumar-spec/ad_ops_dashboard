@@ -23,14 +23,14 @@ function startBigQueryScheduler() {
   const transitionMode = "daily"; // Set to daily mode
   const transitionCron = "30 18 * * *"; // 12 AM IST = 6:30 PM UTC (previous day)
 
-  // Main hourly sync (tracker data only for incremental)
+  // Main hourly sync (full refresh to prevent duplicates)
   scheduledTask = cron.schedule(cronExpr, async () => {
     const startedAt = new Date().toISOString();
-    console.log("[BigQuery Scheduler] Starting scheduled sync (incremental)...");
+    console.log("[BigQuery Scheduler] Starting scheduled sync (full refresh)...");
     
     try {
       const result = await bigQuerySyncService.syncToBigQuery({
-        fullRefresh: false, // Incremental sync for hourly
+        fullRefresh: true, // Full refresh to prevent data duplication
         forceRefresh: false,
         skipIfUnchanged: true,
         batchSize: 100
@@ -38,13 +38,13 @@ function startBigQueryScheduler() {
       
       lastScheduledRun = { ok: true, startedAt, result };
       if (result.skipped) {
-        console.log("[BigQuery Scheduler] No change detected. Incremental sync skipped.");
+        console.log("[BigQuery Scheduler] No change detected. Full sync skipped.");
       } else {
-        console.log(`[BigQuery Scheduler] Incremental sync success: ${result.rowCount} rows`);
+        console.log(`[BigQuery Scheduler] Full sync success: ${result.rowCount} rows`);
       }
     } catch (error) {
       lastScheduledRun = { ok: false, startedAt, error: error.message };
-      console.error(`[BigQuery Scheduler] Incremental sync failed: ${error.message}`);
+      console.error(`[BigQuery Scheduler] Full sync failed: ${error.message}`);
     }
   });
 
@@ -102,7 +102,7 @@ function startBigQueryScheduler() {
     console.log("[BigQuery Scheduler] Transition table updates: Manual only");
   }
 
-  console.log(`[BigQuery Scheduler] Tracker sync: ${cronExpr} (incremental, hourly)`);
+  console.log(`[BigQuery Scheduler] Tracker sync: ${cronExpr} (full refresh, hourly)`);
   console.log(`[BigQuery Scheduler] Transition refresh: Daily at 12:00 AM IST (${transitionCron} UTC)`);
   console.log(`[BigQuery Scheduler] Manual sync: Full refresh including transition table`);
   
