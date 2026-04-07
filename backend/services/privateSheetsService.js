@@ -282,8 +282,15 @@ function parseNumber(value) {
   const multiplier = suffix === "K" ? 1e3 : suffix === "M" ? 1e6 : suffix === "B" ? 1e9 : 1;
 
   const cleaned = raw
-    .replace(/[,$%()]/g, "")
+    // Remove ALL currency symbols (₹, $, £, €, ¥, ₩, ₪, ₨, ฿, ₫, ₱, ₡, ₴, ₵, ₸, ₹, ₺, ₼, ₽, ₾, ₿)
+    .replace(/[₹$£€¥₩₪₨฿₫₱₡₴₵₸₺₼₽₾₿]/g, "")
+    // Remove currency codes (USD, INR, AUD, etc.)
+    .replace(/\b[A-Z]{3}\b/g, "")
+    // Remove commas, percent, parentheses
+    .replace(/[,%()]/g, "")
+    // Remove K/M/B suffixes
     .replace(/[KMB]$/i, "")
+    // Remove all whitespace
     .replace(/\s+/g, "");
 
   const parsed = parseFloat(cleaned);
