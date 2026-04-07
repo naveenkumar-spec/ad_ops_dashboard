@@ -2,9 +2,11 @@ const express = require("express");
 const router = express.Router();
 const privateSheetsService = require("../services/privateSheetsService");
 const bigQueryReadService = require("../services/bigQueryReadService");
+const cachedBigQueryService = require("../services/cachedBigQueryService");
 const bigQuerySyncService = require("../services/bigQuerySyncService");
 
 const DATA_SOURCE = (process.env.DATA_SOURCE || "bigquery").toLowerCase();
+const USE_CACHE = process.env.USE_SEMANTIC_CACHE !== "false"; // Enabled by default
 const MONTHS = [
   "January",
   "February",
@@ -59,7 +61,8 @@ function withUserScope(filters, user) {
 
 function getDataProvider() {
   if (DATA_SOURCE === "google_sheets") return privateSheetsService;
-  return bigQueryReadService;
+  // Use cached service if enabled, otherwise use direct BigQuery
+  return USE_CACHE ? cachedBigQueryService : bigQueryReadService;
 }
 
 const provider = getDataProvider();
