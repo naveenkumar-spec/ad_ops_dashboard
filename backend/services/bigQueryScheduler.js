@@ -23,14 +23,16 @@ function startBigQueryScheduler() {
   const transitionMode = "daily"; // Set to daily mode
   const transitionCron = "30 18 * * *"; // 12 AM IST = 6:30 PM UTC (previous day)
 
-  // Main hourly sync (full refresh to prevent duplicates)
+  // Main hourly sync (recent data only for performance)
   scheduledTask = cron.schedule(cronExpr, async () => {
     const startedAt = new Date().toISOString();
-    console.log("[BigQuery Scheduler] Starting scheduled sync (full refresh)...");
+    console.log("[BigQuery Scheduler] Starting scheduled sync (recent 2 months only)...");
     
     try {
       const result = await bigQuerySyncService.syncToBigQuery({
-        fullRefresh: true, // Full refresh to prevent data duplication
+        fullRefresh: false,
+        recentOnly: true,      // Only sync recent data
+        monthsToSync: 2,       // Last 2 months
         forceRefresh: false,
         skipIfUnchanged: true,
         batchSize: 100
@@ -38,13 +40,13 @@ function startBigQueryScheduler() {
       
       lastScheduledRun = { ok: true, startedAt, result };
       if (result.skipped) {
-        console.log("[BigQuery Scheduler] No change detected. Full sync skipped.");
+        console.log("[BigQuery Scheduler] No change detected. Recent sync skipped.");
       } else {
-        console.log(`[BigQuery Scheduler] Full sync success: ${result.rowCount} rows`);
+        console.log(`[BigQuery Scheduler] Recent sync success: ${result.rowCount}/${result.totalRowsRead} rows (last ${result.monthsSynced} months)`);
       }
     } catch (error) {
       lastScheduledRun = { ok: false, startedAt, error: error.message };
-      console.error(`[BigQuery Scheduler] Full sync failed: ${error.message}`);
+      console.error(`[BigQuery Scheduler] Recent sync failed: ${error.message}`);
     }
   });
 
@@ -102,9 +104,9 @@ function startBigQueryScheduler() {
     console.log("[BigQuery Scheduler] Transition table updates: Manual only");
   }
 
-  console.log(`[BigQuery Scheduler] Tracker sync: ${cronExpr} (full refresh, hourly)`);
+  console.log(`[BigQuery Scheduler] Tracker sync: ${cronExpr} (recent ${2} months only, hourly)`);
   console.log(`[BigQuery Scheduler] Transition refresh: Daily at 12:00 AM IST (${transitionCron} UTC)`);
-  console.log(`[BigQuery Scheduler] Manual sync: Full refresh including transition table`);
+  console.log(`[BigQuery Scheduler] Manual sync: Full refresh including all historical data`);
   
   return { 
     enabled: true, 

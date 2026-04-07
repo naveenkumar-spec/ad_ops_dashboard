@@ -593,6 +593,8 @@ function toTransitionRows(syncId, syncedAtIso, rawBrandingData) {
 
 async function syncToBigQuery(options = {}) {
   const fullRefresh = options.fullRefresh === true; // Default to incremental
+  const recentOnly = options.recentOnly === true; // Only sync recent data
+  const monthsToSync = options.monthsToSync || 2; // How many months for recent sync
   const skipIfUnchanged = options.skipIfUnchanged !== false;
   const batchSize = options.batchSize || 100; // Smaller default batch size
   
@@ -614,7 +616,8 @@ async function syncToBigQuery(options = {}) {
     status: "running",
     syncId,
     startedAt: syncedAtIso,
-    mode: fullRefresh ? "full_refresh" : "incremental",
+    mode: fullRefresh ? "full_refresh" : (recentOnly ? "recent_only" : "incremental"),
+    monthsToSync: recentOnly ? monthsToSync : null,
     step: "initializing",
     sources: initialSources,
     totalSources: initialSources.length,
@@ -625,7 +628,7 @@ async function syncToBigQuery(options = {}) {
     rowCount: 0,
     transitionRowCount: 0,
     issueCount: 0,
-    message: "Sync started (optimized for performance)"
+    message: recentOnly ? `Sync started (recent ${monthsToSync} months only)` : "Sync started (optimized for performance)"
   };
   
   try {
@@ -725,6 +728,36 @@ async function syncToBigQuery(options = {}) {
     activeSyncStatus.message = `Writing data to BigQuery (batch size: ${batchSize})`;
     throwIfStopRequested();
 
+    // Determine which rows to sync based on mode
+    let rowsToSync = bqRows;
+    let cutoffDate = null;
+    
+    if (recentOnly && !fullRefresh) {
+      // Recent-only mode: only sync last N months
+      cutoffDate = new Date();
+      cutoffDate.setMonth(cutoffDate.getMonth() - monthsToSync);
+      cutoffDate.setDate(1); // Start of month
+      cutoffDate.setHours(0, 0, 0, 0); // Midnight
+      
+      rowsToSync = bqRows.filter(row => {
+        // Include if start_date or end_date is recent
+        const startDate = row.start_date ? new Date(row.start_date) : null;
+        const endDate = row.end_date ? new Date(row.end_date) : null;
+        
+        // Include if no dates (safer to include)
+        if (!startDate && !endDate) return true;
+        
+        // Include if either date is recent
+        if (startDate && startDate >= cutoffDate) return true;
+        if (endDate && endDate >= cutoffDate) return true;
+        
+        return false;
+      });
+      
+      console.log(`[BigQuery Sync] 📅 RECENT ONLY: ${rowsToSync.length} rows (last ${monthsToSync} months, cutoff: ${cutoffDate.toISOString().split('T')[0]})`);
+      console.log(`[BigQuery Sync] 📊 Filtered out ${bqRows.length - rowsToSync.length} older rows`);
+    }
+
     // Only truncate on full refresh
     if (fullRefresh) {
       console.log("[BigQuery Sync] 🗑️ FULL REFRESH: Truncating tables");
@@ -738,20 +771,33 @@ async function syncToBigQuery(options = {}) {
           location: process.env.BIGQUERY_LOCATION || "US"
         });
       }
+    } else if (recentOnly && cutoffDate) {
+      // Recent-only mode: delete recent data before inserting
+      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data from ${cutoffDate.toISOString().split('T')[0]} onwards`);
+      const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+      await bigquery.query({
+        query: `
+          DELETE FROM \`${projectId}.${datasetId}.${tableId}\`
+          WHERE start_date >= '${cutoffDateStr}'
+             OR end_date >= '${cutoffDateStr}'
+             OR start_date IS NULL
+        `,
+        location: process.env.BIGQUERY_LOCATION || "US"
+      });
     }
 
     // Use smaller batches and add delays to reduce resource pressure
-    for (let i = 0; i < bqRows.length; i += batchSize) {
+    for (let i = 0; i < rowsToSync.length; i += batchSize) {
       throwIfStopRequested();
-      const batch = bqRows.slice(i, i + batchSize);
+      const batch = rowsToSync.slice(i, i + batchSize);
       if (batch.length) {
         await table.insert(batch);
         // Small delay between batches to reduce resource pressure
-        if (i + batchSize < bqRows.length) {
+        if (i + batchSize < rowsToSync.length) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
-      activeSyncStatus.rowCount = Math.min(bqRows.length, i + batch.length);
+      activeSyncStatus.rowCount = Math.min(rowsToSync.length, i + batch.length);
     }
     
     // Only update transition table on full refresh
@@ -774,8 +820,11 @@ async function syncToBigQuery(options = {}) {
     const result = {
       ok: true,
       syncId,
-      mode: fullRefresh ? "full_refresh" : "incremental",
-      rowCount: bqRows.length,
+      mode: fullRefresh ? "full_refresh" : (recentOnly ? "recent_only" : "incremental"),
+      rowCount: rowsToSync.length,
+      totalRowsRead: bqRows.length,
+      monthsSynced: recentOnly ? monthsToSync : null,
+      cutoffDate: cutoffDate ? cutoffDate.toISOString().split('T')[0] : null,
       transitionRowCount: transitionRows.length,
       datasetId,
       tableId,
@@ -794,9 +843,9 @@ async function syncToBigQuery(options = {}) {
       synced_at: syncedAtIso,
       status: "success",
       mode: result.mode,
-      row_count: bqRows.length + transitionRows.length,
+      row_count: rowsToSync.length + transitionRows.length,
       checksum,
-      message: "Sync completed (optimized)"
+      message: recentOnly ? `Sync completed (recent ${monthsToSync} months, ${rowsToSync.length}/${bqRows.length} rows)` : "Sync completed (optimized)"
     });
     
     lastSyncResult = result;

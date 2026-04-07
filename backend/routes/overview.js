@@ -460,15 +460,30 @@ router.post("/sync/bigquery", async (req, res) => {
     if (!req.user || req.user.role !== "admin") {
       return res.status(403).json({ error: "Admin access required" });
     }
-    const fullRefresh = req.query.fullRefresh !== "false";
+    const fullRefresh = req.query.fullRefresh !== "false"; // Default true for manual
+    const recentOnly = req.query.recentOnly === "true"; // Default false for manual
+    const monthsToSync = parseInt(req.query.monthsToSync || "2", 10);
     const forceRefresh = req.query.forceRefresh === "true";
     const skipIfUnchanged = req.query.skipIfUnchanged !== "false";
     const runAsync = req.query.async !== "false";
+    
     if (runAsync) {
-      const started = bigQuerySyncService.startSync({ fullRefresh, forceRefresh, skipIfUnchanged });
+      const started = bigQuerySyncService.startSync({ 
+        fullRefresh, 
+        recentOnly,
+        monthsToSync,
+        forceRefresh, 
+        skipIfUnchanged 
+      });
       return res.status(started.ok ? 202 : 409).json(started);
     }
-    const result = await bigQuerySyncService.syncToBigQuery({ fullRefresh, forceRefresh, skipIfUnchanged });
+    const result = await bigQuerySyncService.syncToBigQuery({ 
+      fullRefresh, 
+      recentOnly,
+      monthsToSync,
+      forceRefresh, 
+      skipIfUnchanged 
+    });
     return res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Failed to sync BigQuery", message: error.message });
