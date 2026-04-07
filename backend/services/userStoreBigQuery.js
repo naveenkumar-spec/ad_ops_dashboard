@@ -7,6 +7,9 @@ const USERS_TABLE_ID = "dashboard_users";
 const LOCATION = process.env.BIGQUERY_LOCATION || "US";
 
 let bigquery = null;
+let usersCache = null;
+let lastUsersFetch = 0;
+const USERS_CACHE_TTL = Number(process.env.BIGQUERY_USER_CACHE_MS || 60000); // 1 minute cache
 
 function getBigQueryClient() {
   if (!bigquery) {
@@ -65,10 +68,17 @@ async function initializeUsersTable() {
 }
 
 /**
- * Get all users from BigQuery
+ * Get all users from BigQuery (with caching)
  */
-async function getUsers() {
+async function getUsers(forceRefresh = false) {
+  // Check cache first
+  if (!forceRefresh && usersCache && (Date.now() - lastUsersFetch < USERS_CACHE_TTL)) {
+    console.log(`[UserStore] Returning cached users (age: ${Date.now() - lastUsersFetch}ms)`);
+    return usersCache;
+  }
+
   try {
+    console.log("[UserStore] Fetching users from BigQuery...");
     const bq = getBigQueryClient();
     const query = `
       SELECT
@@ -97,7 +107,7 @@ async function getUsers() {
 
     const [rows] = await bq.query({ query, location: LOCATION });
     
-    return rows.map(row => ({
+    const users = rows.map(row => ({
       id: row.id,
       username: row.username,
       email: row.email,
@@ -113,8 +123,20 @@ async function getUsers() {
       createdAt: row.createdAt || new Date().toISOString(),
       updatedAt: row.updatedAt || new Date().toISOString()
     }));
+
+    // Update cache
+    usersCache = users;
+    lastUsersFetch = Date.now();
+    console.log(`[UserStore] Cached ${users.length} users`);
+
+    return users;
   } catch (error) {
     console.error("[UserStore] Error getting users:", error.message);
+    // Return cached users if available, even if expired
+    if (usersCache) {
+      console.log("[UserStore] Returning stale cache due to error");
+      return usersCache;
+    }
     return [];
   }
 }
@@ -242,6 +264,10 @@ async function saveUser(user) {
       console.log(`[UserStore] Created user: ${user.username}`);
     }
 
+    // Invalidate cache
+    usersCache = null;
+    lastUsersFetch = 0;
+
     return true;
   } catch (error) {
     console.error("[UserStore] Error saving user:", error.message);
@@ -267,6 +293,11 @@ async function deleteUser(username) {
     });
 
     console.log(`[UserStore] Deleted user: ${username}`);
+    
+    // Invalidate cache
+    usersCache = null;
+    lastUsersFetch = 0;
+    
     return true;
   } catch (error) {
     if (error.message.includes('streaming buffer')) {
@@ -296,10 +327,36 @@ async function migrateFromJSON(jsonUsers) {
   }
 }
 
+/**
+ * Pre-load users into cache (call on startup)
+ */
+async function preloadUsers() {
+  try {
+    console.log("[UserStore] Pre-loading users into cache...");
+    const users = await getUsers(true); // Force refresh
+    console.log(`[UserStore] Pre-loaded ${users.length} users`);
+    return users;
+  } catch (error) {
+    console.error("[UserStore] Error pre-loading users:", error.message);
+    return [];
+  }
+}
+
+/**
+ * Clear users cache
+ */
+function clearUsersCache() {
+  usersCache = null;
+  lastUsersFetch = 0;
+  console.log("[UserStore] Users cache cleared");
+}
+
 module.exports = {
   initializeUsersTable,
   getUsers,
   saveUser,
   deleteUser,
-  migrateFromJSON
+  migrateFromJSON,
+  preloadUsers,
+  clearUsersCache
 };

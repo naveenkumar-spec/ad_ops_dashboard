@@ -88,6 +88,13 @@ app.listen(PORT, () => {
     const schedulerInfo = bigQueryScheduler.startBigQueryScheduler();
     console.log(`BigQuery scheduler: ${schedulerInfo.enabled ? `enabled (${schedulerInfo.cron})` : `disabled (${schedulerInfo.reason})`}`);
     
+    // Pre-load users into cache for fast login
+    const userStoreBigQuery = require("./services/userStoreBigQuery");
+    console.log("Pre-loading users into cache...");
+    await userStoreBigQuery.preloadUsers().catch(err => {
+      console.warn("⚠️  User pre-load failed:", err.message);
+    });
+    
     // Initialize semantic cache in background
     console.log("Initializing semantic cache...");
     cachedBigQueryService.initialize().then(() => {
