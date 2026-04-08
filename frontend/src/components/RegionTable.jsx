@@ -4,6 +4,8 @@ import { mockRegions, mockManagementRegions } from "../mockData.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import { convertUsdToDisplay, formatAbsoluteCurrencyByContext, formatCompactCurrency } from "../utils/currencyDisplay.js";
 import SortableHeader from "./SortableHeader.jsx";
+import DownloadButton from "./DownloadButton.jsx";
+import { exportTableToCSV } from "../utils/csvExport.js";
 import "../../styles/Tables.css";
 
 const fmtN = v => (Number(v) || 0).toLocaleString();
@@ -108,9 +110,155 @@ export default function RegionTable({ title = "Region Performance", variant = "o
     </SortableHeader>
   );
 
+  const handleDownload = () => {
+    const isManagement = variant === "management";
+    const endpoint = isManagement ? "/api/management/regions" : "/api/overview/regions";
+    
+    apiGet(endpoint, { timeout: 30000, params: filters })
+      .then(res => {
+        const allData = res.data?.length ? res.data : data;
+        const exportData = [];
+        
+        if (isManagement) {
+          // Management view: Region | Country | AdOps | CS | Sales | Revenue | Campaigns | Budget Groups
+          allData.forEach((region) => {
+            const children = region.children || [];
+            if (children.length > 0) {
+              children.forEach((country) => {
+                exportData.push({
+                  region: region.region,
+                  country: country.region,
+                  adOps: country.adOps || 0,
+                  cs: country.cs || 0,
+                  sales: country.sales || 0,
+                  bookedRevenue: Math.round(convertUsdToDisplay(country.bookedRevenue, currencyContext) || 0),
+                  totalCampaigns: country.totalCampaigns || 0,
+                  budgetGroups: country.budgetGroups || 0
+                });
+              });
+            } else {
+              exportData.push({
+                region: region.region,
+                country: "",
+                adOps: region.adOps || 0,
+                cs: region.cs || 0,
+                sales: region.sales || 0,
+                bookedRevenue: Math.round(convertUsdToDisplay(region.bookedRevenue, currencyContext) || 0),
+                totalCampaigns: region.totalCampaigns || 0,
+                budgetGroups: region.budgetGroups || 0
+              });
+            }
+          });
+          
+          // Add totals
+          if (totals) {
+            exportData.push({
+              region: "Total",
+              country: "",
+              adOps: totals.adOps || 0,
+              cs: totals.cs || 0,
+              sales: totals.sales || 0,
+              bookedRevenue: Math.round(convertUsdToDisplay(totals.bookedRevenue, currencyContext) || 0),
+              totalCampaigns: totals.totalCampaigns || 0,
+              budgetGroups: totals.budgetGroups || 0
+            });
+          }
+          
+          const columns = [
+            { key: 'region', label: 'Region' },
+            { key: 'country', label: 'Country' },
+            { key: 'adOps', label: 'No of AdOps' },
+            { key: 'cs', label: 'No of CS' },
+            { key: 'sales', label: 'No of Sales' },
+            { key: 'bookedRevenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
+            { key: 'totalCampaigns', label: 'Total Campaigns' },
+            { key: 'budgetGroups', label: 'Total Budget Groups' }
+          ];
+          
+          const timestamp = new Date().toISOString().split('T')[0];
+          exportTableToCSV(exportData, columns, `region-country-management-${timestamp}`);
+        } else {
+          // Overview view: Region | Country | Campaigns | Budget Groups | Revenue | Spend | Impressions | Gross Margin
+          allData.forEach((region) => {
+            const children = region.children || [];
+            if (children.length > 0) {
+              children.forEach((country) => {
+                exportData.push({
+                  region: region.region,
+                  country: country.region,
+                  totalCampaigns: country.totalCampaigns || 0,
+                  budgetGroups: country.budgetGroups || 0,
+                  bookedRevenue: Math.round(convertUsdToDisplay(country.bookedRevenue, currencyContext) || 0),
+                  spend: Math.round(convertUsdToDisplay(country.spend, currencyContext) || 0),
+                  plannedImpressions: Math.round(country.plannedImpressions || 0),
+                  deliveredImpressions: Math.round(country.deliveredImpressions || 0),
+                  grossMargin: Math.round(convertUsdToDisplay(country.grossMargin, currencyContext) || 0),
+                  grossMarginPct: country.grossMarginPct != null ? country.grossMarginPct.toFixed(2) : ""
+                });
+              });
+            } else {
+              exportData.push({
+                region: region.region,
+                country: "",
+                totalCampaigns: region.totalCampaigns || 0,
+                budgetGroups: region.budgetGroups || 0,
+                bookedRevenue: Math.round(convertUsdToDisplay(region.bookedRevenue, currencyContext) || 0),
+                spend: Math.round(convertUsdToDisplay(region.spend, currencyContext) || 0),
+                plannedImpressions: Math.round(region.plannedImpressions || 0),
+                deliveredImpressions: Math.round(region.deliveredImpressions || 0),
+                grossMargin: Math.round(convertUsdToDisplay(region.grossMargin, currencyContext) || 0),
+                grossMarginPct: region.grossMarginPct != null ? region.grossMarginPct.toFixed(2) : ""
+              });
+            }
+          });
+          
+          // Add totals
+          if (totals) {
+            exportData.push({
+              region: "Total",
+              country: "",
+              totalCampaigns: totals.totalCampaigns || 0,
+              budgetGroups: totals.budgetGroups || 0,
+              bookedRevenue: Math.round(convertUsdToDisplay(totals.bookedRevenue, currencyContext) || 0),
+              spend: Math.round(convertUsdToDisplay(totals.spend, currencyContext) || 0),
+              plannedImpressions: Math.round(totals.plannedImpressions || 0),
+              deliveredImpressions: Math.round(totals.deliveredImpressions || 0),
+              grossMargin: Math.round(convertUsdToDisplay(totals.grossMargin, currencyContext) || 0),
+              grossMarginPct: totals.grossMarginPct || ""
+            });
+          }
+          
+          const columns = [
+            { key: 'region', label: 'Region' },
+            { key: 'country', label: 'Country' },
+            { key: 'totalCampaigns', label: 'Total Campaigns' },
+            { key: 'budgetGroups', label: 'Budget Groups' },
+            { key: 'bookedRevenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
+            { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
+            { key: 'plannedImpressions', label: 'Planned Impressions' },
+            { key: 'deliveredImpressions', label: 'Delivered Impressions' },
+            { key: 'grossMargin', label: `Gross Margin (${currencyContext?.code || "USD"})` },
+            { key: 'grossMarginPct', label: 'Gross Margin %' }
+          ];
+          
+          const timestamp = new Date().toISOString().split('T')[0];
+          exportTableToCSV(exportData, columns, `region-country-overview-${timestamp}`);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch data for export:", error);
+        alert("Failed to download data. Please try again.");
+      });
+  };
+
   return (
     <div className="table-card">
-      <div className="table-card-header"><h3>{title}</h3></div>
+      <div className="table-card-header">
+        <h3 className="adv-table-title">
+          {title}
+          <DownloadButton onClick={handleDownload} disabled={loading || !data.length} />
+        </h3>
+      </div>
       <div className="table-card-body">
         {loading ? <div className="table-loading">Loading…</div>
           : data.length === 0 ? <div className="table-empty">No data</div>

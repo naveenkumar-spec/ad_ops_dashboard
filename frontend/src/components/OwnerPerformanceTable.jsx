@@ -8,6 +8,8 @@ import {
   formatCompactCurrency
 } from "../utils/currencyDisplay.js";
 import SortableHeader from "./SortableHeader.jsx";
+import DownloadButton from "./DownloadButton.jsx";
+import { exportTableToCSV } from "../utils/csvExport.js";
 import "../../styles/Tables.css";
 
 function fmtVal(v, fmt, currencyContext) {
@@ -88,9 +90,64 @@ export default function OwnerPerformanceTable({ title, endpoint, filters = {}, c
     };
   }, [rows]);
 
+  const handleDownload = () => {
+    apiGet(endpoint, { timeout: 30000, params: filters })
+      .then(res => {
+        const allData = res.data?.length ? res.data : rows;
+        const exportData = [];
+        
+        // Add all rows
+        allData.forEach((row) => {
+          exportData.push({
+            owner: row.owner,
+            campaigns: row.campaigns || 0,
+            revenue: Math.round(convertUsdToDisplay(row.revenue, currencyContext) || 0),
+            spend: Math.round(convertUsdToDisplay(row.spend, currencyContext) || 0),
+            grossMarginPct: row.grossMarginPct != null ? row.grossMarginPct.toFixed(2) : "",
+            netMarginPct: row.netMarginPct != null ? row.netMarginPct.toFixed(2) : ""
+          });
+        });
+        
+        // Add totals row
+        if (totals) {
+          exportData.push({
+            owner: "Total",
+            campaigns: totals.campaigns || 0,
+            revenue: Math.round(convertUsdToDisplay(totals.revenue, currencyContext) || 0),
+            spend: Math.round(convertUsdToDisplay(totals.spend, currencyContext) || 0),
+            grossMarginPct: totals.grossMarginPct != null ? totals.grossMarginPct.toFixed(2) : "",
+            netMarginPct: totals.netMarginPct != null ? totals.netMarginPct.toFixed(2) : ""
+          });
+        }
+        
+        const columns = [
+          { key: 'owner', label: 'Owner' },
+          { key: 'campaigns', label: 'Campaigns' },
+          { key: 'revenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
+          { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
+          { key: 'grossMarginPct', label: 'Gross Margin %' },
+          { key: 'netMarginPct', label: 'Net Margin %' }
+        ];
+        
+        // Determine filename based on endpoint
+        const type = endpoint?.includes("ops") ? "adops" : endpoint?.includes("cs") ? "cs" : "sales";
+        const timestamp = new Date().toISOString().split('T')[0];
+        exportTableToCSV(exportData, columns, `owner-performance-${type}-${timestamp}`);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch data for export:", error);
+        alert("Failed to download data. Please try again.");
+      });
+  };
+
   return (
     <div className="table-card">
-      <div className="table-card-header"><h3>{title}</h3></div>
+      <div className="table-card-header">
+        <h3 className="adv-table-title">
+          {title}
+          <DownloadButton onClick={handleDownload} disabled={loading || !rows.length} />
+        </h3>
+      </div>
       <div className="table-card-body">
         {loading ? <div className="table-loading">Loading...</div>
           : rows.length === 0 ? <div className="table-empty">No data</div>
