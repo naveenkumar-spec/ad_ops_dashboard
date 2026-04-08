@@ -825,6 +825,7 @@ async function getRegionTable(filters = {}) {
         SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
         SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
         SUM(COALESCE(t.${cols.revenue}, 0) - COALESCE(t.${cols.spend}, 0)) AS grossMargin,
+        SUM(COALESCE(t.${cols.netMargin}, 0)) AS netMargin,
         IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
         IFNULL(
           SAFE_DIVIDE(
@@ -832,7 +833,14 @@ async function getRegionTable(filters = {}) {
             NULLIF(SUM(COALESCE(t.${cols.revenue}, 0)), 0)
           ) * 100,
           0
-        ) AS grossMarginPct
+        ) AS grossMarginPct,
+        IFNULL(
+          SAFE_DIVIDE(
+            SUM(COALESCE(t.${cols.netMargin}, 0)),
+            NULLIF(SUM(COALESCE(t.${cols.revenue}, 0)), 0)
+          ) * 100,
+          0
+        ) AS netMarginPct
       FROM ${latestMainTableSql()} t
       ${whereSql}
       GROUP BY parentRegion, country
@@ -854,7 +862,9 @@ async function getRegionTable(filters = {}) {
     deliveredImpressions: toNumber(r.deliveredImpressions),
     deliveredPct: toNumber(r.deliveredPct, 2),
     grossMargin: toNumber(r.grossMargin),
-    grossMarginPct: toNumber(r.grossMarginPct, 2)
+    grossMarginPct: toNumber(r.grossMarginPct, 2),
+    netMargin: toNumber(r.netMargin),
+    netMarginPct: toNumber(r.netMarginPct, 2)
   }));
 }
 
