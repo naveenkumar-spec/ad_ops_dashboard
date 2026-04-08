@@ -159,56 +159,58 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
   );
 
   const handleDownload = () => {
-    const headers = [
-      "Product",
-      "Total Campaigns",
-      "Budget Groups",
-      `Booked Revenue (${currencyContext?.code || "USD"})`,
-      `Spend (${currencyContext?.code || "USD"})`,
-      "Planned Impressions",
-      "Delivered Impressions",
-      "Delivered %",
-      `Gross Profit/Loss (${currencyContext?.code || "USD"})`,
-      "Gross Margin %",
-      `Net Margin (${currencyContext?.code || "USD"})`,
-      "Net Margin %"
-    ];
-
-    // Use the original rows array, not flattened (which includes type field)
-    const dataRows = rows.map(row => [
-      row.product || "",
-      row.totalCampaigns || 0,
-      row.budgetGroups || 0,
-      c(row.bookedRevenue) || 0,
-      c(row.spend) || 0,
-      row.plannedImpressions || 0,
-      row.deliveredImpressions || 0,
-      row.deliveredPct != null ? row.deliveredPct.toFixed(2) : "",
-      c(row.grossProfitLoss) || 0,
-      row.grossMargin != null ? row.grossMargin.toFixed(2) : "",
-      row.netMargin != null ? c(row.netMargin) : "",
-      row.netMarginPct != null ? row.netMarginPct.toFixed(2) : ""
-    ]);
+    // Prepare data as array of objects
+    const exportData = rows.map(row => ({
+      product: row.product || "",
+      totalCampaigns: row.totalCampaigns || 0,
+      budgetGroups: row.budgetGroups || 0,
+      bookedRevenue: c(row.bookedRevenue) || 0,
+      spend: c(row.spend) || 0,
+      plannedImpressions: row.plannedImpressions || 0,
+      deliveredImpressions: row.deliveredImpressions || 0,
+      deliveredPct: row.deliveredPct != null ? row.deliveredPct.toFixed(2) : "",
+      grossProfitLoss: c(row.grossProfitLoss) || 0,
+      grossMargin: row.grossMargin != null ? row.grossMargin.toFixed(2) : "",
+      netMargin: row.netMargin != null ? c(row.netMargin) : "",
+      netMarginPct: row.netMarginPct != null ? row.netMarginPct.toFixed(2) : ""
+    }));
 
     // Add totals row
     if (totals) {
-      dataRows.push([
-        "Total",
-        totals.totalCampaigns || 0,
-        totals.budgetGroups || 0,
-        c(totals.bookedRevenue) || 0,
-        c(totals.spend) || 0,
-        totals.plannedImpressions || 0,
-        totals.deliveredImpressions || 0,
-        totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
-        c(totals.grossProfitLoss) || 0,
-        totals.grossMargin != null ? totals.grossMargin.toFixed(2) : "",
-        totals.netMargin != null ? c(totals.netMargin) : "",
-        totals.netMarginPct != null ? totals.netMarginPct.toFixed(2) : ""
-      ]);
+      exportData.push({
+        product: "Total",
+        totalCampaigns: totals.totalCampaigns || 0,
+        budgetGroups: totals.budgetGroups || 0,
+        bookedRevenue: c(totals.bookedRevenue) || 0,
+        spend: c(totals.spend) || 0,
+        plannedImpressions: totals.plannedImpressions || 0,
+        deliveredImpressions: totals.deliveredImpressions || 0,
+        deliveredPct: totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
+        grossProfitLoss: c(totals.grossProfitLoss) || 0,
+        grossMargin: totals.grossMargin != null ? totals.grossMargin.toFixed(2) : "",
+        netMargin: totals.netMargin != null ? c(totals.netMargin) : "",
+        netMarginPct: totals.netMarginPct != null ? totals.netMarginPct.toFixed(2) : ""
+      });
     }
 
-    exportTableToCSV(headers, dataRows, "product-wise-data");
+    // Define columns
+    const columns = [
+      { key: 'product', label: 'Product' },
+      { key: 'totalCampaigns', label: 'Total Campaigns' },
+      { key: 'budgetGroups', label: 'Budget Groups' },
+      { key: 'bookedRevenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
+      { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
+      { key: 'plannedImpressions', label: 'Planned Impressions' },
+      { key: 'deliveredImpressions', label: 'Delivered Impressions' },
+      { key: 'deliveredPct', label: 'Delivered %' },
+      { key: 'grossProfitLoss', label: `Gross Profit/Loss (${currencyContext?.code || "USD"})` },
+      { key: 'grossMargin', label: 'Gross Margin %' },
+      { key: 'netMargin', label: `Net Margin (${currencyContext?.code || "USD"})` },
+      { key: 'netMarginPct', label: 'Net Margin %' }
+    ];
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    exportTableToCSV(exportData, columns, `product-wise-data-${timestamp}`);
   };
 
   return (
