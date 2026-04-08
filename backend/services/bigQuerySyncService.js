@@ -15,6 +15,14 @@ const tableId = process.env.BIGQUERY_TABLE_ID || "campaign_tracker_consolidated"
 const transitionTableId = process.env.BIGQUERY_TRANSITION_TABLE_ID || "overview_transition_metrics";
 const stateTableId = process.env.BIGQUERY_SYNC_STATE_TABLE_ID || "campaign_tracker_sync_state";
 
+// Safety check: Warn if using default production dataset
+if (!process.env.BIGQUERY_DATASET_ID) {
+  console.warn("⚠️  WARNING: BIGQUERY_DATASET_ID not set in .env, defaulting to PRODUCTION dataset 'adops_dashboard'");
+  console.warn("⚠️  Set BIGQUERY_DATASET_ID=adops_dashboard_dev in .env for development");
+} else {
+  console.log(`✅ Using BigQuery dataset: ${datasetId}`);
+}
+
 const bigquery = new BigQuery({
   projectId: projectId || undefined,
   keyFilename
@@ -738,28 +746,37 @@ async function syncToBigQuery(options = {}) {
     let cutoffDate = null;
     
     if (recentOnly && !fullRefresh) {
-      // Recent-only mode: only sync last N months
+      // Recent-only mode: only sync last N months based on month/year columns
       cutoffDate = new Date();
       cutoffDate.setMonth(cutoffDate.getMonth() - monthsToSync);
-      cutoffDate.setDate(1); // Start of month
-      cutoffDate.setHours(0, 0, 0, 0); // Midnight
+      const cutoffYear = cutoffDate.getFullYear();
+      const cutoffMonth = cutoffDate.getMonth() + 1; // JavaScript months are 0-indexed
+      
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
       
       rowsToSync = bqRows.filter(row => {
-        // Include if start_date or end_date is recent
-        const startDate = row.start_date ? new Date(row.start_date) : null;
-        const endDate = row.end_date ? new Date(row.end_date) : null;
+        // Skip rows without month or year
+        if (!row.month || !row.year) return false;
         
-        // Include if no dates (safer to include)
-        if (!startDate && !endDate) return true;
+        const rowYear = row.year;
+        const rowMonthIndex = monthNames.indexOf(row.month);
         
-        // Include if either date is recent
-        if (startDate && startDate >= cutoffDate) return true;
-        if (endDate && endDate >= cutoffDate) return true;
+        // Skip if month name is invalid
+        if (rowMonthIndex === -1) return false;
+        
+        const rowMonth = rowMonthIndex + 1; // Convert to 1-indexed
+        
+        // Include if year is greater than cutoff year
+        if (rowYear > cutoffYear) return true;
+        
+        // If same year, check if month is >= cutoff month
+        if (rowYear === cutoffYear && rowMonth >= cutoffMonth) return true;
         
         return false;
       });
       
-      console.log(`[BigQuery Sync] 📅 RECENT ONLY: ${rowsToSync.length} rows (last ${monthsToSync} months, cutoff: ${cutoffDate.toISOString().split('T')[0]})`);
+      console.log(`[BigQuery Sync] 📅 RECENT ONLY: ${rowsToSync.length} rows (last ${monthsToSync} months, cutoff: ${monthNames[cutoffMonth - 1]} ${cutoffYear})`);
       console.log(`[BigQuery Sync] 📊 Filtered out ${bqRows.length - rowsToSync.length} older rows`);
     }
 
@@ -777,17 +794,34 @@ async function syncToBigQuery(options = {}) {
         });
       }
     } else if (recentOnly && cutoffDate) {
-      // Recent-only mode: delete recent data before inserting
-      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data from ${cutoffDate.toISOString().split('T')[0]} onwards`);
-      const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+      // Recent-only mode: delete recent data before inserting (based on month/year)
+      const cutoffYear = cutoffDate.getFullYear();
+      const cutoffMonth = cutoffDate.getMonth() + 1; // JavaScript months are 0-indexed
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data from ${monthNames[cutoffMonth - 1]} ${cutoffYear} onwards`);
+      
+      // Build list of months to delete
+      const monthsToDelete = [];
+      for (let y = cutoffYear; y <= new Date().getFullYear(); y++) {
+        const startMonth = (y === cutoffYear) ? cutoffMonth : 1;
+        const endMonth = (y === new Date().getFullYear()) ? new Date().getMonth() + 1 : 12;
+        
+        for (let m = startMonth; m <= endMonth; m++) {
+          monthsToDelete.push(`'${monthNames[m - 1]}'`);
+        }
+      }
+      
       await bigquery.query({
         query: `
           DELETE FROM \`${projectId}.${datasetId}.${tableId}\`
-          WHERE (start_date >= '${cutoffDateStr}' OR end_date >= '${cutoffDateStr}')
+          WHERE year >= ${cutoffYear}
+            AND month IN (${monthsToDelete.join(', ')})
         `,
         location: process.env.BIGQUERY_LOCATION || "US"
       });
-      console.log(`[BigQuery Sync] ✅ Deleted recent data (campaigns with dates >= ${cutoffDateStr})`);
+      console.log(`[BigQuery Sync] ✅ Deleted recent data (months >= ${monthNames[cutoffMonth - 1]} ${cutoffYear})`);
     }
 
     // Use smaller batches and add delays to reduce resource pressure
