@@ -9,6 +9,8 @@ import { toApiParams } from "../utils/apiFilters.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import { convertUsdToDisplay, formatAbsoluteCurrencyByContext, formatCompactCurrency } from "../utils/currencyDisplay.js";
 import SortableHeader from "./SortableHeader.jsx";
+import DownloadButton from "./DownloadButton.jsx";
+import { exportTableToCSV } from "../utils/csvExport.js";
 import "../../styles/Tables.css";
 
 function fmtImpr(v) {
@@ -156,12 +158,64 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
     </SortableHeader>
   );
 
+  const handleDownload = () => {
+    const headers = [
+      "Product",
+      "Total Campaigns",
+      "Budget Groups",
+      `Booked Revenue (${currencyContext?.code || "USD"})`,
+      `Spend (${currencyContext?.code || "USD"})`,
+      "Planned Impressions",
+      "Delivered Impressions",
+      "Delivered %",
+      `Gross Profit/Loss (${currencyContext?.code || "USD"})`,
+      "Gross Margin %",
+      `Net Margin (${currencyContext?.code || "USD"})`,
+      "Net Margin %"
+    ];
+
+    const dataRows = flattened.map(row => [
+      row.product || "",
+      row.totalCampaigns || 0,
+      row.budgetGroups || 0,
+      c(row.bookedRevenue) || 0,
+      c(row.spend) || 0,
+      row.plannedImpressions || 0,
+      row.deliveredImpressions || 0,
+      row.deliveredPct != null ? row.deliveredPct.toFixed(2) : "",
+      c(row.grossProfitLoss) || 0,
+      row.grossMargin != null ? row.grossMargin.toFixed(2) : "",
+      row.netMargin != null ? c(row.netMargin) : "",
+      row.netMarginPct != null ? row.netMarginPct.toFixed(2) : ""
+    ]);
+
+    if (totals) {
+      dataRows.push([
+        "Total",
+        totals.totalCampaigns || 0,
+        totals.budgetGroups || 0,
+        c(totals.bookedRevenue) || 0,
+        c(totals.spend) || 0,
+        totals.plannedImpressions || 0,
+        totals.deliveredImpressions || 0,
+        totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
+        c(totals.grossProfitLoss) || 0,
+        totals.grossMargin != null ? totals.grossMargin.toFixed(2) : "",
+        totals.netMargin != null ? c(totals.netMargin) : "",
+        totals.netMarginPct != null ? totals.netMarginPct.toFixed(2) : ""
+      ]);
+    }
+
+    exportTableToCSV(headers, dataRows, "product-wise-data");
+  };
+
   return (
     <div className="adv-table-card">
       <div className="adv-table-header">
         <h3 className="adv-table-title">
           Product and Platform wise data
           {totals?.rowCount && ` - Showing ${rows.length} of ${totals.rowCount} products`}
+          <DownloadButton onClick={handleDownload} title="Download Product Data as CSV" />
         </h3>
       </div>
 
