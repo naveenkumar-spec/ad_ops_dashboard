@@ -806,7 +806,10 @@ async function getCampaignsDetailed(limit = 50, offset = 0, filters = {}, view =
 }
 
 async function getRegionTable(filters = {}) {
+  console.log("[getRegionTable] Received filters:", JSON.stringify(filters));
   const { whereSql, params } = buildWhereClause(filters, "t");
+  console.log("[getRegionTable] WHERE clause:", whereSql);
+  console.log("[getRegionTable] Params:", JSON.stringify(params));
   const currencyMode = filters.currencyMode || "usd";
   const cols = getCurrencyColumns(currencyMode);
   
@@ -838,6 +841,7 @@ async function getRegionTable(filters = {}) {
     params
   );
 
+  console.log("[getRegionTable] Returned", rows.length, "rows");
   return rows.map((r) => ({
     region: r.country,
     parentRegion: r.parentRegion,

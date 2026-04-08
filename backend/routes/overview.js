@@ -279,9 +279,12 @@ router.get("/campaigns", async (_req, res) => {
 router.get("/regions", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);
+    console.log("[/regions] Received filters:", JSON.stringify(filters));
     const regions = await provider.getRegionTable(filters);
+    console.log("[/regions] Returned", regions.length, "regions");
     res.json(regions);
   } catch (error) {
+    console.error("[/regions] Error:", error.message);
     res.status(500).json({ error: "Failed to fetch regional data", message: error.message });
   }
 });
