@@ -55,7 +55,7 @@ export default function RegionTable({ title = "Region Performance", variant = "o
     const isManagement = variant === "management";
     const endpoint = isManagement ? "/api/management/regions" : "/api/overview/regions";
     const fallback = isManagement ? mockManagementRegions : mockRegions;
-    const params = isManagement ? filters : {};
+    const params = filters; // Pass filters for both overview and management variants
     apiGet(endpoint, { timeout: 6000, params })
       .then(res => {
         setData(res.data?.length ? res.data : fallback);
