@@ -177,20 +177,72 @@ function getDefaultInsights(data) {
  * Handle chatbot queries
  */
 async function handleChatQuery(query, context) {
-  const prompt = `You are a helpful marketing analytics assistant. Answer this question based on the dashboard data:
+  // Get current date information
+  const now = new Date();
+  const currentMonth = now.toLocaleString('en-US', { month: 'long' });
+  const currentYear = now.getFullYear();
+  const currentDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  
+  // Build enhanced context with date awareness
+  let contextDescription = `Current Date: ${currentDate}\nCurrent Month: ${currentMonth} ${currentYear}\n\n`;
+  
+  if (context.kpis) {
+    contextDescription += `Dashboard KPIs (All Time Total):\n`;
+    contextDescription += `- Total Revenue: $${context.kpis.totalRevenue?.toLocaleString() || 0}\n`;
+    contextDescription += `- Total Spend: $${context.kpis.totalSpend?.toLocaleString() || 0}\n`;
+    contextDescription += `- Gross Margin: ${context.kpis.grossMargin?.toFixed(1) || 0}%\n`;
+    contextDescription += `- Net Margin: ${context.kpis.netMargin?.toFixed(1) || 0}%\n`;
+    contextDescription += `- Total Campaigns: ${context.kpis.totalCampaigns || 0}\n`;
+    contextDescription += `- Budget Groups: ${context.kpis.budgetGroups || 0}\n\n`;
+  }
+  
+  if (context.campaigns?.length) {
+    contextDescription += `Top Campaigns:\n`;
+    context.campaigns.slice(0, 3).forEach((c, i) => {
+      contextDescription += `${i + 1}. ${c.campaignName}: Revenue $${c.revenue?.toLocaleString() || 0}, Margin ${c.grossMarginPct?.toFixed(1) || 0}%\n`;
+    });
+    contextDescription += `\n`;
+  }
+  
+  if (context.products?.length) {
+    contextDescription += `Products:\n`;
+    context.products.slice(0, 3).forEach((p, i) => {
+      contextDescription += `${i + 1}. ${p.product}: Revenue $${p.revenue?.toLocaleString() || 0}\n`;
+    });
+    contextDescription += `\n`;
+  }
+  
+  if (context.regions?.length) {
+    contextDescription += `Regions:\n`;
+    context.regions.slice(0, 3).forEach((r, i) => {
+      contextDescription += `${i + 1}. ${r.region}: Revenue $${r.revenue?.toLocaleString() || 0}\n`;
+    });
+    contextDescription += `\n`;
+  }
 
-Question: ${query}
+  const prompt = `You are a helpful marketing analytics assistant for an advertising operations dashboard.
 
-Context:
-${JSON.stringify(context, null, 2)}
+IMPORTANT INSTRUCTIONS:
+1. The data shown is ALL-TIME TOTAL unless the user specifically filtered by date
+2. When user asks "this month" or "current month", you should explain that the dashboard shows all-time totals
+3. Tell them they need to use the date filters on the dashboard to see specific month data
+4. The dashboard has month/year filters available for users to narrow down the data
+5. Be helpful and guide them on how to get the specific data they want
 
-Provide a clear, concise answer. If you need to reference numbers, format them nicely. If the data isn't available, say so politely.
+${contextDescription}
+
+User Question: ${query}
+
+Provide a clear, helpful answer. If they're asking about a specific time period:
+- Explain that the numbers shown are all-time totals
+- Guide them to use the dashboard filters to see specific month/year data
+- Be friendly and helpful
 
 Answer:`;
 
   try {
     console.log('[AI] Handling chat query:', query);
-    const response = await callAI(prompt, 300);
+    const response = await callAI(prompt, 400);
     console.log('[AI] Chat response generated successfully');
     
     return {
