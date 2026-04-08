@@ -121,7 +121,6 @@ function startBigQueryScheduler() {
       try {
         const result = await bigQuerySyncService.syncToBigQuery({
           fullRefresh: true, // Full refresh for transition table
-          recentOnly: false, // CRITICAL: Sync ALL data, not just recent
           forceRefresh: true, // Force refresh for daily update
           skipIfUnchanged: false,
           batchSize: 100
@@ -139,9 +138,8 @@ function startBigQueryScheduler() {
   }
 
   console.log(`[BigQuery Scheduler] Tracker sync: ${cronExpr} (recent ${2} months only, hourly)`);
-  console.log(`[BigQuery Scheduler] Transition refresh: Daily at 12:00 AM IST (${transitionCron} UTC) - FULL DATA SYNC`);
+  console.log(`[BigQuery Scheduler] Transition refresh: Daily at 12:00 AM IST (${transitionCron} UTC)`);
   console.log(`[BigQuery Scheduler] Manual sync: Full refresh including all historical data`);
-  console.log(`[BigQuery Scheduler] ⚠️  Daily sync will TRUNCATE and reload ALL data to prevent data loss`);
   
   return { 
     enabled: true, 

@@ -783,12 +783,11 @@ async function syncToBigQuery(options = {}) {
       await bigquery.query({
         query: `
           DELETE FROM \`${projectId}.${datasetId}.${tableId}\`
-          WHERE start_date >= '${cutoffDateStr}'
-             OR end_date >= '${cutoffDateStr}'
-             OR start_date IS NULL
+          WHERE (start_date >= '${cutoffDateStr}' OR end_date >= '${cutoffDateStr}')
         `,
         location: process.env.BIGQUERY_LOCATION || "US"
       });
+      console.log(`[BigQuery Sync] ✅ Deleted recent data (campaigns with dates >= ${cutoffDateStr})`);
     }
 
     // Use smaller batches and add delays to reduce resource pressure
