@@ -163,33 +163,16 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
   );
 
   const handleDownload = () => {
-    // Flatten data for CSV export (include both regions and countries)
+    // Flatten data for CSV export with Region and Country columns
     const exportData = [];
     
     sortedData.forEach((region) => {
-      // Add region row
-      exportData.push({
-        type: 'Region',
-        name: region.region,
-        campaigns: region.campaigns,
-        budgetGroups: region.budgetGroups,
-        revenue: c(region.revenue),
-        spend: c(region.spend),
-        plannedImpressions: region.plannedImpressions,
-        deliveredImpressions: region.deliveredImpressions,
-        deliveredPct: region.deliveredPct,
-        grossMargin: c(region.grossMargin),
-        grossMarginPct: region.grossMarginPct,
-        netMargin: c(region.netMargin),
-        netMarginPct: region.netMarginPct
-      });
-      
-      // Add country rows
+      // Add country rows under each region
       const children = childrenByRegion[region.region] || [];
       children.forEach((country) => {
         exportData.push({
-          type: 'Country',
-          name: country.country,
+          region: region.region,
+          country: country.country,
           campaigns: country.campaigns,
           budgetGroups: country.budgetGroups,
           revenue: c(country.revenue),
@@ -205,9 +188,28 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
       });
     });
     
+    // Add totals row at the end
+    if (totals) {
+      exportData.push({
+        region: 'Total',
+        country: '',
+        campaigns: totals.campaigns,
+        budgetGroups: totals.budgetGroups,
+        revenue: c(totals.revenue),
+        spend: c(totals.spend),
+        plannedImpressions: totals.plannedImpressions,
+        deliveredImpressions: totals.deliveredImpressions,
+        deliveredPct: totals.deliveredPct,
+        grossMargin: c(totals.grossMargin),
+        grossMarginPct: totals.grossMarginPct,
+        netMargin: c(totals.netMargin),
+        netMarginPct: totals.netMarginPct
+      });
+    }
+    
     const columns = [
-      { key: 'type', label: 'Type' },
-      { key: 'name', label: 'Region / Country' },
+      { key: 'region', label: 'Region' },
+      { key: 'country', label: 'Country' },
       { key: 'campaigns', label: 'Total Campaigns' },
       { key: 'budgetGroups', label: 'Budget Groups' },
       { key: 'revenue', label: `Booked Revenue (${currencyContext?.symbol || 'USD'})` },
@@ -231,8 +233,8 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
         <h3 className="adv-table-title">
           Region / Country wise Data
           {totals?.rowCount && ` - Showing ${data.length} of ${totals.rowCount} regions`}
+          <DownloadButton onClick={handleDownload} disabled={loading || !data.length} />
         </h3>
-        <DownloadButton onClick={handleDownload} disabled={loading || !data.length} />
       </div>
 
       {loading ? (

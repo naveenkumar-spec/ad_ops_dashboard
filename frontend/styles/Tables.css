@@ -116,6 +116,9 @@
   color: #102235;
   margin: 0;
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .table-card-body { width: 100%; overflow-x: auto; }
