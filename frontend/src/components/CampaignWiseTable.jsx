@@ -211,77 +211,104 @@ export default function CampaignWiseTable({ filters = {}, currencyContext = null
   );
 
   const handleDownload = () => {
-    const exportData = data.map((row) => ({
-      campaignName: row.name,
-      budgetGroups: row.budgetGroups || 0,
-      startDate: fmtDate(row.startDate),
-      endDate: fmtDate(row.endDate),
-      status: row.status,
-      duration: row.duration || 0,
-      daysRemaining: row.daysRemaining || 0,
-      pctPassed: row.pctPassed != null ? row.pctPassed.toFixed(2) : "",
-      plannedImpressions: Math.round(row.plannedImpressions || 0),
-      deliveredImpressions: Math.round(row.deliveredImpressions || 0),
-      dailyRequiredPace: Math.round(row.dailyRequiredPace || 0),
-      yesterdayPace: Math.round(row.yesterdayPace || 0),
-      revenue: Math.round(c(row.revenue) || 0),
-      spend: Math.round(c(row.spend) || 0),
-      grossMargin: Math.round(c(row.grossMargin) || 0),
-      grossMarginPct: row.grossMarginPct != null ? row.grossMarginPct.toFixed(2) : "",
-      netMargin: Math.round(c(row.netMargin) || 0),
-      netMarginPct: row.netMarginPct != null ? row.netMarginPct.toFixed(2) : "",
-      paceRemarks: row.paceRemarks || ""
-    }));
-
-    // Add totals row
-    if (totalsDerived) {
-      exportData.push({
-        campaignName: "Total",
-        budgetGroups: totalsDerived.budgetGroups || 0,
-        startDate: "",
-        endDate: "",
-        status: "",
-        duration: totalsDerived.duration || 0,
-        daysRemaining: totalsDerived.daysRemaining || 0,
-        pctPassed: totalsDerived.avgPctPassed != null ? totalsDerived.avgPctPassed.toFixed(2) : "",
-        plannedImpressions: Math.round(totalsDerived.plannedImpressions || 0),
-        deliveredImpressions: Math.round(totalsDerived.deliveredImpressions || 0),
-        dailyRequiredPace: "",
-        yesterdayPace: Math.round(totalsDerived.yesterdayPace || 0),
-        revenue: Math.round(c(totalsDerived.revenue) || 0),
-        spend: Math.round(c(totalsDerived.spend) || 0),
-        grossMargin: Math.round(c(totalsDerived.grossMargin) || 0),
-        grossMarginPct: totalsDerived.grossMarginPct != null ? totalsDerived.grossMarginPct.toFixed(2) : "",
-        netMargin: Math.round(c(totalsDerived.netMargin) || 0),
-        netMarginPct: totalsDerived.netMarginPct != null ? totalsDerived.netMarginPct.toFixed(2) : "",
-        paceRemarks: ""
-      });
+    // Fetch ALL data for CSV export (no pagination)
+    const apiParams = {
+      ...toApiParams(filters),
+      currencyMode: currencyContext?.mode === "Native" ? "native" : "usd",
+      limit: 999999,
+      offset: 0
+    };
+    if (campaignFilter.trim()) {
+      apiParams.campaign = campaignFilter.trim();
+    }
+    if (sortField) {
+      apiParams.sortBy = sortField;
+      apiParams.sortOrder = sortDirection;
     }
 
-    const columns = [
-      { key: 'campaignName', label: 'Campaign Name' },
-      { key: 'budgetGroups', label: 'Budget Groups' },
-      { key: 'startDate', label: 'Start Date' },
-      { key: 'endDate', label: 'End Date' },
-      { key: 'status', label: 'Status' },
-      { key: 'duration', label: 'Campaign Duration' },
-      { key: 'daysRemaining', label: 'Days Remaining' },
-      { key: 'pctPassed', label: '% of Days Passed' },
-      { key: 'plannedImpressions', label: 'Planned Impressions' },
-      { key: 'deliveredImpressions', label: 'Delivered Impressions' },
-      { key: 'dailyRequiredPace', label: 'Daily Required Pace' },
-      { key: 'yesterdayPace', label: "Yesterday's Pace" },
-      { key: 'revenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
-      { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
-      { key: 'grossMargin', label: `Gross Margin (${currencyContext?.code || "USD"})` },
-      { key: 'grossMarginPct', label: 'Gross Margin %' },
-      { key: 'netMargin', label: `Net Margin (${currencyContext?.code || "USD"})` },
-      { key: 'netMarginPct', label: 'Net Margin %' },
-      { key: 'paceRemarks', label: 'Pace Remarks' }
-    ];
+    apiGet("/api/overview/campaign-wise", {
+      timeout: 30000,
+      params: apiParams
+    })
+      .then((res) => {
+        const allData = (res.data?.rows || data).map(deriveRow);
+        
+        const exportData = allData.map((row) => ({
+          campaignName: row.name,
+          budgetGroups: row.budgetGroups || 0,
+          startDate: fmtDate(row.startDate),
+          endDate: fmtDate(row.endDate),
+          status: row.status,
+          duration: row.duration || 0,
+          daysRemaining: row.daysRemaining || 0,
+          pctPassed: row.pctPassed != null ? row.pctPassed.toFixed(2) : "",
+          plannedImpressions: Math.round(row.plannedImpressions || 0),
+          deliveredImpressions: Math.round(row.deliveredImpressions || 0),
+          dailyRequiredPace: Math.round(row.dailyRequiredPace || 0),
+          yesterdayPace: Math.round(row.yesterdayPace || 0),
+          revenue: Math.round(c(row.revenue) || 0),
+          spend: Math.round(c(row.spend) || 0),
+          grossMargin: Math.round(c(row.grossMargin) || 0),
+          grossMarginPct: row.grossMarginPct != null ? row.grossMarginPct.toFixed(2) : "",
+          netMargin: Math.round(c(row.netMargin) || 0),
+          netMarginPct: row.netMarginPct != null ? row.netMarginPct.toFixed(2) : "",
+          paceRemarks: row.paceRemarks || ""
+        }));
 
-    const timestamp = new Date().toISOString().split('T')[0];
-    exportTableToCSV(exportData, columns, `campaign-wise-data-${timestamp}`);
+        // Add totals row
+        if (totalsDerived) {
+          exportData.push({
+            campaignName: "Total",
+            budgetGroups: totalsDerived.budgetGroups || 0,
+            startDate: "",
+            endDate: "",
+            status: "",
+            duration: totalsDerived.duration || 0,
+            daysRemaining: totalsDerived.daysRemaining || 0,
+            pctPassed: totalsDerived.avgPctPassed != null ? totalsDerived.avgPctPassed.toFixed(2) : "",
+            plannedImpressions: Math.round(totalsDerived.plannedImpressions || 0),
+            deliveredImpressions: Math.round(totalsDerived.deliveredImpressions || 0),
+            dailyRequiredPace: "",
+            yesterdayPace: Math.round(totalsDerived.yesterdayPace || 0),
+            revenue: Math.round(c(totalsDerived.revenue) || 0),
+            spend: Math.round(c(totalsDerived.spend) || 0),
+            grossMargin: Math.round(c(totalsDerived.grossMargin) || 0),
+            grossMarginPct: totalsDerived.grossMarginPct != null ? totalsDerived.grossMarginPct.toFixed(2) : "",
+            netMargin: Math.round(c(totalsDerived.netMargin) || 0),
+            netMarginPct: totalsDerived.netMarginPct != null ? totalsDerived.netMarginPct.toFixed(2) : "",
+            paceRemarks: ""
+          });
+        }
+
+        const columns = [
+          { key: 'campaignName', label: 'Campaign Name' },
+          { key: 'budgetGroups', label: 'Budget Groups' },
+          { key: 'startDate', label: 'Start Date' },
+          { key: 'endDate', label: 'End Date' },
+          { key: 'status', label: 'Status' },
+          { key: 'duration', label: 'Campaign Duration' },
+          { key: 'daysRemaining', label: 'Days Remaining' },
+          { key: 'pctPassed', label: '% of Days Passed' },
+          { key: 'plannedImpressions', label: 'Planned Impressions' },
+          { key: 'deliveredImpressions', label: 'Delivered Impressions' },
+          { key: 'dailyRequiredPace', label: 'Daily Required Pace' },
+          { key: 'yesterdayPace', label: "Yesterday's Pace" },
+          { key: 'revenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
+          { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
+          { key: 'grossMargin', label: `Gross Margin (${currencyContext?.code || "USD"})` },
+          { key: 'grossMarginPct', label: 'Gross Margin %' },
+          { key: 'netMargin', label: `Net Margin (${currencyContext?.code || "USD"})` },
+          { key: 'netMarginPct', label: 'Net Margin %' },
+          { key: 'paceRemarks', label: 'Pace Remarks' }
+        ];
+
+        const timestamp = new Date().toISOString().split('T')[0];
+        exportTableToCSV(exportData, columns, `campaign-wise-data-${timestamp}`);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch all data for export:", error);
+        alert("Failed to download data. Please try again.");
+      });
   };
 
   return (

@@ -163,62 +163,105 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
   );
 
   const handleDownload = () => {
-    // Flatten data for CSV export with Region and Country columns
-    const exportData = [];
-    
-    sortedData.forEach((region) => {
-      // Add country rows under each region
-      const children = childrenByRegion[region.region] || [];
-      children.forEach((country) => {
-        exportData.push({
-          region: region.region,
-          country: country.country,
-          campaigns: country.campaigns,
-          budgetGroups: country.budgetGroups,
-          revenue: Math.round(c(country.revenue)),
-          spend: Math.round(c(country.spend)),
-          plannedImpressions: Math.round(country.plannedImpressions || 0),
-          deliveredImpressions: Math.round(country.deliveredImpressions || 0),
-          deliveredPct: country.deliveredPct != null ? country.deliveredPct.toFixed(2) : "",
-          grossMargin: Math.round(c(country.grossMargin)),
-          grossMarginPct: country.grossMarginPct != null ? country.grossMarginPct.toFixed(2) : ""
+    // Fetch ALL data for CSV export (no pagination)
+    const apiParams = {
+      ...toApiParams(filters),
+      currencyMode: currencyContext?.mode === "Native" ? "native" : "usd",
+      limit: 999999,
+      offset: 0
+    };
+
+    Promise.all([
+      apiGet("/api/overview/country-wise", {
+        timeout: 30000,
+        params: apiParams
+      }),
+      apiGet("/api/overview/regions", { timeout: 30000, params: { ...toApiParams(filters), currencyMode: apiParams.currencyMode } })
+    ])
+      .then(([countryRes, regionRes]) => {
+        const allData = countryRes.data?.rows || data;
+        
+        // Build children map from regions response
+        const map = {};
+        (regionRes.data || []).forEach((row) => {
+          const parent = String(row.parentRegion || "").trim();
+          if (!parent) return;
+          if (!map[parent]) map[parent] = [];
+          map[parent].push({
+            country: row.country || row.region,
+            campaigns: row.totalCampaigns,
+            budgetGroups: row.budgetGroups,
+            revenue: row.bookedRevenue,
+            spend: row.spend,
+            plannedImpressions: row.plannedImpressions,
+            deliveredImpressions: row.deliveredImpressions,
+            deliveredPct: row.deliveredPct,
+            grossMargin: row.grossMargin,
+            grossMarginPct: row.grossMarginPct
+          });
         });
+
+        // Flatten data for CSV export with Region and Country columns
+        const exportData = [];
+        
+        allData.forEach((region) => {
+          // Add country rows under each region
+          const children = map[region.region] || [];
+          children.forEach((country) => {
+            exportData.push({
+              region: region.region,
+              country: country.country,
+              campaigns: country.campaigns,
+              budgetGroups: country.budgetGroups,
+              revenue: Math.round(c(country.revenue)),
+              spend: Math.round(c(country.spend)),
+              plannedImpressions: Math.round(country.plannedImpressions || 0),
+              deliveredImpressions: Math.round(country.deliveredImpressions || 0),
+              deliveredPct: country.deliveredPct != null ? country.deliveredPct.toFixed(2) : "",
+              grossMargin: Math.round(c(country.grossMargin)),
+              grossMarginPct: country.grossMarginPct != null ? country.grossMarginPct.toFixed(2) : ""
+            });
+          });
+        });
+        
+        // Add totals row at the end
+        if (totals) {
+          exportData.push({
+            region: 'Total',
+            country: '',
+            campaigns: totals.campaigns,
+            budgetGroups: totals.budgetGroups,
+            revenue: Math.round(c(totals.revenue)),
+            spend: Math.round(c(totals.spend)),
+            plannedImpressions: Math.round(totals.plannedImpressions || 0),
+            deliveredImpressions: Math.round(totals.deliveredImpressions || 0),
+            deliveredPct: totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
+            grossMargin: Math.round(c(totals.grossMargin)),
+            grossMarginPct: totals.grossMarginPct != null ? totals.grossMarginPct.toFixed(2) : ""
+          });
+        }
+        
+        const columns = [
+          { key: 'region', label: 'Region' },
+          { key: 'country', label: 'Country' },
+          { key: 'campaigns', label: 'Total Campaigns' },
+          { key: 'budgetGroups', label: 'Budget Groups' },
+          { key: 'revenue', label: `Booked Revenue (${currencyContext?.symbol || 'USD'})` },
+          { key: 'spend', label: `Spend (${currencyContext?.symbol || 'USD'})` },
+          { key: 'plannedImpressions', label: 'Planned Impressions' },
+          { key: 'deliveredImpressions', label: 'Delivered Impressions' },
+          { key: 'deliveredPct', label: 'Delivered %' },
+          { key: 'grossMargin', label: `Gross Margin (${currencyContext?.symbol || 'USD'})` },
+          { key: 'grossMarginPct', label: 'Gross Margin %' }
+        ];
+        
+        const timestamp = new Date().toISOString().split('T')[0];
+        exportTableToCSV(exportData, columns, `country-wise-data-${timestamp}`);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch all data for export:", error);
+        alert("Failed to download data. Please try again.");
       });
-    });
-    
-    // Add totals row at the end
-    if (totals) {
-      exportData.push({
-        region: 'Total',
-        country: '',
-        campaigns: totals.campaigns,
-        budgetGroups: totals.budgetGroups,
-        revenue: Math.round(c(totals.revenue)),
-        spend: Math.round(c(totals.spend)),
-        plannedImpressions: Math.round(totals.plannedImpressions || 0),
-        deliveredImpressions: Math.round(totals.deliveredImpressions || 0),
-        deliveredPct: totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
-        grossMargin: Math.round(c(totals.grossMargin)),
-        grossMarginPct: totals.grossMarginPct != null ? totals.grossMarginPct.toFixed(2) : ""
-      });
-    }
-    
-    const columns = [
-      { key: 'region', label: 'Region' },
-      { key: 'country', label: 'Country' },
-      { key: 'campaigns', label: 'Total Campaigns' },
-      { key: 'budgetGroups', label: 'Budget Groups' },
-      { key: 'revenue', label: `Booked Revenue (${currencyContext?.symbol || 'USD'})` },
-      { key: 'spend', label: `Spend (${currencyContext?.symbol || 'USD'})` },
-      { key: 'plannedImpressions', label: 'Planned Impressions' },
-      { key: 'deliveredImpressions', label: 'Delivered Impressions' },
-      { key: 'deliveredPct', label: 'Delivered %' },
-      { key: 'grossMargin', label: `Gross Margin (${currencyContext?.symbol || 'USD'})` },
-      { key: 'grossMarginPct', label: 'Gross Margin %' }
-    ];
-    
-    const timestamp = new Date().toISOString().split('T')[0];
-    exportTableToCSV(exportData, columns, `country-wise-data-${timestamp}`);
   };
 
   return (

@@ -187,82 +187,101 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
   );
 
   const handleDownload = () => {
-    // Flatten data for CSV export with Product and Platform columns (similar to Region/Country)
-    const exportData = [];
-    
-    rows.forEach((product) => {
-      // Get platform children for this product
-      const children = platformsByProduct[product.product] || [];
-      
-      if (children.length > 0) {
-        // Add platform rows under each product
-        children.forEach((platform) => {
+    // Fetch ALL data for CSV export (no pagination)
+    const apiParams = {
+      ...toApiParams(filters),
+      currencyMode: currencyContext?.mode === "Native" ? "native" : "usd",
+      limit: 999999, // Request all rows
+      offset: 0
+    };
+
+    apiGet("/api/overview/product-wise", {
+      timeout: 30000,
+      params: apiParams
+    })
+      .then((res) => {
+        const allRows = res.data?.rows || rows; // Fallback to current rows if API fails
+        
+        // Flatten data for CSV export with Product and Platform columns
+        const exportData = [];
+        
+        allRows.forEach((product) => {
+          // Get platform children for this product
+          const children = platformsByProduct[product.product] || [];
+          
+          if (children.length > 0) {
+            // Add platform rows under each product
+            children.forEach((platform) => {
+              exportData.push({
+                product: product.product,
+                platform: platform.platform,
+                totalCampaigns: platform.totalCampaigns || 0,
+                budgetGroups: platform.budgetGroups || 0,
+                bookedRevenue: Math.round(c(platform.bookedRevenue) || 0),
+                spend: Math.round(c(platform.spend) || 0),
+                plannedImpressions: Math.round(platform.plannedImpressions || 0),
+                deliveredImpressions: Math.round(platform.deliveredImpressions || 0),
+                deliveredPct: platform.deliveredPct != null ? platform.deliveredPct.toFixed(2) : "",
+                grossProfitLoss: Math.round(c(platform.grossProfitLoss) || 0),
+                grossMargin: platform.grossMargin != null ? platform.grossMargin.toFixed(2) : ""
+              });
+            });
+          } else {
+            // If no children, add the product row itself
+            exportData.push({
+              product: product.product,
+              platform: "",
+              totalCampaigns: product.totalCampaigns || 0,
+              budgetGroups: product.budgetGroups || 0,
+              bookedRevenue: Math.round(c(product.bookedRevenue) || 0),
+              spend: Math.round(c(product.spend) || 0),
+              plannedImpressions: Math.round(product.plannedImpressions || 0),
+              deliveredImpressions: Math.round(product.deliveredImpressions || 0),
+              deliveredPct: product.deliveredPct != null ? product.deliveredPct.toFixed(2) : "",
+              grossProfitLoss: Math.round(c(product.grossProfitLoss) || 0),
+              grossMargin: product.grossMargin != null ? product.grossMargin.toFixed(2) : ""
+            });
+          }
+        });
+
+        // Add totals row at the end
+        if (totals) {
           exportData.push({
-            product: product.product,
-            platform: platform.platform,
-            totalCampaigns: platform.totalCampaigns || 0,
-            budgetGroups: platform.budgetGroups || 0,
-            bookedRevenue: Math.round(c(platform.bookedRevenue) || 0),
-            spend: Math.round(c(platform.spend) || 0),
-            plannedImpressions: Math.round(platform.plannedImpressions || 0),
-            deliveredImpressions: Math.round(platform.deliveredImpressions || 0),
-            deliveredPct: platform.deliveredPct != null ? platform.deliveredPct.toFixed(2) : "",
-            grossProfitLoss: Math.round(c(platform.grossProfitLoss) || 0),
-            grossMargin: platform.grossMargin != null ? platform.grossMargin.toFixed(2) : ""
+            product: "Total",
+            platform: "",
+            totalCampaigns: totals.totalCampaigns || 0,
+            budgetGroups: totals.budgetGroups || 0,
+            bookedRevenue: Math.round(c(totals.bookedRevenue) || 0),
+            spend: Math.round(c(totals.spend) || 0),
+            plannedImpressions: Math.round(totals.plannedImpressions || 0),
+            deliveredImpressions: Math.round(totals.deliveredImpressions || 0),
+            deliveredPct: totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
+            grossProfitLoss: Math.round(c(totals.grossProfitLoss) || 0),
+            grossMargin: totals.grossMargin != null ? totals.grossMargin.toFixed(2) : ""
           });
-        });
-      } else {
-        // If no children, add the product row itself
-        exportData.push({
-          product: product.product,
-          platform: "", // No platform for products without children
-          totalCampaigns: product.totalCampaigns || 0,
-          budgetGroups: product.budgetGroups || 0,
-          bookedRevenue: Math.round(c(product.bookedRevenue) || 0),
-          spend: Math.round(c(product.spend) || 0),
-          plannedImpressions: Math.round(product.plannedImpressions || 0),
-          deliveredImpressions: Math.round(product.deliveredImpressions || 0),
-          deliveredPct: product.deliveredPct != null ? product.deliveredPct.toFixed(2) : "",
-          grossProfitLoss: Math.round(c(product.grossProfitLoss) || 0),
-          grossMargin: product.grossMargin != null ? product.grossMargin.toFixed(2) : ""
-        });
-      }
-    });
+        }
 
-    // Add totals row at the end
-    if (totals) {
-      exportData.push({
-        product: "Total",
-        platform: "",
-        totalCampaigns: totals.totalCampaigns || 0,
-        budgetGroups: totals.budgetGroups || 0,
-        bookedRevenue: Math.round(c(totals.bookedRevenue) || 0),
-        spend: Math.round(c(totals.spend) || 0),
-        plannedImpressions: Math.round(totals.plannedImpressions || 0),
-        deliveredImpressions: Math.round(totals.deliveredImpressions || 0),
-        deliveredPct: totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
-        grossProfitLoss: Math.round(c(totals.grossProfitLoss) || 0),
-        grossMargin: totals.grossMargin != null ? totals.grossMargin.toFixed(2) : ""
+        const columns = [
+          { key: 'product', label: 'Product' },
+          { key: 'platform', label: 'Platform' },
+          { key: 'totalCampaigns', label: 'Total Campaigns' },
+          { key: 'budgetGroups', label: 'Budget Groups' },
+          { key: 'bookedRevenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
+          { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
+          { key: 'plannedImpressions', label: 'Planned Impressions' },
+          { key: 'deliveredImpressions', label: 'Delivered Impressions' },
+          { key: 'deliveredPct', label: 'Delivered %' },
+          { key: 'grossProfitLoss', label: `Gross Profit/Loss (${currencyContext?.code || "USD"})` },
+          { key: 'grossMargin', label: 'Gross Margin %' }
+        ];
+
+        const timestamp = new Date().toISOString().split('T')[0];
+        exportTableToCSV(exportData, columns, `product-platform-data-${timestamp}`);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch all data for export:", error);
+        alert("Failed to download data. Please try again.");
       });
-    }
-
-    // Define columns (removed Net Margin columns as they're not available in this table)
-    const columns = [
-      { key: 'product', label: 'Product' },
-      { key: 'platform', label: 'Platform' },
-      { key: 'totalCampaigns', label: 'Total Campaigns' },
-      { key: 'budgetGroups', label: 'Budget Groups' },
-      { key: 'bookedRevenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
-      { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
-      { key: 'plannedImpressions', label: 'Planned Impressions' },
-      { key: 'deliveredImpressions', label: 'Delivered Impressions' },
-      { key: 'deliveredPct', label: 'Delivered %' },
-      { key: 'grossProfitLoss', label: `Gross Profit/Loss (${currencyContext?.code || "USD"})` },
-      { key: 'grossMargin', label: 'Gross Margin %' }
-    ];
-
-    const timestamp = new Date().toISOString().split('T')[0];
-    exportTableToCSV(exportData, columns, `product-platform-data-${timestamp}`);
   };
 
   return (

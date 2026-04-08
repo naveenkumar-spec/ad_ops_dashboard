@@ -133,48 +133,69 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
   );
 
   const handleDownload = () => {
-    const exportData = sortedData.map((row) => ({
-      campaignName: row.name,
-      status: row.status,
-      revenue: Math.round(converted(row.revenue) || 0),
-      spend: Math.round(converted(row.spend) || 0),
-      grossMargin: Math.round(converted(row.grossMargin) || 0),
-      grossMarginPct: row.grossMarginPct != null ? row.grossMarginPct.toFixed(2) : "",
-      netMargin: Math.round(converted(row.netMargin) || 0),
-      netMarginPct: row.netMarginPct != null ? row.netMarginPct.toFixed(2) : "",
-      plannedImpressions: Math.round(row.plannedImpressions || 0)
-    }));
+    // Fetch ALL data for CSV export (no pagination)
+    const apiParams = {
+      ...toApiParams(filters),
+      currencyMode: currencyContext?.mode === "Native" ? "native" : "usd",
+      view,
+      limit: 999999,
+      offset: 0
+    };
+    
+    apiGet("/api/overview/campaigns-detailed", {
+      timeout: 30000,
+      params: apiParams
+    })
+      .then((res) => {
+        const allData = res.data?.rows || data;
+        
+        const exportData = allData.map((row) => ({
+          campaignName: row.name,
+          status: row.status,
+          revenue: Math.round(converted(row.revenue) || 0),
+          spend: Math.round(converted(row.spend) || 0),
+          grossMargin: Math.round(converted(row.grossMargin) || 0),
+          grossMarginPct: row.grossMarginPct != null ? row.grossMarginPct.toFixed(2) : "",
+          netMargin: Math.round(converted(row.netMargin) || 0),
+          netMarginPct: row.netMarginPct != null ? row.netMarginPct.toFixed(2) : "",
+          plannedImpressions: Math.round(row.plannedImpressions || 0)
+        }));
 
-    // Add totals row
-    if (totals) {
-      exportData.push({
-        campaignName: "Total",
-        status: "",
-        revenue: Math.round(converted(totals.revenue) || 0),
-        spend: Math.round(converted(totals.spend) || 0),
-        grossMargin: Math.round(converted(totals.grossMargin) || 0),
-        grossMarginPct: totals.grossMarginPct != null ? totals.grossMarginPct.toFixed(2) : "",
-        netMargin: Math.round(converted(totals.netMargin) || 0),
-        netMarginPct: totals.netMarginPct != null ? totals.netMarginPct.toFixed(2) : "",
-        plannedImpressions: Math.round(totals.plannedImpressions || 0)
+        // Add totals row
+        if (totals) {
+          exportData.push({
+            campaignName: "Total",
+            status: "",
+            revenue: Math.round(converted(totals.revenue) || 0),
+            spend: Math.round(converted(totals.spend) || 0),
+            grossMargin: Math.round(converted(totals.grossMargin) || 0),
+            grossMarginPct: totals.grossMarginPct != null ? totals.grossMarginPct.toFixed(2) : "",
+            netMargin: Math.round(converted(totals.netMargin) || 0),
+            netMarginPct: totals.netMarginPct != null ? totals.netMarginPct.toFixed(2) : "",
+            plannedImpressions: Math.round(totals.plannedImpressions || 0)
+          });
+        }
+
+        const columns = [
+          { key: 'campaignName', label: 'Campaign Name' },
+          { key: 'status', label: 'Status' },
+          { key: 'revenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
+          { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
+          { key: 'grossMargin', label: `Gross Margin (${currencyContext?.code || "USD"})` },
+          { key: 'grossMarginPct', label: 'Gross Margin %' },
+          { key: 'netMargin', label: `Net Margin (${currencyContext?.code || "USD"})` },
+          { key: 'netMarginPct', label: 'Net Margin %' },
+          { key: 'plannedImpressions', label: 'Planned Impressions' }
+        ];
+
+        const timestamp = new Date().toISOString().split('T')[0];
+        const viewLabel = view === "bottom" ? "bottom" : "top";
+        exportTableToCSV(exportData, columns, `${viewLabel}-campaigns-${timestamp}`);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch all data for export:", error);
+        alert("Failed to download data. Please try again.");
       });
-    }
-
-    const columns = [
-      { key: 'campaignName', label: 'Campaign Name' },
-      { key: 'status', label: 'Status' },
-      { key: 'revenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
-      { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
-      { key: 'grossMargin', label: `Gross Margin (${currencyContext?.code || "USD"})` },
-      { key: 'grossMarginPct', label: 'Gross Margin %' },
-      { key: 'netMargin', label: `Net Margin (${currencyContext?.code || "USD"})` },
-      { key: 'netMarginPct', label: 'Net Margin %' },
-      { key: 'plannedImpressions', label: 'Planned Impressions' }
-    ];
-
-    const timestamp = new Date().toISOString().split('T')[0];
-    const viewLabel = view === "bottom" ? "bottom" : "top";
-    exportTableToCSV(exportData, columns, `${viewLabel}-campaigns-${timestamp}`);
   };
 
   return (
