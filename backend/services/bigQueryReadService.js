@@ -503,7 +503,7 @@ async function getKpis(filters = {}) {
     `
       SELECT
         COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS campaigns,
-        COUNTIF(NULLIF(TRIM(COALESCE(t.campaign_name, '')), '') IS NOT NULL) AS budget_groups,
+        SUM(COALESCE(t.budget_groups, 0)) AS budget_groups,
         SUM(COALESCE(t.${revenueCol}, 0)) AS total_revenue,
         SUM(COALESCE(t.${spendCol}, 0)) AS total_spend,
         SUM(COALESCE(t.${revenueCol}, 0) - COALESCE(t.${spendCol}, 0)) AS total_gross_margin,
