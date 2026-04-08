@@ -174,80 +174,151 @@ function getDefaultInsights(data) {
 }
 
 /**
- * Handle chatbot queries
+ * Handle chatbot queries with intelligent data fetching
  */
-async function handleChatQuery(query, context) {
+async function handleChatQuery(query, context, dataFetcher) {
   // Get current date information
   const now = new Date();
   const currentMonth = now.toLocaleString('en-US', { month: 'long' });
   const currentYear = now.getFullYear();
-  const currentDate = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   
-  // Build enhanced context with date awareness
-  let contextDescription = `Current Date: ${currentDate}\nCurrent Month: ${currentMonth} ${currentYear}\n\n`;
+  // Parse query to understand what data is needed
+  const queryLower = query.toLowerCase();
+  const needsMonthly = /this month|current month|monthly|month of/i.test(query);
+  const needsDaily = /today|daily|this day/i.test(query);
+  const needsCountry = /country|region|location|where/i.test(query);
+  const needsPlatform = /platform|channel/i.test(query);
+  const needsProduct = /product/i.test(query);
+  const needsCampaign = /campaign/i.test(query);
   
-  if (context.kpis) {
-    contextDescription += `Dashboard KPIs (All Time Total):\n`;
-    contextDescription += `- Total Revenue: $${context.kpis.totalRevenue?.toLocaleString() || 0}\n`;
-    contextDescription += `- Total Spend: $${context.kpis.totalSpend?.toLocaleString() || 0}\n`;
-    contextDescription += `- Gross Margin: ${context.kpis.grossMargin?.toFixed(1) || 0}%\n`;
-    contextDescription += `- Net Margin: ${context.kpis.netMargin?.toFixed(1) || 0}%\n`;
-    contextDescription += `- Total Campaigns: ${context.kpis.totalCampaigns || 0}\n`;
-    contextDescription += `- Budget Groups: ${context.kpis.budgetGroups || 0}\n\n`;
+  // Extract month/year from query if mentioned
+  let targetMonth = currentMonth;
+  let targetYear = currentYear;
+  
+  const monthMatch = query.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i);
+  if (monthMatch) {
+    targetMonth = monthMatch[1].charAt(0).toUpperCase() + monthMatch[1].slice(1).toLowerCase();
   }
   
-  if (context.campaigns?.length) {
+  const yearMatch = query.match(/\b(20\d{2})\b/);
+  if (yearMatch) {
+    targetYear = parseInt(yearMatch[1]);
+  }
+  
+  // Build filters based on query
+  const filters = {};
+  if (needsMonthly) {
+    filters.month = targetMonth;
+    filters.year = targetYear;
+  }
+  
+  // Fetch relevant data using the dataFetcher
+  let enhancedContext = { ...context };
+  
+  if (dataFetcher) {
+    try {
+      // Fetch data based on what's needed
+      if (needsCountry && dataFetcher.getCountryData) {
+        enhancedContext.countryData = await dataFetcher.getCountryData(filters);
+      }
+      if (needsPlatform && dataFetcher.getPlatformData) {
+        enhancedContext.platformData = await dataFetcher.getPlatformData(filters);
+      }
+      if (needsProduct && dataFetcher.getProductData) {
+        enhancedContext.productData = await dataFetcher.getProductData(filters);
+      }
+      if (needsCampaign && dataFetcher.getCampaignData) {
+        enhancedContext.campaignData = await dataFetcher.getCampaignData(filters);
+      }
+      // Always fetch KPIs with appropriate filters
+      if (dataFetcher.getKPIs) {
+        enhancedContext.kpis = await dataFetcher.getKPIs(filters);
+      }
+    } catch (error) {
+      console.error('[AI] Error fetching enhanced data:', error);
+    }
+  }
+  
+  // Build context description
+  let contextDescription = `Current Date: ${now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}\n`;
+  
+  if (Object.keys(filters).length > 0) {
+    contextDescription += `\nFilters Applied:\n`;
+    if (filters.month) contextDescription += `- Month: ${filters.month}\n`;
+    if (filters.year) contextDescription += `- Year: ${filters.year}\n`;
+    contextDescription += `\n`;
+  }
+  
+  if (enhancedContext.kpis) {
+    const kpis = enhancedContext.kpis;
+    contextDescription += `Key Performance Indicators${Object.keys(filters).length > 0 ? ' (Filtered)' : ' (All Time)'}:\n`;
+    contextDescription += `- Total Revenue: $${kpis.totalRevenue?.toLocaleString() || 0}\n`;
+    contextDescription += `- Total Spend: $${kpis.totalSpend?.toLocaleString() || 0}\n`;
+    contextDescription += `- Gross Margin: ${kpis.grossMargin?.toFixed(1) || 0}%\n`;
+    contextDescription += `- Net Margin: ${kpis.netMargin?.toFixed(1) || 0}%\n`;
+    contextDescription += `- Total Campaigns: ${kpis.totalCampaigns || 0}\n`;
+    contextDescription += `- Budget Groups: ${kpis.budgetGroups || 0}\n`;
+    contextDescription += `- Average CPM: $${kpis.avgCPM?.toFixed(2) || 0}\n\n`;
+  }
+  
+  if (enhancedContext.countryData?.length) {
+    contextDescription += `Top Countries by Revenue:\n`;
+    enhancedContext.countryData.slice(0, 5).forEach((c, i) => {
+      contextDescription += `${i + 1}. ${c.country || c.region}: $${c.revenue?.toLocaleString() || 0} revenue, ${c.grossMarginPct?.toFixed(1) || 0}% margin\n`;
+    });
+    contextDescription += `\n`;
+  }
+  
+  if (enhancedContext.platformData?.length) {
+    contextDescription += `Platform Performance:\n`;
+    enhancedContext.platformData.slice(0, 5).forEach((p, i) => {
+      contextDescription += `${i + 1}. ${p.platform}: $${p.revenue?.toLocaleString() || 0} revenue, ${p.campaigns || 0} campaigns\n`;
+    });
+    contextDescription += `\n`;
+  }
+  
+  if (enhancedContext.productData?.length) {
+    contextDescription += `Product Performance:\n`;
+    enhancedContext.productData.slice(0, 5).forEach((p, i) => {
+      contextDescription += `${i + 1}. ${p.product}: $${p.revenue?.toLocaleString() || 0} revenue, ${p.grossMarginPct?.toFixed(1) || 0}% margin\n`;
+    });
+    contextDescription += `\n`;
+  }
+  
+  if (enhancedContext.campaignData?.length) {
     contextDescription += `Top Campaigns:\n`;
-    context.campaigns.slice(0, 3).forEach((c, i) => {
-      contextDescription += `${i + 1}. ${c.campaignName}: Revenue $${c.revenue?.toLocaleString() || 0}, Margin ${c.grossMarginPct?.toFixed(1) || 0}%\n`;
-    });
-    contextDescription += `\n`;
-  }
-  
-  if (context.products?.length) {
-    contextDescription += `Products:\n`;
-    context.products.slice(0, 3).forEach((p, i) => {
-      contextDescription += `${i + 1}. ${p.product}: Revenue $${p.revenue?.toLocaleString() || 0}\n`;
-    });
-    contextDescription += `\n`;
-  }
-  
-  if (context.regions?.length) {
-    contextDescription += `Regions:\n`;
-    context.regions.slice(0, 3).forEach((r, i) => {
-      contextDescription += `${i + 1}. ${r.region}: Revenue $${r.revenue?.toLocaleString() || 0}\n`;
+    enhancedContext.campaignData.slice(0, 5).forEach((c, i) => {
+      contextDescription += `${i + 1}. ${c.campaignName}: $${c.revenue?.toLocaleString() || 0} revenue, ${c.grossMarginPct?.toFixed(1) || 0}% margin\n`;
     });
     contextDescription += `\n`;
   }
 
-  const prompt = `You are a helpful marketing analytics assistant for an advertising operations dashboard.
-
-IMPORTANT INSTRUCTIONS:
-1. The data shown is ALL-TIME TOTAL unless the user specifically filtered by date
-2. When user asks "this month" or "current month", you should explain that the dashboard shows all-time totals
-3. Tell them they need to use the date filters on the dashboard to see specific month data
-4. The dashboard has month/year filters available for users to narrow down the data
-5. Be helpful and guide them on how to get the specific data they want
+  const prompt = `You are a helpful marketing analytics assistant. Answer the user's question based on the data provided.
 
 ${contextDescription}
 
 User Question: ${query}
 
-Provide a clear, helpful answer. If they're asking about a specific time period:
-- Explain that the numbers shown are all-time totals
-- Guide them to use the dashboard filters to see specific month/year data
-- Be friendly and helpful
+Instructions:
+- Answer directly with the numbers and insights from the data above
+- Format currency values with $ and commas (e.g., $1,234,567)
+- Format percentages with % symbol (e.g., 25.5%)
+- Be concise and specific
+- If the data shows filtered results, mention the time period
+- If asked about a specific metric not in the data, say you don't have that information
 
 Answer:`;
 
   try {
     console.log('[AI] Handling chat query:', query);
-    const response = await callAI(prompt, 400);
+    console.log('[AI] Filters applied:', filters);
+    const response = await callAI(prompt, 500);
     console.log('[AI] Chat response generated successfully');
     
     return {
       answer: response,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      filters: filters
     };
   } catch (error) {
     console.error('[AI] Error handling chat query:', {
