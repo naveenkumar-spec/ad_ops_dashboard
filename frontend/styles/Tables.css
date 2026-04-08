@@ -19,8 +19,8 @@
 
 .data-table .table-total td:first-child {
   z-index: 6; /* Highest for total row first column */
-  background: #11283f;
-  color: #e8f0f5;
+  background: linear-gradient(180deg, #14253a 0%, #1f3550 100%) !important;
+  color: #e8f0f5 !important;
 }
 
 /* Frozen first column for advanced tables */
@@ -70,11 +70,40 @@
 }
 
 .child-row td:first-child {
-  background: #f7fbf8;
+  background: #f7fbf8 !important;
 }
 
 .child-row:hover td:first-child {
+  background: #edf5f0 !important;
+}
+
+/* Row-child class for data-table (Management page) */
+.data-table .row-child td {
+  background: #f7fbf8;
+  color: #2a3a30;
+  padding-left: 32px;
+}
+
+.data-table .row-child td:first-child {
+  background: #f7fbf8 !important;
+  padding-left: 32px;
+}
+
+.data-table .row-child:hover td {
   background: #edf5f0;
+}
+
+.data-table .row-child:hover td:first-child {
+  background: #edf5f0 !important;
+}
+
+/* Row-expandable class for data-table */
+.data-table .row-expandable {
+  cursor: pointer;
+}
+
+.data-table .row-expandable td {
+  font-weight: 500;
 }
 
 /* Prevent content from sliding under frozen column */
@@ -165,21 +194,26 @@
   position: sticky;
   bottom: 0;
   z-index: 3;
-  background: #11283f;
-  color: #e8f0f5;
+  background: linear-gradient(180deg, #14253a 0%, #1f3550 100%) !important;
+  color: #e8f0f5 !important;
   font-weight: 700;
   border-top: 1px solid #243b55;
+  border-right: 1px solid #243b55;
+}
+
+.data-table .table-total td:last-child {
+  border-right: none;
 }
 
 /* Prevent hover from overriding total row background */
 .data-table .table-total:hover td {
-  background: #11283f;
-  color: #e8f0f5;
+  background: linear-gradient(180deg, #14253a 0%, #1f3550 100%) !important;
+  color: #e8f0f5 !important;
 }
 
 .data-table .table-total:hover td:first-child {
-  background: #11283f;
-  color: #e8f0f5;
+  background: linear-gradient(180deg, #14253a 0%, #1f3550 100%) !important;
+  color: #e8f0f5 !important;
 }
 
 .table-expander {
