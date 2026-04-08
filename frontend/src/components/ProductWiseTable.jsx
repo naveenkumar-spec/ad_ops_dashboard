@@ -159,26 +159,57 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
   );
 
   const handleDownload = () => {
-    // Prepare data as array of objects
-    const exportData = rows.map(row => ({
-      product: row.product || "",
-      totalCampaigns: row.totalCampaigns || 0,
-      budgetGroups: row.budgetGroups || 0,
-      bookedRevenue: c(row.bookedRevenue) || 0,
-      spend: c(row.spend) || 0,
-      plannedImpressions: row.plannedImpressions || 0,
-      deliveredImpressions: row.deliveredImpressions || 0,
-      deliveredPct: row.deliveredPct != null ? row.deliveredPct.toFixed(2) : "",
-      grossProfitLoss: c(row.grossProfitLoss) || 0,
-      grossMargin: row.grossMargin != null ? row.grossMargin.toFixed(2) : "",
-      netMargin: row.netMargin != null ? c(row.netMargin) : "",
-      netMarginPct: row.netMarginPct != null ? row.netMarginPct.toFixed(2) : ""
-    }));
+    // Flatten data for CSV export with Product and Platform columns (similar to Region/Country)
+    const exportData = [];
+    
+    rows.forEach((product) => {
+      // Get platform children for this product
+      const children = mockProductChildren[product.product] || [];
+      
+      if (children.length > 0) {
+        // Add platform rows under each product
+        children.forEach((platform) => {
+          exportData.push({
+            product: product.product,
+            platform: platform.product, // Platform name is in the 'product' field of child
+            totalCampaigns: platform.totalCampaigns || 0,
+            budgetGroups: platform.budgetGroups || 0,
+            bookedRevenue: c(platform.bookedRevenue) || 0,
+            spend: c(platform.spend) || 0,
+            plannedImpressions: platform.plannedImpressions || 0,
+            deliveredImpressions: platform.deliveredImpressions || 0,
+            deliveredPct: platform.deliveredPct != null ? platform.deliveredPct.toFixed(2) : "",
+            grossProfitLoss: c(platform.grossProfitLoss) || 0,
+            grossMargin: platform.grossMargin != null ? platform.grossMargin.toFixed(2) : "",
+            netMargin: platform.netMargin != null ? c(platform.netMargin) : "",
+            netMarginPct: platform.netMarginPct != null ? platform.netMarginPct.toFixed(2) : ""
+          });
+        });
+      } else {
+        // If no children, add the product row itself
+        exportData.push({
+          product: product.product,
+          platform: "", // No platform for products without children
+          totalCampaigns: product.totalCampaigns || 0,
+          budgetGroups: product.budgetGroups || 0,
+          bookedRevenue: c(product.bookedRevenue) || 0,
+          spend: c(product.spend) || 0,
+          plannedImpressions: product.plannedImpressions || 0,
+          deliveredImpressions: product.deliveredImpressions || 0,
+          deliveredPct: product.deliveredPct != null ? product.deliveredPct.toFixed(2) : "",
+          grossProfitLoss: c(product.grossProfitLoss) || 0,
+          grossMargin: product.grossMargin != null ? product.grossMargin.toFixed(2) : "",
+          netMargin: product.netMargin != null ? c(product.netMargin) : "",
+          netMarginPct: product.netMarginPct != null ? product.netMarginPct.toFixed(2) : ""
+        });
+      }
+    });
 
-    // Add totals row
+    // Add totals row at the end
     if (totals) {
       exportData.push({
         product: "Total",
+        platform: "",
         totalCampaigns: totals.totalCampaigns || 0,
         budgetGroups: totals.budgetGroups || 0,
         bookedRevenue: c(totals.bookedRevenue) || 0,
@@ -193,9 +224,10 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
       });
     }
 
-    // Define columns
+    // Define columns with Product and Platform
     const columns = [
       { key: 'product', label: 'Product' },
+      { key: 'platform', label: 'Platform' },
       { key: 'totalCampaigns', label: 'Total Campaigns' },
       { key: 'budgetGroups', label: 'Budget Groups' },
       { key: 'bookedRevenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
@@ -210,7 +242,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
     ];
 
     const timestamp = new Date().toISOString().split('T')[0];
-    exportTableToCSV(exportData, columns, `product-wise-data-${timestamp}`);
+    exportTableToCSV(exportData, columns, `product-platform-data-${timestamp}`);
   };
 
   return (
