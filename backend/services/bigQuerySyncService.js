@@ -794,34 +794,48 @@ async function syncToBigQuery(options = {}) {
         });
       }
     } else if (recentOnly && cutoffDate) {
-      // Recent-only mode: delete recent data before inserting (based on month/year)
+      // Recent-only mode: delete ONLY the recent months we're about to sync
       const cutoffYear = cutoffDate.getFullYear();
       const cutoffMonth = cutoffDate.getMonth() + 1; // JavaScript months are 0-indexed
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+      
       const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                           'July', 'August', 'September', 'October', 'November', 'December'];
       
-      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data from ${monthNames[cutoffMonth - 1]} ${cutoffYear} onwards`);
+      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data from ${monthNames[cutoffMonth - 1]} ${cutoffYear} to ${monthNames[currentMonth - 1]} ${currentYear}`);
       
-      // Build list of months to delete
-      const monthsToDelete = [];
-      for (let y = cutoffYear; y <= new Date().getFullYear(); y++) {
+      // Build WHERE clause for specific year-month combinations
+      const deleteConditions = [];
+      for (let y = cutoffYear; y <= currentYear; y++) {
         const startMonth = (y === cutoffYear) ? cutoffMonth : 1;
-        const endMonth = (y === new Date().getFullYear()) ? new Date().getMonth() + 1 : 12;
+        const endMonth = (y === currentYear) ? currentMonth : 12;
         
+        const monthsForYear = [];
         for (let m = startMonth; m <= endMonth; m++) {
-          monthsToDelete.push(`'${monthNames[m - 1]}'`);
+          monthsForYear.push(`'${monthNames[m - 1]}'`);
+        }
+        
+        if (monthsForYear.length > 0) {
+          deleteConditions.push(`(year = ${y} AND month IN (${monthsForYear.join(', ')}))`);
         }
       }
       
-      await bigquery.query({
-        query: `
+      if (deleteConditions.length > 0) {
+        const deleteQuery = `
           DELETE FROM \`${projectId}.${datasetId}.${tableId}\`
-          WHERE year >= ${cutoffYear}
-            AND month IN (${monthsToDelete.join(', ')})
-        `,
-        location: process.env.BIGQUERY_LOCATION || "US"
-      });
-      console.log(`[BigQuery Sync] ✅ Deleted recent data (months >= ${monthNames[cutoffMonth - 1]} ${cutoffYear})`);
+          WHERE ${deleteConditions.join(' OR ')}
+        `;
+        
+        console.log(`[BigQuery Sync] 📋 DELETE query: ${deleteQuery}`);
+        
+        await bigquery.query({
+          query: deleteQuery,
+          location: process.env.BIGQUERY_LOCATION || "US"
+        });
+        console.log(`[BigQuery Sync] ✅ Deleted recent data (${monthNames[cutoffMonth - 1]} ${cutoffYear} to ${monthNames[currentMonth - 1]} ${currentYear})`);
+      }
     }
 
     // Use smaller batches and add delays to reduce resource pressure
