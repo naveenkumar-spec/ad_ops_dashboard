@@ -181,9 +181,7 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
           deliveredImpressions: country.deliveredImpressions,
           deliveredPct: country.deliveredPct,
           grossMargin: c(country.grossMargin),
-          grossMarginPct: country.grossMarginPct,
-          netMargin: c(country.netMargin),
-          netMarginPct: country.netMarginPct
+          grossMarginPct: country.grossMarginPct
         });
       });
     });
@@ -201,9 +199,7 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
         deliveredImpressions: totals.deliveredImpressions,
         deliveredPct: totals.deliveredPct,
         grossMargin: c(totals.grossMargin),
-        grossMarginPct: totals.grossMarginPct,
-        netMargin: c(totals.netMargin),
-        netMarginPct: totals.netMarginPct
+        grossMarginPct: totals.grossMarginPct
       });
     }
     
@@ -218,9 +214,7 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
       { key: 'deliveredImpressions', label: 'Delivered Impressions' },
       { key: 'deliveredPct', label: 'Delivered %' },
       { key: 'grossMargin', label: `Gross Margin (${currencyContext?.symbol || 'USD'})` },
-      { key: 'grossMarginPct', label: 'Gross Margin %' },
-      { key: 'netMargin', label: `Net Margin (${currencyContext?.symbol || 'USD'})` },
-      { key: 'netMarginPct', label: 'Net Margin %' }
+      { key: 'grossMarginPct', label: 'Gross Margin %' }
     ];
     
     const timestamp = new Date().toISOString().split('T')[0];

@@ -180,9 +180,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
             deliveredImpressions: platform.deliveredImpressions || 0,
             deliveredPct: platform.deliveredPct != null ? platform.deliveredPct.toFixed(2) : "",
             grossProfitLoss: c(platform.grossProfitLoss) || 0,
-            grossMargin: platform.grossMargin != null ? platform.grossMargin.toFixed(2) : "",
-            netMargin: platform.netMargin != null ? c(platform.netMargin) : "",
-            netMarginPct: platform.netMarginPct != null ? platform.netMarginPct.toFixed(2) : ""
+            grossMargin: platform.grossMargin != null ? platform.grossMargin.toFixed(2) : ""
           });
         });
       } else {
@@ -198,9 +196,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
           deliveredImpressions: product.deliveredImpressions || 0,
           deliveredPct: product.deliveredPct != null ? product.deliveredPct.toFixed(2) : "",
           grossProfitLoss: c(product.grossProfitLoss) || 0,
-          grossMargin: product.grossMargin != null ? product.grossMargin.toFixed(2) : "",
-          netMargin: product.netMargin != null ? c(product.netMargin) : "",
-          netMarginPct: product.netMarginPct != null ? product.netMarginPct.toFixed(2) : ""
+          grossMargin: product.grossMargin != null ? product.grossMargin.toFixed(2) : ""
         });
       }
     });
@@ -218,13 +214,11 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
         deliveredImpressions: totals.deliveredImpressions || 0,
         deliveredPct: totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
         grossProfitLoss: c(totals.grossProfitLoss) || 0,
-        grossMargin: totals.grossMargin != null ? totals.grossMargin.toFixed(2) : "",
-        netMargin: totals.netMargin != null ? c(totals.netMargin) : "",
-        netMarginPct: totals.netMarginPct != null ? totals.netMarginPct.toFixed(2) : ""
+        grossMargin: totals.grossMargin != null ? totals.grossMargin.toFixed(2) : ""
       });
     }
 
-    // Define columns with Product and Platform
+    // Define columns (removed Net Margin columns as they're not available in this table)
     const columns = [
       { key: 'product', label: 'Product' },
       { key: 'platform', label: 'Platform' },
@@ -236,9 +230,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
       { key: 'deliveredImpressions', label: 'Delivered Impressions' },
       { key: 'deliveredPct', label: 'Delivered %' },
       { key: 'grossProfitLoss', label: `Gross Profit/Loss (${currencyContext?.code || "USD"})` },
-      { key: 'grossMargin', label: 'Gross Margin %' },
-      { key: 'netMargin', label: `Net Margin (${currencyContext?.code || "USD"})` },
-      { key: 'netMarginPct', label: 'Net Margin %' }
+      { key: 'grossMargin', label: 'Gross Margin %' }
     ];
 
     const timestamp = new Date().toISOString().split('T')[0];
