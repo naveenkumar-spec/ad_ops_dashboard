@@ -588,4 +588,63 @@ router.get("/debug/native-currency", async (req, res) => {
   }
 });
 
+// Diagnostic endpoint to verify which dataset is being used
+router.get("/debug/dataset-info", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    
+    const { BigQuery } = require("@google-cloud/bigquery");
+    const bigquery = new BigQuery();
+    const projectId = process.env.GCP_PROJECT_ID;
+    const datasetId = process.env.BIGQUERY_DATASET_ID || "adops_dashboard";
+    const tableId = process.env.BIGQUERY_TABLE_ID || "campaign_tracker_consolidated";
+    const nodeEnv = process.env.NODE_ENV || "development";
+    
+    // Get row count and sync info from current dataset
+    const [rows] = await bigquery.query({
+      query: `
+        SELECT 
+          '${datasetId}' as dataset_id,
+          COUNT(*) as total_rows,
+          COUNT(DISTINCT sync_id) as sync_count,
+          MAX(synced_at) as last_sync,
+          MIN(synced_at) as first_sync,
+          COUNT(DISTINCT campaign_name) as campaign_count,
+          COUNT(DISTINCT country) as country_count
+        FROM \`${projectId}.${datasetId}.${tableId}\`
+      `,
+      location: process.env.BIGQUERY_LOCATION || "US"
+    });
+    
+    const expectedDataset = nodeEnv === "production" ? "adops_dashboard" : "adops_dashboard_dev";
+    const isCorrect = datasetId === expectedDataset;
+    
+    return res.json({
+      status: isCorrect ? "✅ CORRECT" : "❌ WRONG DATASET",
+      environment: nodeEnv,
+      configuration: {
+        projectId,
+        datasetId,
+        tableId,
+        location: process.env.BIGQUERY_LOCATION || "US"
+      },
+      datasetStats: rows[0],
+      expectedDataset: {
+        development: "adops_dashboard_dev",
+        production: "adops_dashboard",
+        current: expectedDataset
+      },
+      isCorrect,
+      warning: !isCorrect ? `⚠️ ${nodeEnv.toUpperCase()} environment is using ${datasetId} but should use ${expectedDataset}!` : null
+    });
+  } catch (error) {
+    return res.status(500).json({ 
+      error: "Failed to fetch dataset info", 
+      message: error.message 
+    });
+  }
+});
+
 module.exports = router;

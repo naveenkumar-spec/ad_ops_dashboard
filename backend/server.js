@@ -83,6 +83,22 @@ app.listen(PORT, () => {
   console.log("CORS enabled for all origins");
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`Data source: ${(process.env.DATA_SOURCE || "google_sheets").toLowerCase()}`);
+  
+  // Log BigQuery configuration
+  const nodeEnv = process.env.NODE_ENV || "development";
+  const datasetId = process.env.BIGQUERY_DATASET_ID || "adops_dashboard";
+  const expectedDataset = nodeEnv === "production" ? "adops_dashboard" : "adops_dashboard_dev";
+  const isCorrectDataset = datasetId === expectedDataset;
+  
+  console.log(`\n📊 BigQuery Configuration:`);
+  console.log(`   Environment: ${nodeEnv}`);
+  console.log(`   Dataset: ${datasetId}`);
+  console.log(`   Expected: ${expectedDataset}`);
+  console.log(`   Status: ${isCorrectDataset ? "✅ CORRECT" : "❌ WRONG DATASET!"}`);
+  if (!isCorrectDataset) {
+    console.warn(`   ⚠️  WARNING: ${nodeEnv.toUpperCase()} should use ${expectedDataset} but is using ${datasetId}!`);
+  }
+  console.log("");
 
   authService.ensureDefaultAdmin().then(async () => {
     const schedulerInfo = bigQueryScheduler.startBigQueryScheduler();
