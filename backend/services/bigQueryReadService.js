@@ -719,7 +719,7 @@ async function getBottomCampaignsSimple(limit = 8, filters = {}) {
 }
 
 async function getCampaignsDetailed(limit = 50, offset = 0, filters = {}, view = "bottom") {
-  const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
+  const safeLimit = Math.max(1, Math.min(10000, Number(limit || 50)));
   const safeOffset = Math.max(0, Number(offset || 0));
   const currencyMode = filters.currencyMode || "usd";
   const cols = getCurrencyColumns(currencyMode);
@@ -919,7 +919,7 @@ async function getPlatformTable(filters = {}) {
 }
 
 async function getCountryWiseTable(limit = 50, offset = 0, filters = {}) {
-  const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
+  const safeLimit = Math.max(1, Math.min(10000, Number(limit || 50)));
   const safeOffset = Math.max(0, Number(offset || 0));
   const { whereSql, params } = buildWhereClause(filters, "t");
   const currencyMode = filters.currencyMode || "usd";
@@ -1034,7 +1034,7 @@ async function getCountryWiseTable(limit = 50, offset = 0, filters = {}) {
 }
 
 async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
-  const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
+  const safeLimit = Math.max(1, Math.min(10000, Number(limit || 50)));
   const safeOffset = Math.max(0, Number(offset || 0));
   
   // Extract currency mode and sorting parameters from filters
@@ -1176,7 +1176,7 @@ async function getCampaignWiseTable(limit = 50, offset = 0, filters = {}) {
 }
 
 async function getProductWiseTable(limit = 50, offset = 0, filters = {}) {
-  const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
+  const safeLimit = Math.max(1, Math.min(10000, Number(limit || 50)));
   const safeOffset = Math.max(0, Number(offset || 0));
   const { whereSql, params } = buildWhereClause(filters, "t");
   const currencyMode = filters.currencyMode || "usd";
