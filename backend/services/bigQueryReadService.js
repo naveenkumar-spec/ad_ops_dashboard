@@ -858,6 +858,66 @@ async function getRegionTable(filters = {}) {
   }));
 }
 
+async function getPlatformTable(filters = {}) {
+  console.log("[getPlatformTable] Received filters:", JSON.stringify(filters));
+  const { whereSql, params } = buildWhereClause(filters, "t");
+  const currencyMode = filters.currencyMode || "usd";
+  const cols = getCurrencyColumns(currencyMode);
+  
+  const rows = await runQuery(
+    `
+      SELECT
+        COALESCE(NULLIF(TRIM(t.product), ''), 'Unknown') AS parentProduct,
+        COALESCE(NULLIF(TRIM(t.platform), ''), 'Unknown') AS platform,
+        COUNT(DISTINCT NULLIF(TRIM(COALESCE(t.campaign_id, '')), '')) AS totalCampaigns,
+        SUM(COALESCE(t.budget_groups, 0)) AS budgetGroups,
+        SUM(COALESCE(t.${cols.revenue}, 0)) AS bookedRevenue,
+        SUM(COALESCE(t.${cols.spend}, 0)) AS spend,
+        SUM(COALESCE(t.planned_impressions, 0)) AS plannedImpressions,
+        SUM(COALESCE(t.delivered_impressions, 0)) AS deliveredImpressions,
+        SUM(COALESCE(t.${cols.revenue}, 0) - COALESCE(t.${cols.spend}, 0)) AS grossProfitLoss,
+        SUM(COALESCE(t.${cols.netMargin}, 0)) AS netMargin,
+        IFNULL(SAFE_DIVIDE(SUM(COALESCE(t.delivered_impressions, 0)), NULLIF(SUM(COALESCE(t.planned_impressions, 0)), 0)) * 100, 0) AS deliveredPct,
+        IFNULL(
+          SAFE_DIVIDE(
+            SUM(COALESCE(t.${cols.revenue}, 0) - COALESCE(t.${cols.spend}, 0)),
+            NULLIF(SUM(COALESCE(t.${cols.revenue}, 0)), 0)
+          ) * 100,
+          0
+        ) AS grossMargin,
+        IFNULL(
+          SAFE_DIVIDE(
+            SUM(COALESCE(t.${cols.netMargin}, 0)),
+            NULLIF(SUM(COALESCE(t.${cols.revenue}, 0)), 0)
+          ) * 100,
+          0
+        ) AS netMarginPct
+      FROM ${latestMainTableSql()} t
+      ${whereSql}
+      GROUP BY parentProduct, platform
+      ORDER BY bookedRevenue DESC
+    `,
+    params
+  );
+
+  console.log("[getPlatformTable] Returned", rows.length, "rows");
+  return rows.map((r) => ({
+    platform: r.platform,
+    parentProduct: r.parentProduct,
+    totalCampaigns: toNumber(r.totalCampaigns),
+    budgetGroups: toNumber(r.budgetGroups),
+    bookedRevenue: toNumber(r.bookedRevenue),
+    spend: toNumber(r.spend),
+    plannedImpressions: toNumber(r.plannedImpressions),
+    deliveredImpressions: toNumber(r.deliveredImpressions),
+    deliveredPct: toNumber(r.deliveredPct, 2),
+    grossProfitLoss: toNumber(r.grossProfitLoss),
+    grossMargin: toNumber(r.grossMargin, 2),
+    netMargin: toNumber(r.netMargin),
+    netMarginPct: toNumber(r.netMarginPct, 2)
+  }));
+}
+
 async function getCountryWiseTable(limit = 50, offset = 0, filters = {}) {
   const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
   const safeOffset = Math.max(0, Number(offset || 0));
@@ -1547,6 +1607,7 @@ module.exports = {
   getBottomCampaignsSimple,
   getCampaignsDetailed,
   getRegionTable,
+  getPlatformTable,
   getCountryWiseTable,
   getCampaignWiseTable,
   getProductWiseTable,

@@ -37,6 +37,7 @@ function sortRows(arr, field, direction) {
 export default function ProductWiseTable({ filters = {}, currencyContext = null }) {
   const [rows, setRows] = useState([]);
   const [totals, setTotals] = useState(null);
+  const [platformsByProduct, setPlatformsByProduct] = useState({});
   const [expanded, setExpanded] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,27 +66,54 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
       currencyMode: currencyContext?.mode === "Native" ? "native" : "usd"
     };
     
-    apiGet("/api/overview/product-wise", {
-      timeout: 6000,
-      params: { ...apiParams, limit: 50, offset: currentOffset }
-    })
-      .then((res) => {
-        if (res.data?.rows?.length) {
-          const newRows = res.data.rows;
+    Promise.all([
+      apiGet("/api/overview/product-wise", {
+        timeout: 6000,
+        params: { ...apiParams, limit: 50, offset: currentOffset }
+      }),
+      apiGet("/api/overview/platforms", { timeout: 12000, params: apiParams })
+    ])
+      .then(([productRes, platformRes]) => {
+        if (productRes.data?.rows?.length) {
+          const newRows = productRes.data.rows;
           setRows(prev => isInitial ? newRows : [...prev, ...newRows]);
-          setTotals(res.data.totals);
-          setHasMore(res.data.hasMore !== false);
+          setTotals(productRes.data.totals);
+          setHasMore(productRes.data.hasMore !== false);
           setOffset(currentOffset + newRows.length);
         } else if (isInitial) {
           setRows(mockProductData);
           setTotals(mockProductTotals);
           setHasMore(false);
         }
+
+        // Build platform map grouped by product
+        const map = {};
+        (platformRes.data || []).forEach((row) => {
+          const parent = String(row.parentProduct || "").trim();
+          if (!parent) return;
+          if (!map[parent]) map[parent] = [];
+          map[parent].push({
+            platform: row.platform,
+            totalCampaigns: row.totalCampaigns,
+            budgetGroups: row.budgetGroups,
+            bookedRevenue: row.bookedRevenue,
+            spend: row.spend,
+            plannedImpressions: row.plannedImpressions,
+            deliveredImpressions: row.deliveredImpressions,
+            deliveredPct: row.deliveredPct,
+            grossProfitLoss: row.grossProfitLoss,
+            grossMargin: row.grossMargin,
+            netMargin: row.netMargin,
+            netMarginPct: row.netMarginPct
+          });
+        });
+        setPlatformsByProduct(map);
       })
       .catch(() => {
         if (isInitial) {
           setRows(mockProductData);
           setTotals(mockProductTotals);
+          setPlatformsByProduct(mockProductChildren);
           setHasMore(false);
         }
       })
@@ -144,13 +172,13 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
     const out = [];
     sortedRows.forEach((row) => {
       out.push({ type: "product", ...row });
-      const children = mockProductChildren[row.product] || [];
+      const children = platformsByProduct[row.product] || [];
       if (expanded[row.product] && children.length) {
         children.forEach((ch) => out.push({ type: "child", parent: row.product, ...ch }));
       }
     });
     return out;
-  }, [rows, expanded, sortField, sortDirection]);
+  }, [rows, expanded, sortField, sortDirection, platformsByProduct]);
 
   const sh = (field, label) => (
     <SortableHeader field={field} sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>
@@ -164,14 +192,14 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
     
     rows.forEach((product) => {
       // Get platform children for this product
-      const children = mockProductChildren[product.product] || [];
+      const children = platformsByProduct[product.product] || [];
       
       if (children.length > 0) {
         // Add platform rows under each product
         children.forEach((platform) => {
           exportData.push({
             product: product.product,
-            platform: platform.product, // Platform name is in the 'product' field of child
+            platform: platform.platform,
             totalCampaigns: platform.totalCampaigns || 0,
             budgetGroups: platform.budgetGroups || 0,
             bookedRevenue: Math.round(c(platform.bookedRevenue) || 0),
@@ -280,7 +308,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
                       <tr key={`c-${idx}`} className="child-row">
                         <td className="child-name">
                           <span className="child-bullet">•</span>
-                          <span title={safeTitle(row.product)}>{row.product}</span>
+                          <span title={safeTitle(row.platform)}>{row.platform}</span>
                         </td>
                         <td title={formatAbsoluteInteger(row.totalCampaigns)}>{row.totalCampaigns}</td>
                         <td title={formatAbsoluteInteger(row.budgetGroups)}>{row.budgetGroups?.toLocaleString()}</td>
@@ -296,7 +324,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
                     );
                   }
 
-                  const children = mockProductChildren[row.product] || [];
+                  const children = platformsByProduct[row.product] || [];
                   const isOpen = expanded[row.product];
 
                   return (

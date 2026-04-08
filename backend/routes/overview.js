@@ -289,6 +289,19 @@ router.get("/regions", async (_req, res) => {
   }
 });
 
+router.get("/platforms", async (_req, res) => {
+  try {
+    const filters = withUserScope(parseFilters(_req.query), _req.user);
+    console.log("[/platforms] Received filters:", JSON.stringify(filters));
+    const platforms = await provider.getPlatformTable(filters);
+    console.log("[/platforms] Returned", platforms.length, "platforms");
+    res.json(platforms);
+  } catch (error) {
+    console.error("[/platforms] Error:", error.message);
+    res.status(500).json({ error: "Failed to fetch platform data", message: error.message });
+  }
+});
+
 router.get("/summary", async (_req, res) => {
   try {
     const filters = withUserScope(parseFilters(_req.query), _req.user);

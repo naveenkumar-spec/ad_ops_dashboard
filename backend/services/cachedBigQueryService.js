@@ -129,6 +129,11 @@ async function getRegionTable(filters = {}) {
   return semanticCache.getOrCompute(cacheKey, () => bigQueryReadService.getRegionTable(filters));
 }
 
+async function getPlatformTable(filters = {}) {
+  const cacheKey = semanticCache.generateCacheKey("platformTable", filters);
+  return semanticCache.getOrCompute(cacheKey, () => bigQueryReadService.getPlatformTable(filters));
+}
+
 async function getBottomCampaignsSimple(limit, filters = {}) {
   const cacheKey = semanticCache.generateCacheKey("bottomCampaigns", { limit, ...filters });
   return semanticCache.getOrCompute(cacheKey, () => bigQueryReadService.getBottomCampaignsSimple(limit, filters));
@@ -190,6 +195,7 @@ module.exports = {
   getPlatformSpends,
   getManagementRegionTable,
   getRegionTable,
+  getPlatformTable,
   getBottomCampaignsSimple,
   getAdminOptions,
   refreshCache,
