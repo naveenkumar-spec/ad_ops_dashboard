@@ -88,10 +88,8 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
 
         // Build platform map grouped by product
         const map = {};
-        console.log("[ProductWiseTable] Platform response:", platformRes.data);
         (platformRes.data || []).forEach((row) => {
           const parent = String(row.parentProduct || "").trim();
-          console.log("[ProductWiseTable] Platform row:", { parent, platform: row.platform, parentProduct: row.parentProduct });
           if (!parent || parent === "Unknown") return;
           if (!map[parent]) map[parent] = [];
           map[parent].push({
@@ -109,7 +107,6 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
             netMarginPct: row.netMarginPct
           });
         });
-        console.log("[ProductWiseTable] Platform map:", map);
         setPlatformsByProduct(map);
       })
       .catch(() => {

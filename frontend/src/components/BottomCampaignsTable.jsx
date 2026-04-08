@@ -9,6 +9,8 @@ import {
   formatCompactCurrency
 } from "../utils/currencyDisplay.js";
 import SortableHeader from "./SortableHeader.jsx";
+import DownloadButton from "./DownloadButton.jsx";
+import { exportTableToCSV } from "../utils/csvExport.js";
 import "../../styles/Tables.css";
 
 function fmtImpr(v) {
@@ -130,6 +132,51 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
     </SortableHeader>
   );
 
+  const handleDownload = () => {
+    const exportData = sortedData.map((row) => ({
+      campaignName: row.name,
+      status: row.status,
+      revenue: Math.round(converted(row.revenue) || 0),
+      spend: Math.round(converted(row.spend) || 0),
+      grossMargin: Math.round(converted(row.grossMargin) || 0),
+      grossMarginPct: row.grossMarginPct != null ? row.grossMarginPct.toFixed(2) : "",
+      netMargin: Math.round(converted(row.netMargin) || 0),
+      netMarginPct: row.netMarginPct != null ? row.netMarginPct.toFixed(2) : "",
+      plannedImpressions: Math.round(row.plannedImpressions || 0)
+    }));
+
+    // Add totals row
+    if (totals) {
+      exportData.push({
+        campaignName: "Total",
+        status: "",
+        revenue: Math.round(converted(totals.revenue) || 0),
+        spend: Math.round(converted(totals.spend) || 0),
+        grossMargin: Math.round(converted(totals.grossMargin) || 0),
+        grossMarginPct: totals.grossMarginPct != null ? totals.grossMarginPct.toFixed(2) : "",
+        netMargin: Math.round(converted(totals.netMargin) || 0),
+        netMarginPct: totals.netMarginPct != null ? totals.netMarginPct.toFixed(2) : "",
+        plannedImpressions: Math.round(totals.plannedImpressions || 0)
+      });
+    }
+
+    const columns = [
+      { key: 'campaignName', label: 'Campaign Name' },
+      { key: 'status', label: 'Status' },
+      { key: 'revenue', label: `Booked Revenue (${currencyContext?.code || "USD"})` },
+      { key: 'spend', label: `Spend (${currencyContext?.code || "USD"})` },
+      { key: 'grossMargin', label: `Gross Margin (${currencyContext?.code || "USD"})` },
+      { key: 'grossMarginPct', label: 'Gross Margin %' },
+      { key: 'netMargin', label: `Net Margin (${currencyContext?.code || "USD"})` },
+      { key: 'netMarginPct', label: 'Net Margin %' },
+      { key: 'plannedImpressions', label: 'Planned Impressions' }
+    ];
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    const viewLabel = view === "bottom" ? "bottom" : "top";
+    exportTableToCSV(exportData, columns, `${viewLabel}-campaigns-${timestamp}`);
+  };
+
   return (
     <div className="adv-table-card">
       <div className="adv-table-header">
@@ -138,6 +185,7 @@ export default function BottomCampaignsTable({ filters = {}, currencyContext = n
             ? "Bottom Campaigns ( with ≤ 50% Gross Margin )"
             : "Top Campaigns ( with ≥ 50% Gross Margin )"}
           {totals?.rowCount && ` - Showing ${data.length} of ${totals.rowCount}`}
+          <DownloadButton onClick={handleDownload} disabled={loading || !data.length} title="Download Campaigns as CSV" />
         </h3>
         <div className="bottom-top-toggle">
           <button className={`bt-btn ${view === "bottom" ? "active" : ""}`} onClick={() => setView("bottom")}>Bottom</button>

@@ -5,6 +5,7 @@
   width: 28px;
   height: 28px;
   padding: 0;
+  margin: 0;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -12,6 +13,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  vertical-align: middle;
 }
 
 .download-btn-modern:hover:not(:disabled) {

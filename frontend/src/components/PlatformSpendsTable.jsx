@@ -9,6 +9,8 @@ import {
   formatCompactCurrency
 } from "../utils/currencyDisplay.js";
 import SortableHeader from "./SortableHeader.jsx";
+import DownloadButton from "./DownloadButton.jsx";
+import { exportTableToCSV } from "../utils/csvExport.js";
 import "../../styles/Tables.css";
 
 const PRIORITY = ["CTV", "Meta", "OpenWeb", "Tiktok", "Youtube", "YT Mirrors"];
@@ -126,9 +128,49 @@ export default function PlatformSpendsTable({ filters = {}, currencyContext = nu
     </SortableHeader>
   );
 
+  const handleDownload = () => {
+    const exportData = tableRows.map((row) => {
+      const rowData = {
+        month: row.label
+      };
+      // Add each platform's spend
+      platforms.forEach((platform) => {
+        rowData[platform] = Math.round(c(row.spends[platform]) || 0);
+      });
+      rowData.total = Math.round(c(row.total) || 0);
+      return rowData;
+    });
+
+    // Add totals row
+    if (totals) {
+      const totalsRow = {
+        month: "Total"
+      };
+      platforms.forEach((platform) => {
+        totalsRow[platform] = Math.round(c(totals.spends[platform]) || 0);
+      });
+      totalsRow.total = Math.round(c(totals.total) || 0);
+      exportData.push(totalsRow);
+    }
+
+    const columns = [
+      { key: 'month', label: 'Month' },
+      ...platforms.map(p => ({ key: p, label: `${p} (${currencyContext?.code || "USD"})` })),
+      { key: 'total', label: `Total (${currencyContext?.code || "USD"})` }
+    ];
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    exportTableToCSV(exportData, columns, `platform-spends-${timestamp}`);
+  };
+
   return (
     <div className="table-card">
-      <div className="table-card-header"><h3>Platform-wise Monthly Spends</h3></div>
+      <div className="table-card-header">
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          Platform-wise Monthly Spends
+          <DownloadButton onClick={handleDownload} disabled={loading || !tableRows.length} title="Download Platform Spends as CSV" />
+        </h3>
+      </div>
       <div className="table-card-body">
         {loading ? (
           <div className="table-loading">Loading...</div>
