@@ -468,6 +468,26 @@ router.post("/sync/bigquery", async (req, res) => {
     const runAsync = req.query.async !== "false";
     
     if (runAsync) {
+      // Register callback BEFORE starting sync
+      bigQuerySyncService.onSyncComplete((result) => {
+        console.log("[Overview] Sync complete callback triggered:", {
+          ok: result.ok,
+          skipped: result.skipped,
+          stopped: result.stopped,
+          rowCount: result.rowCount
+        });
+        
+        // Only refresh cache if sync was successful and not skipped
+        if (result.ok && !result.skipped) {
+          console.log("[Overview] Refreshing semantic cache after successful sync...");
+          cachedBigQueryService.refreshCache().catch(err => {
+            console.error("[Overview] Cache refresh failed:", err);
+          });
+        } else {
+          console.log("[Overview] Skipping cache refresh (sync was skipped or failed)");
+        }
+      });
+      
       const started = bigQuerySyncService.startSync({ 
         fullRefresh, 
         recentOnly,
@@ -475,8 +495,11 @@ router.post("/sync/bigquery", async (req, res) => {
         forceRefresh, 
         skipIfUnchanged 
       });
+      
       return res.status(started.ok ? 202 : 409).json(started);
     }
+    
+    // Synchronous sync
     const result = await bigQuerySyncService.syncToBigQuery({ 
       fullRefresh, 
       recentOnly,
@@ -484,6 +507,13 @@ router.post("/sync/bigquery", async (req, res) => {
       forceRefresh, 
       skipIfUnchanged 
     });
+    
+    // Refresh cache immediately after sync (only if successful and not skipped)
+    if (result.ok && !result.skipped) {
+      console.log("[Overview] Sync complete, refreshing semantic cache...");
+      await cachedBigQueryService.refreshCache();
+    }
+    
     return res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Failed to sync BigQuery", message: error.message });

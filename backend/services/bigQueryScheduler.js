@@ -28,6 +28,17 @@ function startBigQueryScheduler() {
     const startedAt = new Date().toISOString();
     console.log("[BigQuery Scheduler] Starting scheduled sync (recent 2 months only)...");
     
+    // Register cache refresh callback
+    bigQuerySyncService.onSyncComplete((result) => {
+      if (result.ok && !result.skipped) {
+        console.log("[BigQuery Scheduler] Scheduled sync complete, refreshing cache...");
+        const cachedBigQueryService = require("./cachedBigQueryService");
+        cachedBigQueryService.refreshCache().catch(err => {
+          console.error("[BigQuery Scheduler] Cache refresh failed:", err);
+        });
+      }
+    });
+    
     try {
       const result = await bigQuerySyncService.syncToBigQuery({
         fullRefresh: false,
@@ -59,6 +70,17 @@ function startBigQueryScheduler() {
       const startedAt = new Date().toISOString();
       console.log("[BigQuery Scheduler] Starting scheduled sync (with transition table)...");
       
+      // Register cache refresh callback
+      bigQuerySyncService.onSyncComplete((result) => {
+        if (result.ok && !result.skipped) {
+          console.log("[BigQuery Scheduler] Scheduled sync complete, refreshing cache...");
+          const cachedBigQueryService = require("./cachedBigQueryService");
+          cachedBigQueryService.refreshCache().catch(err => {
+            console.error("[BigQuery Scheduler] Cache refresh failed:", err);
+          });
+        }
+      });
+      
       try {
         const result = await bigQuerySyncService.syncToBigQuery({
           fullRefresh: true, // Full refresh to update transition table
@@ -84,6 +106,17 @@ function startBigQueryScheduler() {
     transitionTask = cron.schedule(transitionCron, async () => {
       const startedAt = new Date().toISOString();
       console.log("[BigQuery Scheduler] Starting daily transition table refresh (12:00 AM IST)...");
+      
+      // Register cache refresh callback
+      bigQuerySyncService.onSyncComplete((result) => {
+        if (result.ok && !result.skipped) {
+          console.log("[BigQuery Scheduler] Daily transition refresh complete, refreshing cache...");
+          const cachedBigQueryService = require("./cachedBigQueryService");
+          cachedBigQueryService.refreshCache().catch(err => {
+            console.error("[BigQuery Scheduler] Cache refresh failed:", err);
+          });
+        }
+      });
       
       try {
         const result = await bigQuerySyncService.syncToBigQuery({

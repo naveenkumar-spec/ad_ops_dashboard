@@ -23,6 +23,7 @@ const bigquery = new BigQuery({
 let lastSyncResult = null;
 let activeSyncStatus = null;
 let currentSyncPromise = null;
+let syncCompleteCallbacks = [];
 
 function sourceKey(source = {}) {
   return `${source.sourceSheetId || source.sheetId || ""}::${source.configuredTab || source.tabName || ""}::${source.sourceCountry || source.country || ""}`;
@@ -720,6 +721,10 @@ async function syncToBigQuery(options = {}) {
         finishedAt: new Date().toISOString(),
         result: skipped
       };
+      
+      // Trigger callbacks even when skipped (no need to refresh cache)
+      triggerSyncCompleteCallbacks(skipped);
+      
       return skipped;
     }
 
@@ -859,6 +864,10 @@ async function syncToBigQuery(options = {}) {
     };
     
     console.log(`[BigQuery Sync] ✅ ${result.mode.toUpperCase()} completed: ${result.rowCount} rows, ${result.transitionRowCount} transition rows`);
+    
+    // Trigger sync complete callbacks
+    triggerSyncCompleteCallbacks(result);
+    
     return result;
     
   } catch (error) {
@@ -901,6 +910,10 @@ async function syncToBigQuery(options = {}) {
         finishedAt: new Date().toISOString(),
         result: stopped
       };
+      
+      // Trigger callbacks even on stop
+      triggerSyncCompleteCallbacks(stopped);
+      
       return stopped;
     }
     const message = `BigQuery sync failed (${syncId}): ${error.message}`;
@@ -928,6 +941,32 @@ async function syncToBigQuery(options = {}) {
     };
     throw error;
   }
+}
+
+function triggerSyncCompleteCallbacks(result) {
+  if (syncCompleteCallbacks.length === 0) return;
+  
+  console.log(`[BigQuery Sync] Triggering ${syncCompleteCallbacks.length} sync complete callbacks`);
+  
+  // Execute all callbacks
+  syncCompleteCallbacks.forEach((callback, index) => {
+    try {
+      callback(result);
+    } catch (error) {
+      console.error(`[BigQuery Sync] Callback ${index} failed:`, error);
+    }
+  });
+  
+  // Clear callbacks after execution
+  syncCompleteCallbacks = [];
+}
+
+function onSyncComplete(callback) {
+  if (typeof callback !== "function") {
+    throw new Error("onSyncComplete requires a function callback");
+  }
+  syncCompleteCallbacks.push(callback);
+  console.log(`[BigQuery Sync] Registered sync complete callback (total: ${syncCompleteCallbacks.length})`);
 }
 
 function getLastSyncResult() {
@@ -1000,5 +1039,6 @@ module.exports = {
   getSyncStatus,
   startSync,
   requestStopSync,
-  getLastSyncTime
+  getLastSyncTime,
+  onSyncComplete
 };
