@@ -4,7 +4,9 @@ import { mockCountryData, mockCountryTotals } from "../mockData.js";
 import { toApiParams } from "../utils/apiFilters.js";
 import { formatAbsoluteInteger, formatAbsolutePercent, safeTitle } from "../utils/absoluteTooltip.js";
 import { convertUsdToDisplay, formatAbsoluteCurrencyByContext, formatCompactCurrency } from "../utils/currencyDisplay.js";
+import { exportTableToCSV } from "../utils/csvExport.js";
 import SortableHeader from "./SortableHeader.jsx";
+import DownloadButton from "./DownloadButton.jsx";
 import "../../styles/Tables.css";
 
 function fmtImpr(v) {
@@ -160,6 +162,69 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
     </SortableHeader>
   );
 
+  const handleDownload = () => {
+    // Flatten data for CSV export (include both regions and countries)
+    const exportData = [];
+    
+    sortedData.forEach((region) => {
+      // Add region row
+      exportData.push({
+        type: 'Region',
+        name: region.region,
+        campaigns: region.campaigns,
+        budgetGroups: region.budgetGroups,
+        revenue: c(region.revenue),
+        spend: c(region.spend),
+        plannedImpressions: region.plannedImpressions,
+        deliveredImpressions: region.deliveredImpressions,
+        deliveredPct: region.deliveredPct,
+        grossMargin: c(region.grossMargin),
+        grossMarginPct: region.grossMarginPct,
+        netMargin: c(region.netMargin),
+        netMarginPct: region.netMarginPct
+      });
+      
+      // Add country rows
+      const children = childrenByRegion[region.region] || [];
+      children.forEach((country) => {
+        exportData.push({
+          type: 'Country',
+          name: country.country,
+          campaigns: country.campaigns,
+          budgetGroups: country.budgetGroups,
+          revenue: c(country.revenue),
+          spend: c(country.spend),
+          plannedImpressions: country.plannedImpressions,
+          deliveredImpressions: country.deliveredImpressions,
+          deliveredPct: country.deliveredPct,
+          grossMargin: c(country.grossMargin),
+          grossMarginPct: country.grossMarginPct,
+          netMargin: c(country.netMargin),
+          netMarginPct: country.netMarginPct
+        });
+      });
+    });
+    
+    const columns = [
+      { key: 'type', label: 'Type' },
+      { key: 'name', label: 'Region / Country' },
+      { key: 'campaigns', label: 'Total Campaigns' },
+      { key: 'budgetGroups', label: 'Budget Groups' },
+      { key: 'revenue', label: `Booked Revenue (${currencyContext?.symbol || 'USD'})` },
+      { key: 'spend', label: `Spend (${currencyContext?.symbol || 'USD'})` },
+      { key: 'plannedImpressions', label: 'Planned Impressions' },
+      { key: 'deliveredImpressions', label: 'Delivered Impressions' },
+      { key: 'deliveredPct', label: 'Delivered %' },
+      { key: 'grossMargin', label: `Gross Margin (${currencyContext?.symbol || 'USD'})` },
+      { key: 'grossMarginPct', label: 'Gross Margin %' },
+      { key: 'netMargin', label: `Net Margin (${currencyContext?.symbol || 'USD'})` },
+      { key: 'netMarginPct', label: 'Net Margin %' }
+    ];
+    
+    const timestamp = new Date().toISOString().split('T')[0];
+    exportTableToCSV(exportData, columns, `country-wise-data-${timestamp}`);
+  };
+
   return (
     <div className="adv-table-card">
       <div className="adv-table-header">
@@ -167,6 +232,7 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
           Region / Country wise Data
           {totals?.rowCount && ` - Showing ${data.length} of ${totals.rowCount} regions`}
         </h3>
+        <DownloadButton onClick={handleDownload} disabled={loading || !data.length} />
       </div>
 
       {loading ? (
