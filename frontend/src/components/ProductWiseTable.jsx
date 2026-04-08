@@ -174,12 +174,12 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
             platform: platform.product, // Platform name is in the 'product' field of child
             totalCampaigns: platform.totalCampaigns || 0,
             budgetGroups: platform.budgetGroups || 0,
-            bookedRevenue: c(platform.bookedRevenue) || 0,
-            spend: c(platform.spend) || 0,
-            plannedImpressions: platform.plannedImpressions || 0,
-            deliveredImpressions: platform.deliveredImpressions || 0,
+            bookedRevenue: Math.round(c(platform.bookedRevenue) || 0),
+            spend: Math.round(c(platform.spend) || 0),
+            plannedImpressions: Math.round(platform.plannedImpressions || 0),
+            deliveredImpressions: Math.round(platform.deliveredImpressions || 0),
             deliveredPct: platform.deliveredPct != null ? platform.deliveredPct.toFixed(2) : "",
-            grossProfitLoss: c(platform.grossProfitLoss) || 0,
+            grossProfitLoss: Math.round(c(platform.grossProfitLoss) || 0),
             grossMargin: platform.grossMargin != null ? platform.grossMargin.toFixed(2) : ""
           });
         });
@@ -190,12 +190,12 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
           platform: "", // No platform for products without children
           totalCampaigns: product.totalCampaigns || 0,
           budgetGroups: product.budgetGroups || 0,
-          bookedRevenue: c(product.bookedRevenue) || 0,
-          spend: c(product.spend) || 0,
-          plannedImpressions: product.plannedImpressions || 0,
-          deliveredImpressions: product.deliveredImpressions || 0,
+          bookedRevenue: Math.round(c(product.bookedRevenue) || 0),
+          spend: Math.round(c(product.spend) || 0),
+          plannedImpressions: Math.round(product.plannedImpressions || 0),
+          deliveredImpressions: Math.round(product.deliveredImpressions || 0),
           deliveredPct: product.deliveredPct != null ? product.deliveredPct.toFixed(2) : "",
-          grossProfitLoss: c(product.grossProfitLoss) || 0,
+          grossProfitLoss: Math.round(c(product.grossProfitLoss) || 0),
           grossMargin: product.grossMargin != null ? product.grossMargin.toFixed(2) : ""
         });
       }
@@ -208,12 +208,12 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
         platform: "",
         totalCampaigns: totals.totalCampaigns || 0,
         budgetGroups: totals.budgetGroups || 0,
-        bookedRevenue: c(totals.bookedRevenue) || 0,
-        spend: c(totals.spend) || 0,
-        plannedImpressions: totals.plannedImpressions || 0,
-        deliveredImpressions: totals.deliveredImpressions || 0,
+        bookedRevenue: Math.round(c(totals.bookedRevenue) || 0),
+        spend: Math.round(c(totals.spend) || 0),
+        plannedImpressions: Math.round(totals.plannedImpressions || 0),
+        deliveredImpressions: Math.round(totals.deliveredImpressions || 0),
         deliveredPct: totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
-        grossProfitLoss: c(totals.grossProfitLoss) || 0,
+        grossProfitLoss: Math.round(c(totals.grossProfitLoss) || 0),
         grossMargin: totals.grossMargin != null ? totals.grossMargin.toFixed(2) : ""
       });
     }

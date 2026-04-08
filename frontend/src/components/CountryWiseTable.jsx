@@ -175,13 +175,13 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
           country: country.country,
           campaigns: country.campaigns,
           budgetGroups: country.budgetGroups,
-          revenue: c(country.revenue),
-          spend: c(country.spend),
-          plannedImpressions: country.plannedImpressions,
-          deliveredImpressions: country.deliveredImpressions,
-          deliveredPct: country.deliveredPct,
-          grossMargin: c(country.grossMargin),
-          grossMarginPct: country.grossMarginPct
+          revenue: Math.round(c(country.revenue)),
+          spend: Math.round(c(country.spend)),
+          plannedImpressions: Math.round(country.plannedImpressions || 0),
+          deliveredImpressions: Math.round(country.deliveredImpressions || 0),
+          deliveredPct: country.deliveredPct != null ? country.deliveredPct.toFixed(2) : "",
+          grossMargin: Math.round(c(country.grossMargin)),
+          grossMarginPct: country.grossMarginPct != null ? country.grossMarginPct.toFixed(2) : ""
         });
       });
     });
@@ -193,13 +193,13 @@ export default function CountryWiseTable({ filters = {}, currencyContext = null 
         country: '',
         campaigns: totals.campaigns,
         budgetGroups: totals.budgetGroups,
-        revenue: c(totals.revenue),
-        spend: c(totals.spend),
-        plannedImpressions: totals.plannedImpressions,
-        deliveredImpressions: totals.deliveredImpressions,
-        deliveredPct: totals.deliveredPct,
-        grossMargin: c(totals.grossMargin),
-        grossMarginPct: totals.grossMarginPct
+        revenue: Math.round(c(totals.revenue)),
+        spend: Math.round(c(totals.spend)),
+        plannedImpressions: Math.round(totals.plannedImpressions || 0),
+        deliveredImpressions: Math.round(totals.deliveredImpressions || 0),
+        deliveredPct: totals.deliveredPct != null ? totals.deliveredPct.toFixed(2) : "",
+        grossMargin: Math.round(c(totals.grossMargin)),
+        grossMarginPct: totals.grossMarginPct != null ? totals.grossMarginPct.toFixed(2) : ""
       });
     }
     
