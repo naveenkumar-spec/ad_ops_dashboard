@@ -174,7 +174,8 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
       "Net Margin %"
     ];
 
-    const dataRows = flattened.map(row => [
+    // Use the original rows array, not flattened (which includes type field)
+    const dataRows = rows.map(row => [
       row.product || "",
       row.totalCampaigns || 0,
       row.budgetGroups || 0,
@@ -189,6 +190,7 @@ export default function ProductWiseTable({ filters = {}, currencyContext = null 
       row.netMarginPct != null ? row.netMarginPct.toFixed(2) : ""
     ]);
 
+    // Add totals row
     if (totals) {
       dataRows.push([
         "Total",
