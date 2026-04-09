@@ -92,19 +92,9 @@ function getCurrencyColumns(currencyMode = "usd") {
 }
 
 function latestMainTableSql() {
-  // Get latest data for each unique row (by campaign, month, year, country)
-  // This ensures we get ALL data, not just from the latest sync_id
-  return `(
-    SELECT * FROM (
-      SELECT *,
-        ROW_NUMBER() OVER (
-          PARTITION BY campaign_id, month, year, country 
-          ORDER BY synced_at DESC
-        ) AS rn
-      FROM ${tableRef}
-    )
-    WHERE rn = 1
-  )`;
+  // Return ALL rows from BigQuery (no filtering by sync_id)
+  // This includes all historical data from all syncs
+  return tableRef;
 }
 
 function buildWhereClause(filters = {}, alias = "t") {
