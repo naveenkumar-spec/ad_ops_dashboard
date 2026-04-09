@@ -746,11 +746,22 @@ async function syncToBigQuery(options = {}) {
     let cutoffDate = null;
     
     if (recentOnly && !fullRefresh) {
-      // Recent-only mode: only sync last N months based on month/year columns
-      cutoffDate = new Date();
-      cutoffDate.setMonth(cutoffDate.getMonth() - monthsToSync);
-      const cutoffYear = cutoffDate.getFullYear();
-      const cutoffMonth = cutoffDate.getMonth() + 1; // JavaScript months are 0-indexed
+      // Recent-only mode: only sync last N months
+      // Calculate which months to include
+      const currentDate = new Date();
+      const monthsToInclude = [];
+      
+      for (let i = 0; i < monthsToSync; i++) {
+        const date = new Date(currentDate);
+        date.setMonth(date.getMonth() - i);
+        monthsToInclude.push({
+          month: monthNames[date.getMonth()],
+          year: date.getFullYear()
+        });
+      }
+      
+      console.log(`[BigQuery Sync] 📅 RECENT ONLY: Syncing last ${monthsToSync} months:`, 
+        monthsToInclude.map(m => `${m.month} ${m.year}`).join(', '));
       
       const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                           'July', 'August', 'September', 'October', 'November', 'December'];
@@ -759,25 +770,17 @@ async function syncToBigQuery(options = {}) {
         // Skip rows without month or year
         if (!row.month || !row.year) return false;
         
-        const rowYear = row.year;
-        const rowMonthIndex = monthNames.indexOf(row.month);
-        
-        // Skip if month name is invalid
-        if (rowMonthIndex === -1) return false;
-        
-        const rowMonth = rowMonthIndex + 1; // Convert to 1-indexed
-        
-        // Include if year is greater than cutoff year
-        if (rowYear > cutoffYear) return true;
-        
-        // If same year, check if month is >= cutoff month
-        if (rowYear === cutoffYear && rowMonth >= cutoffMonth) return true;
-        
-        return false;
+        // Check if this row's month/year is in our list
+        return monthsToInclude.some(m => 
+          m.month === row.month && m.year === row.year
+        );
       });
       
-      console.log(`[BigQuery Sync] 📅 RECENT ONLY: ${rowsToSync.length} rows (last ${monthsToSync} months, cutoff: ${monthNames[cutoffMonth - 1]} ${cutoffYear})`);
-      console.log(`[BigQuery Sync] 📊 Filtered out ${bqRows.length - rowsToSync.length} older rows`);
+      console.log(`[BigQuery Sync] 📊 Syncing ${rowsToSync.length} rows from last ${monthsToSync} months`);
+      console.log(`[BigQuery Sync] 📊 Filtered out ${bqRows.length - rowsToSync.length} rows from other months`);
+      
+      // Store for DELETE query
+      cutoffDate = { monthsToInclude };
     }
 
     // Only truncate on full refresh
@@ -793,34 +796,20 @@ async function syncToBigQuery(options = {}) {
           location: process.env.BIGQUERY_LOCATION || "US"
         });
       }
-    } else if (recentOnly && cutoffDate) {
-      // Recent-only mode: delete ONLY the recent months we're about to sync
-      const cutoffYear = cutoffDate.getFullYear();
-      const cutoffMonth = cutoffDate.getMonth() + 1; // JavaScript months are 0-indexed
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth() + 1;
+    } else if (recentOnly && cutoffDate?.monthsToInclude) {
+      // Recent-only mode: delete ONLY the specific months we're about to sync
+      const monthsToInclude = cutoffDate.monthsToInclude;
       
       const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                           'July', 'August', 'September', 'October', 'November', 'December'];
       
-      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data from ${monthNames[cutoffMonth - 1]} ${cutoffYear} to ${monthNames[currentMonth - 1]} ${currentYear}`);
+      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data for months:`, 
+        monthsToInclude.map(m => `${m.month} ${m.year}`).join(', '));
       
-      // Build WHERE clause for specific year-month combinations
-      const deleteConditions = [];
-      for (let y = cutoffYear; y <= currentYear; y++) {
-        const startMonth = (y === cutoffYear) ? cutoffMonth : 1;
-        const endMonth = (y === currentYear) ? currentMonth : 12;
-        
-        const monthsForYear = [];
-        for (let m = startMonth; m <= endMonth; m++) {
-          monthsForYear.push(`'${monthNames[m - 1]}'`);
-        }
-        
-        if (monthsForYear.length > 0) {
-          deleteConditions.push(`(year = ${y} AND month IN (${monthsForYear.join(', ')}))`);
-        }
-      }
+      // Build WHERE clause for ONLY the specific months we're syncing
+      const deleteConditions = monthsToInclude.map(m => 
+        `(year = ${m.year} AND month = '${m.month}')`
+      );
       
       if (deleteConditions.length > 0) {
         const deleteQuery = `
@@ -834,7 +823,7 @@ async function syncToBigQuery(options = {}) {
           query: deleteQuery,
           location: process.env.BIGQUERY_LOCATION || "US"
         });
-        console.log(`[BigQuery Sync] ✅ Deleted recent data (${monthNames[cutoffMonth - 1]} ${cutoffYear} to ${monthNames[currentMonth - 1]} ${currentYear})`);
+        console.log(`[BigQuery Sync] ✅ Deleted data for ${monthsToInclude.length} months: ${monthsToInclude.map(m => `${m.month} ${m.year}`).join(', ')}`);
       }
     }
 
