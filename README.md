@@ -46,49 +46,6 @@ Google Sheets → Backend Sync Service → BigQuery → Cached Service → Front
 
 Create `backend/.env` file:
 
-```env
-# Server Configuration
-PORT=5000
-NODE_ENV=production
-
-# Google Cloud Platform
-GCP_PROJECT_ID=your-gcp-project-id
-GOOGLE_SERVICE_ACCOUNT_KEY_FILE=./secrets/google-sa.json
-
-# BigQuery Configuration
-BIGQUERY_DATASET_ID=adops_dashboard          # Production: adops_dashboard, Dev: adops_dashboard_dev
-BIGQUERY_TABLE_ID=campaign_tracker_consolidated
-BIGQUERY_TRANSITION_TABLE_ID=overview_transition_metrics
-BIGQUERY_SYNC_STATE_TABLE_ID=campaign_tracker_sync_state
-BIGQUERY_LOCATION=US
-
-# BigQuery Sync Scheduler
-BIGQUERY_SYNC_ENABLED=true                   # Enable automatic hourly sync
-BIGQUERY_SYNC_CRON=0 * * * *                 # Every hour at :00 minutes
-
-# Cache Configuration
-BIGQUERY_READ_CACHE_MS=120000                # 2 minutes (read cache)
-BIGQUERY_USER_CACHE_MS=3600000               # 1 hour (user cache - prevents login errors)
-SEMANTIC_CACHE_REFRESH_INTERVAL=3600000      # 1 hour (semantic cache refresh)
-
-# Upstash Redis (Optional - for semantic cache)
-UPSTASH_REDIS_REST_URL=https://your-redis-url.upstash.io
-UPSTASH_REDIS_REST_TOKEN=your-redis-token
-
-# Authentication
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-ENTRA_CLIENT_ID=your-entra-client-id
-ENTRA_CLIENT_SECRET=your-entra-client-secret
-ENTRA_TENANT_ID=your-entra-tenant-id
-
-# Session
-SESSION_SECRET=your-random-session-secret-min-32-chars
-
-# AI Features (Optional)
-GROQ_API_KEY=your-groq-api-key               # For AI chatbot
-```
-
 ### 2. Frontend Environment Variables
 
 Create `frontend/.env`:
