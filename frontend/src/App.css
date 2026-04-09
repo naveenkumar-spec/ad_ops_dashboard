@@ -1,3 +1,9 @@
+/* Fixed minimum width for consistent dashboard display across all devices */
+body {
+  min-width: 1280px;
+  overflow-x: auto;
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;

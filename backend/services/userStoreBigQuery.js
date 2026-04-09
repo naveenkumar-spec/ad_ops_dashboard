@@ -9,7 +9,7 @@ const LOCATION = process.env.BIGQUERY_LOCATION || "US";
 let bigquery = null;
 let usersCache = null;
 let lastUsersFetch = 0;
-const USERS_CACHE_TTL = Number(process.env.BIGQUERY_USER_CACHE_MS || 60000); // 1 minute cache
+const USERS_CACHE_TTL = Number(process.env.BIGQUERY_USER_CACHE_MS || 3600000); // 1 hour cache (users don't change often)
 
 function getBigQueryClient() {
   if (!bigquery) {

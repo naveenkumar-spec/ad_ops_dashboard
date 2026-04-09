@@ -748,6 +748,9 @@ async function syncToBigQuery(options = {}) {
     if (recentOnly && !fullRefresh) {
       // Recent-only mode: only sync last N months
       // Calculate which months to include
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+      
       const currentDate = new Date();
       const monthsToInclude = [];
       
@@ -762,9 +765,6 @@ async function syncToBigQuery(options = {}) {
       
       console.log(`[BigQuery Sync] 📅 RECENT ONLY: Syncing last ${monthsToSync} months:`, 
         monthsToInclude.map(m => `${m.month} ${m.year}`).join(', '));
-      
-      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                          'July', 'August', 'September', 'October', 'November', 'December'];
       
       rowsToSync = bqRows.filter(row => {
         // Skip rows without month or year
@@ -783,7 +783,7 @@ async function syncToBigQuery(options = {}) {
       cutoffDate = { monthsToInclude };
     }
 
-    // Only truncate on full refresh
+    // Delete old data based on sync mode
     if (fullRefresh) {
       console.log("[BigQuery Sync] 🗑️ FULL REFRESH: Truncating tables");
       await bigquery.query({
@@ -797,13 +797,11 @@ async function syncToBigQuery(options = {}) {
         });
       }
     } else if (recentOnly && cutoffDate?.monthsToInclude) {
-      // Recent-only mode: delete ONLY the specific months we're about to sync
+      // Recent-only mode: Delete ONLY the months being synced, keep historical data
+      // This preserves old months while refreshing recent months
       const monthsToInclude = cutoffDate.monthsToInclude;
       
-      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                          'July', 'August', 'September', 'October', 'November', 'December'];
-      
-      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data for months:`, 
+      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data for months being synced:`, 
         monthsToInclude.map(m => `${m.month} ${m.year}`).join(', '));
       
       // Build WHERE clause for ONLY the specific months we're syncing
@@ -824,7 +822,26 @@ async function syncToBigQuery(options = {}) {
           location: process.env.BIGQUERY_LOCATION || "US"
         });
         console.log(`[BigQuery Sync] ✅ Deleted data for ${monthsToInclude.length} months: ${monthsToInclude.map(m => `${m.month} ${m.year}`).join(', ')}`);
+        console.log(`[BigQuery Sync] 📦 Historical data for other months preserved`);
       }
+    } else {
+      // Standard incremental mode: Delete ALL old sync_ids to prevent accumulation
+      console.log(`[BigQuery Sync] 🗑️ INCREMENTAL: Deleting all old sync_ids (snapshot mode)`);
+      
+      const deleteQuery = `
+        DELETE FROM \`${projectId}.${datasetId}.${tableId}\`
+        WHERE sync_id != @newSyncId
+      `;
+      
+      console.log(`[BigQuery Sync] 📋 DELETE query: Removing all rows except sync_id = ${syncId}`);
+      
+      await bigquery.query({
+        query: deleteQuery,
+        location: process.env.BIGQUERY_LOCATION || "US",
+        params: { newSyncId: syncId }
+      });
+      
+      console.log(`[BigQuery Sync] ✅ Deleted all old sync_ids. Table contains only current snapshot.`);
     }
 
     // Use smaller batches and add delays to reduce resource pressure

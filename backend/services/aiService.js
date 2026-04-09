@@ -10,30 +10,23 @@ const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'; // Fast and
 const USE_GROQ = !!GROQ_API_KEY;
 
 /**
- * Call Groq API for text generation (FREE and FAST!)
+ * Call Groq API with function calling support
  */
-async function callGroq(prompt, maxTokens = 500) {
+async function callGroqWithFunctions(messages, functions, maxTokens = 500) {
   try {
     if (!GROQ_API_KEY) {
       throw new Error('GROQ_API_KEY environment variable is not set');
     }
 
-    console.log('[AI] Calling Groq API with model:', GROQ_MODEL);
+    console.log('[AI] Calling Groq API with functions:', functions.map(f => f.name));
     
     const response = await axios.post(
       GROQ_API_URL,
       {
         model: GROQ_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful marketing analytics assistant. Provide clear, concise answers based on the data provided.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+        messages: messages,
+        functions: functions,
+        function_call: 'auto', // Let the model decide when to call functions
         max_tokens: maxTokens,
         temperature: 0.7,
         top_p: 0.95
@@ -49,11 +42,7 @@ async function callGroq(prompt, maxTokens = 500) {
 
     console.log('[AI] Response status:', response.status);
 
-    if (response.data?.choices?.[0]?.message?.content) {
-      return response.data.choices[0].message.content.trim();
-    }
-    
-    throw new Error('Invalid response from Groq API');
+    return response.data;
   } catch (error) {
     console.error('[AI] Groq API error:', {
       message: error.message,
