@@ -92,15 +92,18 @@ function getCurrencyColumns(currencyMode = "usd") {
 }
 
 function latestMainTableSql() {
+  // Get latest data for each unique row (by campaign, month, year, country)
+  // This ensures we get ALL data, not just from the latest sync_id
   return `(
-    SELECT *
-    FROM ${tableRef}
-    WHERE sync_id = (
-      SELECT sync_id
+    SELECT * FROM (
+      SELECT *,
+        ROW_NUMBER() OVER (
+          PARTITION BY campaign_id, month, year, country 
+          ORDER BY synced_at DESC
+        ) AS rn
       FROM ${tableRef}
-      ORDER BY synced_at DESC
-      LIMIT 1
     )
+    WHERE rn = 1
   )`;
 }
 
