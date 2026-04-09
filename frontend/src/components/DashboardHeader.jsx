@@ -27,20 +27,54 @@ export default function DashboardHeader({ activeTab, currentUser, onLogout }) {
   const canSeeManagement = isAdmin || allowedTabs.includes("management");
 
   const [lastSync, setLastSync] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
+    // Fetch last sync time
     apiGet("/api/overview/last-sync")
       .then((res) => { if (res.data?.lastSyncAt) setLastSync(res.data.lastSyncAt); })
       .catch(() => {});
-  }, []);
+
+    // Poll sync status every 10 seconds to check if sync is running
+    const checkSyncStatus = () => {
+      apiGet("/api/overview/sync/bigquery/status")
+        .then((res) => {
+          const status = res.data?.status;
+          setIsSyncing(status === "running");
+          
+          // If sync just completed, refresh last sync time
+          if (status === "completed" && !isSyncing) {
+            apiGet("/api/overview/last-sync")
+              .then((res) => { if (res.data?.lastSyncAt) setLastSync(res.data.lastSyncAt); })
+              .catch(() => {});
+          }
+        })
+        .catch(() => setIsSyncing(false));
+    };
+
+    // Check immediately
+    checkSyncStatus();
+
+    // Then check every 10 seconds
+    const interval = setInterval(checkSyncStatus, 10000);
+
+    return () => clearInterval(interval);
+  }, [isSyncing]);
 
   return (
     <div className="dashboard-header">
       <div className="header-brand">
         <h1>Campaign Performance Dashboard</h1>
-        {lastSync && (
-          <span className="header-last-sync">Last data sync: {formatIST(lastSync)}</span>
-        )}
+        <div className="header-sync-info">
+          {isSyncing ? (
+            <span className="header-syncing">
+              <span className="sync-spinner"></span>
+              Data refresh in progress
+            </span>
+          ) : lastSync ? (
+            <span className="header-last-sync">Last data sync: {formatIST(lastSync)}</span>
+          ) : null}
+        </div>
       </div>
       <div className="header-actions">
         <div className="header-tabs">

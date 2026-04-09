@@ -461,9 +461,7 @@ router.get("/last-sync", async (_req, res) => {
 
 router.get("/sync/bigquery/status", (_req, res) => {
   try {
-    if (!_req.user || _req.user.role !== "admin") {
-      return res.status(403).json({ error: "Admin access required" });
-    }
+    // Allow all authenticated users to check sync status (for loading indicator)
     const status = bigQuerySyncService.getSyncStatus();
     res.json(status || { ok: true, status: "idle", message: "No sync has run yet" });
   } catch (error) {
