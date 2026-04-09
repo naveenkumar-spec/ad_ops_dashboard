@@ -625,7 +625,7 @@ async function syncToBigQuery(options = {}) {
     status: "running",
     syncId,
     startedAt: syncedAtIso,
-    mode: fullRefresh ? "full_refresh" : (recentOnly ? "recent_only" : "incremental"),
+    mode: fullRefresh ? "full_refresh" : (recentOnly ? "recent_only" : "first_sync"),
     monthsToSync: recentOnly ? monthsToSync : null,
     step: "initializing",
     sources: initialSources,
@@ -637,7 +637,11 @@ async function syncToBigQuery(options = {}) {
     rowCount: 0,
     transitionRowCount: 0,
     issueCount: 0,
-    message: recentOnly ? `Sync started (recent ${monthsToSync} months only)` : "Sync started (optimized for performance)"
+    message: recentOnly 
+      ? `Sync started (recent ${monthsToSync} months only)` 
+      : (fullRefresh 
+        ? "Sync started (full refresh)" 
+        : "Sync started (first sync - all historical data)")
   };
   
   try {
@@ -781,6 +785,11 @@ async function syncToBigQuery(options = {}) {
       
       // Store for DELETE query
       cutoffDate = { monthsToInclude };
+    } else if (!recentOnly && !fullRefresh) {
+      // First sync mode: sync ALL data (no filtering)
+      console.log(`[BigQuery Sync] 🚀 FIRST SYNC: Syncing ALL ${bqRows.length} rows (complete historical data)`);
+      rowsToSync = bqRows;
+      cutoffDate = null;
     }
 
     // Delete old data based on sync mode
@@ -824,6 +833,16 @@ async function syncToBigQuery(options = {}) {
         console.log(`[BigQuery Sync] ✅ Deleted data for ${monthsToInclude.length} months: ${monthsToInclude.map(m => `${m.month} ${m.year}`).join(', ')}`);
         console.log(`[BigQuery Sync] 📦 Historical data for other months preserved`);
       }
+    } else if (!recentOnly && !fullRefresh) {
+      // First sync mode: Delete all old data and insert fresh complete dataset
+      console.log(`[BigQuery Sync] 🗑️ FIRST SYNC: Clearing table for fresh complete data load`);
+      
+      await bigquery.query({
+        query: `TRUNCATE TABLE \`${projectId}.${datasetId}.${tableId}\``,
+        location: process.env.BIGQUERY_LOCATION || "US"
+      });
+      
+      console.log(`[BigQuery Sync] ✅ Table cleared. Ready to load ${rowsToSync.length} rows (all historical data)`);
     } else {
       // Standard incremental mode: Delete ALL old sync_ids to prevent accumulation
       console.log(`[BigQuery Sync] 🗑️ INCREMENTAL: Deleting all old sync_ids (snapshot mode)`);
@@ -878,7 +897,7 @@ async function syncToBigQuery(options = {}) {
     const result = {
       ok: true,
       syncId,
-      mode: fullRefresh ? "full_refresh" : (recentOnly ? "recent_only" : "incremental"),
+      mode: fullRefresh ? "full_refresh" : (recentOnly ? "recent_only" : "first_sync"),
       rowCount: rowsToSync.length,
       totalRowsRead: bqRows.length,
       monthsSynced: recentOnly ? monthsToSync : null,
@@ -903,7 +922,11 @@ async function syncToBigQuery(options = {}) {
       mode: result.mode,
       row_count: rowsToSync.length + transitionRows.length,
       checksum,
-      message: recentOnly ? `Sync completed (recent ${monthsToSync} months, ${rowsToSync.length}/${bqRows.length} rows)` : "Sync completed (optimized)"
+      message: recentOnly 
+        ? `Sync completed (recent ${monthsToSync} months, ${rowsToSync.length}/${bqRows.length} rows)` 
+        : (fullRefresh 
+          ? "Sync completed (full refresh)" 
+          : `Sync completed (first sync, ${rowsToSync.length} rows, all historical data)`)
     });
     
     lastSyncResult = result;
@@ -1086,6 +1109,68 @@ async function getLastSyncTime() {
   }
 }
 
+async function isFirstSyncNeeded() {
+  try {
+    // Check if table has data
+    const [rows] = await bigquery.query({
+      query: `
+        SELECT COUNT(*) as row_count
+        FROM \`${projectId}.${datasetId}.${tableId}\`
+      `,
+      location: process.env.BIGQUERY_LOCATION || "US"
+    });
+    
+    const rowCount = Number(rows[0]?.row_count || 0);
+    console.log(`[isFirstSyncNeeded] Current table row count: ${rowCount}`);
+    
+    // If table is empty or has very few rows (< 500), treat as first sync
+    if (rowCount < 500) {
+      console.log(`[isFirstSyncNeeded] Table has ${rowCount} rows (< 500) - FIRST SYNC NEEDED`);
+      return true;
+    }
+    
+    // Check if we have data for months older than 3 months ago
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const threeMonthsAgoYear = threeMonthsAgo.getFullYear();
+    const threeMonthsAgoMonth = threeMonthsAgo.getMonth(); // 0-11
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    const [oldDataRows] = await bigquery.query({
+      query: `
+        SELECT COUNT(*) as old_data_count
+        FROM \`${projectId}.${datasetId}.${tableId}\`
+        WHERE year < @threeMonthsAgoYear
+          OR (year = @threeMonthsAgoYear AND month < @threeMonthsAgoMonth)
+      `,
+      params: {
+        threeMonthsAgoYear,
+        threeMonthsAgoMonth: monthNames[threeMonthsAgoMonth]
+      },
+      location: process.env.BIGQUERY_LOCATION || "US"
+    });
+    
+    const oldDataCount = Number(oldDataRows[0]?.old_data_count || 0);
+    console.log(`[isFirstSyncNeeded] Old data (>3 months) row count: ${oldDataCount}`);
+    
+    // If we have no old data, we need a first sync to populate historical data
+    if (oldDataCount === 0) {
+      console.log(`[isFirstSyncNeeded] No historical data found - FIRST SYNC NEEDED`);
+      return true;
+    }
+    
+    console.log(`[isFirstSyncNeeded] Historical data exists - SUBSEQUENT SYNC (recent-only)`);
+    return false;
+    
+  } catch (error) {
+    console.error(`[isFirstSyncNeeded] Error checking sync status: ${error.message}`);
+    // On error, default to first sync to be safe
+    return true;
+  }
+}
+
 module.exports = {
   syncToBigQuery,
   getLastSyncResult,
@@ -1093,5 +1178,6 @@ module.exports = {
   startSync,
   requestStopSync,
   getLastSyncTime,
-  onSyncComplete
+  onSyncComplete,
+  isFirstSyncNeeded
 };

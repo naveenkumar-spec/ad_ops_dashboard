@@ -23,26 +23,48 @@ function startBigQueryScheduler() {
   const transitionMode = "daily"; // Set to daily mode
   const transitionCron = "30 18 * * *"; // 12 AM IST = 6:30 PM UTC (previous day)
 
-  // Main hourly sync (recent data only for performance)
+  // Main hourly sync with smart strategy: first sync = full, subsequent = recent-only
   scheduledTask = cron.schedule(cronExpr, async () => {
     const startedAt = new Date().toISOString();
-    console.log("[BigQuery Scheduler] Starting scheduled sync (recent 2 months only)...");
+    console.log("[BigQuery Scheduler] Starting scheduled sync...");
     
     try {
-      const result = await bigQuerySyncService.syncToBigQuery({
-        fullRefresh: false,
-        recentOnly: true,      // Only sync recent data
-        monthsToSync: 2,       // Last 2 months
-        forceRefresh: false,
-        skipIfUnchanged: true,
-        batchSize: 100
-      });
+      // Check if this is the first sync (table is empty or has minimal data)
+      const isFirstSync = await bigQuerySyncService.isFirstSyncNeeded();
+      
+      let syncOptions;
+      if (isFirstSync) {
+        console.log("[BigQuery Scheduler] 🚀 FIRST SYNC DETECTED: Syncing ALL historical data");
+        syncOptions = {
+          fullRefresh: false,
+          recentOnly: false,     // Sync ALL data on first run
+          forceRefresh: false,
+          skipIfUnchanged: true,
+          batchSize: 100
+        };
+      } else {
+        console.log("[BigQuery Scheduler] 📅 SUBSEQUENT SYNC: Syncing recent 2 months only");
+        syncOptions = {
+          fullRefresh: false,
+          recentOnly: true,      // Only sync recent data
+          monthsToSync: 2,       // Last 2 months
+          forceRefresh: false,
+          skipIfUnchanged: true,
+          batchSize: 100
+        };
+      }
+      
+      const result = await bigQuerySyncService.syncToBigQuery(syncOptions);
       
       lastScheduledRun = { ok: true, startedAt, result };
       if (result.skipped) {
-        console.log("[BigQuery Scheduler] No change detected. Recent sync skipped.");
+        console.log("[BigQuery Scheduler] No change detected. Sync skipped.");
       } else {
-        console.log(`[BigQuery Scheduler] Recent sync success: ${result.rowCount}/${result.totalRowsRead} rows (last ${result.monthsSynced} months)`);
+        if (isFirstSync) {
+          console.log(`[BigQuery Scheduler] ✅ FIRST SYNC SUCCESS: ${result.rowCount} rows synced (all historical data)`);
+        } else {
+          console.log(`[BigQuery Scheduler] ✅ RECENT SYNC SUCCESS: ${result.rowCount}/${result.totalRowsRead} rows (last ${result.monthsSynced} months)`);
+        }
         
         // Refresh cache after successful sync
         console.log("[BigQuery Scheduler] Refreshing cache after sync...");
@@ -53,7 +75,7 @@ function startBigQueryScheduler() {
       }
     } catch (error) {
       lastScheduledRun = { ok: false, startedAt, error: error.message };
-      console.error(`[BigQuery Scheduler] Recent sync failed: ${error.message}`);
+      console.error(`[BigQuery Scheduler] Sync failed: ${error.message}`);
     }
   });
 
