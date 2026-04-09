@@ -882,7 +882,7 @@ async function syncToBigQuery(options = {}) {
       rowCount: rowsToSync.length,
       totalRowsRead: bqRows.length,
       monthsSynced: recentOnly ? monthsToSync : null,
-      cutoffDate: cutoffDate ? cutoffDate.toISOString().split('T')[0] : null,
+      cutoffDate: null, // Not applicable for recent-only mode
       transitionRowCount: transitionRows.length,
       datasetId,
       tableId,
