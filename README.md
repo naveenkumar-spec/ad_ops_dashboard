@@ -44,12 +44,11 @@ Google Sheets → Backend Sync Service → BigQuery → Cached Service → Front
 
 ### 1. Backend Environment Variables
 
- `backend/.env` :
-
+Create `backend/.env` file:
 
 ### 2. Frontend Environment Variables
 
- `frontend/.env`:
+Create `frontend/.env`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:5000      # Backend URL
