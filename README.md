@@ -72,24 +72,7 @@ VITE_API_BASE_URL=https://your-backend-domain.com
 
 ### 4. Google Sheets Configuration
 
-Update `backend/config/googleSheetsSources.json`:
-
-```json
-[
-  {
-    "country": "India",
-    "sheetId": "your-sheet-id-here",
-    "tabName": "Campaign Tracker",
-    "enabled": true
-  },
-  {
-    "country": "Japan",
-    "sheetId": "your-sheet-id-here",
-    "tabName": "Campaign Tracker",
-    "enabled": true
-  }
-]
-```
+ `backend/config/googleSheetsSources.json`
 
 ## Installation
 

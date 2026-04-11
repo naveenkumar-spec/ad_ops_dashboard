@@ -9,7 +9,9 @@ const LOCATION = process.env.BIGQUERY_LOCATION || "US";
 let bigquery = null;
 let usersCache = null;
 let lastUsersFetch = 0;
-const USERS_CACHE_TTL = Number(process.env.BIGQUERY_USER_CACHE_MS || 3600000); // 1 hour cache (users don't change often)
+// EVENT-DRIVEN CACHE: No time-based expiration, only invalidate on user changes
+// This prevents cache refresh collisions with BigQuery sync streaming buffer
+const USERS_CACHE_TTL = Infinity; // Cache never expires on its own
 
 function getBigQueryClient() {
   if (!bigquery) {
@@ -68,17 +70,20 @@ async function initializeUsersTable() {
 }
 
 /**
- * Get all users from BigQuery (with caching)
+ * Get all users from BigQuery (with event-driven caching)
+ * Cache is only invalidated when user data changes (saveUser/deleteUser)
+ * This prevents cache refresh collisions with BigQuery sync streaming buffer
  */
 async function getUsers(forceRefresh = false) {
-  // Check cache first
-  if (!forceRefresh && usersCache && (Date.now() - lastUsersFetch < USERS_CACHE_TTL)) {
-    console.log(`[UserStore] Returning cached users (age: ${Date.now() - lastUsersFetch}ms)`);
+  // Check cache first - cache never expires on its own
+  if (!forceRefresh && usersCache) {
+    const cacheAge = Math.floor((Date.now() - lastUsersFetch) / 1000);
+    console.log(`[UserStore] ✅ Returning cached users (${usersCache.length} users, age: ${cacheAge}s)`);
     return usersCache;
   }
 
   try {
-    console.log("[UserStore] Fetching users from BigQuery...");
+    console.log("[UserStore] 🔄 Fetching users from BigQuery (cache miss or force refresh)...");
     const bq = getBigQueryClient();
     const query = `
       SELECT
@@ -127,14 +132,21 @@ async function getUsers(forceRefresh = false) {
     // Update cache
     usersCache = users;
     lastUsersFetch = Date.now();
-    console.log(`[UserStore] Cached ${users.length} users`);
+    console.log(`[UserStore] ✅ Cached ${users.length} users (event-driven cache - no expiration)`);
 
     return users;
   } catch (error) {
-    console.error("[UserStore] Error getting users:", error.message);
-    // Return cached users if available, even if expired
+    console.error("[UserStore] ❌ Error getting users:", error.message);
+    
+    // If streaming buffer error, return cached users if available
+    if (error.message.includes('streaming buffer') && usersCache) {
+      console.log("[UserStore] ⚠️  Streaming buffer active, returning cached users");
+      return usersCache;
+    }
+    
+    // Return cached users if available for any error
     if (usersCache) {
-      console.log("[UserStore] Returning stale cache due to error");
+      console.log("[UserStore] ⚠️  Returning stale cache due to error");
       return usersCache;
     }
     return [];
@@ -264,13 +276,20 @@ async function saveUser(user) {
       console.log(`[UserStore] Created user: ${user.username}`);
     }
 
-    // Invalidate cache
+    // EVENT-DRIVEN CACHE INVALIDATION: Clear cache when user data changes
+    console.log(`[UserStore] 🔄 Cache invalidated due to user change: ${user.username}`);
     usersCache = null;
     lastUsersFetch = 0;
 
     return true;
   } catch (error) {
     console.error("[UserStore] Error saving user:", error.message);
+    
+    // If streaming buffer error, provide helpful message
+    if (error.message.includes('streaming buffer')) {
+      throw new Error("Cannot save user at this time — BigQuery is syncing data. Please wait 2-3 minutes and try again.");
+    }
+    
     throw error;
   }
 }
@@ -294,14 +313,15 @@ async function deleteUser(username) {
 
     console.log(`[UserStore] Deleted user: ${username}`);
     
-    // Invalidate cache
+    // EVENT-DRIVEN CACHE INVALIDATION: Clear cache when user is deleted
+    console.log(`[UserStore] 🔄 Cache invalidated due to user deletion: ${username}`);
     usersCache = null;
     lastUsersFetch = 0;
     
     return true;
   } catch (error) {
     if (error.message.includes('streaming buffer')) {
-      throw new Error("Cannot delete this user yet — BigQuery streaming buffer is still active. Please wait a few minutes and try again.");
+      throw new Error("Cannot delete this user yet — BigQuery is syncing data. Please wait 2-3 minutes and try again.");
     }
     console.error("[UserStore] Error deleting user:", error.message);
     return false;
@@ -329,26 +349,28 @@ async function migrateFromJSON(jsonUsers) {
 
 /**
  * Pre-load users into cache (call on startup)
+ * With event-driven cache, this loads once and stays cached until user changes
  */
 async function preloadUsers() {
   try {
-    console.log("[UserStore] Pre-loading users into cache...");
+    console.log("[UserStore] 🚀 Pre-loading users into event-driven cache...");
     const users = await getUsers(true); // Force refresh
-    console.log(`[UserStore] Pre-loaded ${users.length} users`);
+    console.log(`[UserStore] ✅ Pre-loaded ${users.length} users (will stay cached until user changes)`);
     return users;
   } catch (error) {
-    console.error("[UserStore] Error pre-loading users:", error.message);
+    console.error("[UserStore] ❌ Error pre-loading users:", error.message);
     return [];
   }
 }
 
 /**
- * Clear users cache
+ * Clear users cache (manual invalidation)
+ * Useful for admin operations or troubleshooting
  */
 function clearUsersCache() {
   usersCache = null;
   lastUsersFetch = 0;
-  console.log("[UserStore] Users cache cleared");
+  console.log("[UserStore] 🔄 Users cache manually cleared");
 }
 
 module.exports = {
