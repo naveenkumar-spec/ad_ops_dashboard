@@ -199,7 +199,7 @@ const OVERVIEW_RAW_ALIASES = {
   // === FINANCIAL COLUMNS (REQUIRED) ===
   // Based on your requirements:
   // - Revenue: "Sales Value in USD" (branding) → "Revenue" (tracker)
-  // - CPM: "eCPM." (branding) → "Buying CPM" (tracker)
+  // - CPM: "eCPM" (branding) → "Buying CPM" (tracker)
   salesValueUsd: [
     "Sales Value in USD",  // ✅ Your specified branding sheet column
   ],
@@ -208,8 +208,8 @@ const OVERVIEW_RAW_ALIASES = {
   ],
   
   ecpm: [
-    "eCPM.", // EXACT MATCH - this is the column with data (with period)
-    // NOTE: Do NOT add "eCPM" without period - that column is empty
+    "eCPM",     // NEW: Column name without period (current)
+    "eCPM.",    // OLD: Column name with period (fallback for backward compatibility)
   ],
   
   // === CAMPAIGN COLUMNS (AVAILABLE IN BRANDING SHEET) ===
@@ -994,7 +994,7 @@ async function getOverviewLegacyTrend(metric = "revenue", filters = {}) {
   console.log(`[getOverviewLegacyTrend] Found headers at row ${headerRowIndex}:`, headers.slice(0, 15).join(", "));
   console.log(`[getOverviewLegacyTrend] Total rows to parse: ${rows.length - headerRowIndex - 1}`);
 
-  // Find eCPM column (prefer "eCPM." with period)
+  // Find eCPM column (prefer "eCPM" without period, fallback to "eCPM." with period)
   const ecpmColIdx = OVERVIEW_RAW_ALIASES.ecpm
     .map((alias) => headerMap[normalizeKey(alias)])
     .find((idx) => idx !== undefined);
@@ -1215,24 +1215,34 @@ async function getBrandingSheetParsedData() {
   console.log(`[getBrandingSheetParsedData] Found headers at row ${headerRowIndex}:`, headers.slice(0, 15).join(", "));
   console.log(`[getBrandingSheetParsedData] Total rows to parse: ${rows.length - headerRowIndex - 1}`);
 
-  // Find eCPM column - SPECIFIC LOGIC to avoid empty "eCPM" column
-  // We need "eCPM." (with period) not "eCPM" (without period)
+  // Find eCPM column - Try new column name first, then fallback to old
+  // Priority: "eCPM" (without period) → "eCPM." (with period)
   let ecpmColIdx = undefined;
   
-  // First, try to find exact match for "eCPM." (with period)
-  const exactMatch = headers.findIndex(header => 
-    String(header || "").trim() === "eCPM."
+  // First, try to find exact match for "eCPM" (without period) - NEW COLUMN
+  const newColumnMatch = headers.findIndex(header => 
+    String(header || "").trim() === "eCPM"
   );
   
-  if (exactMatch !== -1) {
-    ecpmColIdx = exactMatch;
-    console.log(`[getBrandingSheetParsedData] Found exact match for "eCPM." at column ${exactMatch}`);
+  if (newColumnMatch !== -1) {
+    ecpmColIdx = newColumnMatch;
+    console.log(`[getBrandingSheetParsedData] Found exact match for "eCPM" (new column) at column ${newColumnMatch}`);
   } else {
-    // Fallback to normalized matching (but this might pick wrong column)
-    ecpmColIdx = OVERVIEW_RAW_ALIASES.ecpm
-      .map((alias) => headerMap[normalizeKey(alias)])
-      .find((idx) => idx !== undefined);
-    console.log(`[getBrandingSheetParsedData] Using fallback normalized matching`);
+    // Fallback to old column name "eCPM." (with period) for backward compatibility
+    const oldColumnMatch = headers.findIndex(header => 
+      String(header || "").trim() === "eCPM."
+    );
+    
+    if (oldColumnMatch !== -1) {
+      ecpmColIdx = oldColumnMatch;
+      console.log(`[getBrandingSheetParsedData] Found exact match for "eCPM." (old column) at column ${oldColumnMatch}`);
+    } else {
+      // Final fallback to normalized matching
+      ecpmColIdx = OVERVIEW_RAW_ALIASES.ecpm
+        .map((alias) => headerMap[normalizeKey(alias)])
+        .find((idx) => idx !== undefined);
+      console.log(`[getBrandingSheetParsedData] Using fallback normalized matching`);
+    }
   }
   
   console.log(`[getBrandingSheetParsedData] eCPM column detection:`);
