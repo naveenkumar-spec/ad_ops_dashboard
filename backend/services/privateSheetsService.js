@@ -604,14 +604,8 @@ function normalizeRow(rowValues, headerMap, source) {
     global._australiaLogged = true;
   }
 
-  if (
-    !normalized.month ||
-    normalized.campaignName === "Unknown Campaign" &&
-    normalized.revenue === 0 &&
-    normalized.spend === 0 &&
-    normalized.plannedImpressions === 0 &&
-    normalized.deliveredImpressions === 0
-  ) {
+  // Only exclude rows without a month value
+  if (!normalized.month) {
     return null;
   }
 
