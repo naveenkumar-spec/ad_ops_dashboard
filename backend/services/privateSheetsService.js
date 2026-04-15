@@ -826,7 +826,7 @@ async function loadAllRows(forceRefresh = false, options = {}) {
     
     // Add delay between countries to avoid rate limiting (except for first country)
     if (results.length > 0) {
-      await delay(150); // 150ms delay between countries
+      await delay(300); // 300ms delay between countries (increased from 150ms)
     }
     
     try {
