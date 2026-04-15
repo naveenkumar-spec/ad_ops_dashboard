@@ -601,11 +601,9 @@ function toTransitionRows(syncId, syncedAtIso, rawBrandingData) {
 }
 
 async function syncToBigQuery(options = {}) {
-  const fullRefresh = options.fullRefresh === true; // Default to incremental
-  const recentOnly = options.recentOnly === true; // Only sync recent data
-  const monthsToSync = options.monthsToSync || 2; // How many months for recent sync
+  const fullRefresh = options.fullRefresh === true; // Full refresh includes transition table
   const skipIfUnchanged = options.skipIfUnchanged !== false;
-  const batchSize = options.batchSize || 100; // Smaller default batch size
+  const batchSize = options.batchSize || 100;
   
   if (activeSyncStatus?.status === "running") {
     return {
@@ -625,8 +623,7 @@ async function syncToBigQuery(options = {}) {
     status: "running",
     syncId,
     startedAt: syncedAtIso,
-    mode: fullRefresh ? "full_refresh" : (recentOnly ? "recent_only" : "first_sync"),
-    monthsToSync: recentOnly ? monthsToSync : null,
+    mode: fullRefresh ? "full_refresh" : "snapshot",
     step: "initializing",
     sources: initialSources,
     totalSources: initialSources.length,
@@ -637,11 +634,9 @@ async function syncToBigQuery(options = {}) {
     rowCount: 0,
     transitionRowCount: 0,
     issueCount: 0,
-    message: recentOnly 
-      ? `Sync started (recent ${monthsToSync} months only)` 
-      : (fullRefresh 
-        ? "Sync started (full refresh)" 
-        : "Sync started (first sync - all historical data)")
+    message: fullRefresh 
+      ? "Sync started (full refresh with transition table)" 
+      : "Sync started (snapshot mode - all tracker data)"
   };
   
   try {
@@ -655,16 +650,16 @@ async function syncToBigQuery(options = {}) {
     const syncIssues = [];
     
     activeSyncStatus.step = "reading_sheets";
-    activeSyncStatus.message = "Reading tracker sheets (incremental mode)";
+    activeSyncStatus.message = "Reading tracker sheets (all data)";
     
-    // Use lighter options for incremental sync
+    // Read all tracker data
     const rows = await privateSheetsService.loadAllRows(Boolean(options.forceRefresh), {
       issues: syncIssues,
       issueLimit,
       shouldAbort: () => isStopRequested(),
       onSourceStatus: (sourceUpdate) => {
         updateActiveSource(sourceUpdate);
-        activeSyncStatus.message = "Reading tracker sheets (incremental mode)";
+        activeSyncStatus.message = "Reading tracker sheets (all data)";
       }
     });
     
@@ -672,7 +667,7 @@ async function syncToBigQuery(options = {}) {
     activeSyncStatus.rowCount = rows.length;
     activeSyncStatus.issueCount = syncIssues.length;
     
-    // Skip transition table processing for incremental syncs to save resources
+    // Only process transition table on full refresh (manual sync or daily sync)
     let transitionRows = [];
     if (fullRefresh) {
       activeSyncStatus.step = "building_transition_metrics";
@@ -683,7 +678,7 @@ async function syncToBigQuery(options = {}) {
       console.log(`[BigQuery Sync] ✅ Retrieved ${rawBrandingData.length} raw branding sheet rows`);
       transitionRows = toTransitionRows(syncId, syncedAtIso, rawBrandingData);
     } else {
-      console.log("[BigQuery Sync] 🚀 INCREMENTAL SYNC: Skipping transition table update for better performance");
+      console.log("[BigQuery Sync] 📊 SNAPSHOT MODE: Skipping transition table (hourly sync)");
     }
     
     throwIfStopRequested();
@@ -698,7 +693,7 @@ async function syncToBigQuery(options = {}) {
         ok: true,
         skipped: true,
         syncId,
-        mode: fullRefresh ? "full_refresh" : "incremental",
+        mode: fullRefresh ? "full_refresh" : "snapshot",
         rowCount: rows.length,
         transitionRowCount: transitionRows.length,
         datasetId,
@@ -745,55 +740,13 @@ async function syncToBigQuery(options = {}) {
     activeSyncStatus.message = `Writing data to BigQuery (batch size: ${batchSize})`;
     throwIfStopRequested();
 
-    // Determine which rows to sync based on mode
-    let rowsToSync = bqRows;
-    let cutoffDate = null;
-    
-    if (recentOnly && !fullRefresh) {
-      // Recent-only mode: only sync last N months
-      // Calculate which months to include
-      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                          'July', 'August', 'September', 'October', 'November', 'December'];
-      
-      const currentDate = new Date();
-      const monthsToInclude = [];
-      
-      for (let i = 0; i < monthsToSync; i++) {
-        const date = new Date(currentDate);
-        date.setMonth(date.getMonth() - i);
-        monthsToInclude.push({
-          month: monthNames[date.getMonth()],
-          year: date.getFullYear()
-        });
-      }
-      
-      console.log(`[BigQuery Sync] 📅 RECENT ONLY: Syncing last ${monthsToSync} months:`, 
-        monthsToInclude.map(m => `${m.month} ${m.year}`).join(', '));
-      
-      rowsToSync = bqRows.filter(row => {
-        // Skip rows without month or year
-        if (!row.month || !row.year) return false;
-        
-        // Check if this row's month/year is in our list
-        return monthsToInclude.some(m => 
-          m.month === row.month && m.year === row.year
-        );
-      });
-      
-      console.log(`[BigQuery Sync] 📊 Syncing ${rowsToSync.length} rows from last ${monthsToSync} months`);
-      console.log(`[BigQuery Sync] 📊 Filtered out ${bqRows.length - rowsToSync.length} rows from other months`);
-      
-      // Store for DELETE query
-      cutoffDate = { monthsToInclude };
-    } else if (!recentOnly && !fullRefresh) {
-      // First sync mode: sync ALL data (no filtering)
-      console.log(`[BigQuery Sync] 🚀 FIRST SYNC: Syncing ALL ${bqRows.length} rows (complete historical data)`);
-      rowsToSync = bqRows;
-      cutoffDate = null;
-    }
+    // Always sync ALL rows (no filtering)
+    const rowsToSync = bqRows;
+    console.log(`[BigQuery Sync] 📊 SNAPSHOT MODE: Syncing ALL ${bqRows.length} rows (complete historical data)`);
 
     // Delete old data based on sync mode
     if (fullRefresh) {
+      // Full refresh: Truncate both tables
       console.log("[BigQuery Sync] 🗑️ FULL REFRESH: Truncating tables");
       await bigquery.query({
         query: `TRUNCATE TABLE \`${projectId}.${datasetId}.${tableId}\``,
@@ -805,37 +758,9 @@ async function syncToBigQuery(options = {}) {
           location: process.env.BIGQUERY_LOCATION || "US"
         });
       }
-    } else if (recentOnly && cutoffDate?.monthsToInclude) {
-      // Recent-only mode: Delete ONLY the months being synced, keep historical data
-      // This preserves old months while refreshing recent months
-      const monthsToInclude = cutoffDate.monthsToInclude;
-      
-      console.log(`[BigQuery Sync] 🗑️ RECENT ONLY: Deleting data for months being synced:`, 
-        monthsToInclude.map(m => `${m.month} ${m.year}`).join(', '));
-      
-      // Build WHERE clause for ONLY the specific months we're syncing
-      const deleteConditions = monthsToInclude.map(m => 
-        `(year = ${m.year} AND month = '${m.month}')`
-      );
-      
-      if (deleteConditions.length > 0) {
-        const deleteQuery = `
-          DELETE FROM \`${projectId}.${datasetId}.${tableId}\`
-          WHERE ${deleteConditions.join(' OR ')}
-        `;
-        
-        console.log(`[BigQuery Sync] 📋 DELETE query: ${deleteQuery}`);
-        
-        await bigquery.query({
-          query: deleteQuery,
-          location: process.env.BIGQUERY_LOCATION || "US"
-        });
-        console.log(`[BigQuery Sync] ✅ Deleted data for ${monthsToInclude.length} months: ${monthsToInclude.map(m => `${m.month} ${m.year}`).join(', ')}`);
-        console.log(`[BigQuery Sync] 📦 Historical data for other months preserved`);
-      }
-    } else if (!recentOnly && !fullRefresh) {
-      // First sync mode: Delete all old data and insert fresh complete dataset
-      console.log(`[BigQuery Sync] 🗑️ FIRST SYNC: Clearing table for fresh complete data load`);
+    } else {
+      // Snapshot mode: Replace all data with current snapshot
+      console.log(`[BigQuery Sync] 🗑️ SNAPSHOT MODE: Truncating table for fresh data`);
       
       await bigquery.query({
         query: `TRUNCATE TABLE \`${projectId}.${datasetId}.${tableId}\``,
@@ -843,24 +768,6 @@ async function syncToBigQuery(options = {}) {
       });
       
       console.log(`[BigQuery Sync] ✅ Table cleared. Ready to load ${rowsToSync.length} rows (all historical data)`);
-    } else {
-      // Standard incremental mode: Delete ALL old sync_ids to prevent accumulation
-      console.log(`[BigQuery Sync] 🗑️ INCREMENTAL: Deleting all old sync_ids (snapshot mode)`);
-      
-      const deleteQuery = `
-        DELETE FROM \`${projectId}.${datasetId}.${tableId}\`
-        WHERE sync_id != @newSyncId
-      `;
-      
-      console.log(`[BigQuery Sync] 📋 DELETE query: Removing all rows except sync_id = ${syncId}`);
-      
-      await bigquery.query({
-        query: deleteQuery,
-        location: process.env.BIGQUERY_LOCATION || "US",
-        params: { newSyncId: syncId }
-      });
-      
-      console.log(`[BigQuery Sync] ✅ Deleted all old sync_ids. Table contains only current snapshot.`);
     }
 
     // Use smaller batches and add delays to reduce resource pressure
@@ -897,11 +804,8 @@ async function syncToBigQuery(options = {}) {
     const result = {
       ok: true,
       syncId,
-      mode: fullRefresh ? "full_refresh" : (recentOnly ? "recent_only" : "first_sync"),
+      mode: fullRefresh ? "full_refresh" : "snapshot",
       rowCount: rowsToSync.length,
-      totalRowsRead: bqRows.length,
-      monthsSynced: recentOnly ? monthsToSync : null,
-      cutoffDate: null, // Not applicable for recent-only mode
       transitionRowCount: transitionRows.length,
       datasetId,
       tableId,
@@ -922,11 +826,9 @@ async function syncToBigQuery(options = {}) {
       mode: result.mode,
       row_count: rowsToSync.length + transitionRows.length,
       checksum,
-      message: recentOnly 
-        ? `Sync completed (recent ${monthsToSync} months, ${rowsToSync.length}/${bqRows.length} rows)` 
-        : (fullRefresh 
-          ? "Sync completed (full refresh)" 
-          : `Sync completed (first sync, ${rowsToSync.length} rows, all historical data)`)
+      message: fullRefresh 
+        ? "Sync completed (full refresh with transition table)" 
+        : `Sync completed (snapshot mode, ${rowsToSync.length} rows, all historical data)`
     });
     
     lastSyncResult = result;
@@ -953,7 +855,7 @@ async function syncToBigQuery(options = {}) {
         ok: false,
         stopped: true,
         syncId,
-        mode: fullRefresh ? "full_refresh" : "incremental",
+        mode: fullRefresh ? "full_refresh" : "snapshot",
         rowCount: Number(activeSyncStatus?.rowCount || 0),
         transitionRowCount: Number(activeSyncStatus?.transitionRowCount || 0),
         datasetId,
@@ -998,7 +900,7 @@ async function syncToBigQuery(options = {}) {
         sync_id: syncId,
         synced_at: syncedAtIso,
         status: "failed",
-        mode: fullRefresh ? "full_refresh" : "incremental",
+        mode: fullRefresh ? "full_refresh" : "snapshot",
         row_count: 0,
         checksum: null,
         message
