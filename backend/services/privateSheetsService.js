@@ -814,19 +814,16 @@ async function loadAllRows(forceRefresh = false, options = {}) {
   const sheets = await getSheetsClient();
   const enabledSources = (config.sources || []).filter((s) => s.enabled !== false);
 
-  const results = [];
-  const failedCountries = []; // Track failed countries for error reporting
+  const successfulResults = new Map(); // Map of country -> rows
+  const failedSources = []; // Track sources that failed
+  const maxTotalAttempts = 5; // Maximum total attempts per country
   
-  for (const source of enabledSources) {
+  // Helper function to try syncing a single source
+  const trySync = async (source, attemptNumber) => {
     if (shouldAbort && shouldAbort()) {
       const stopError = new Error("Sync stopped by admin");
       stopError.code = "SYNC_STOPPED";
       throw stopError;
-    }
-    
-    // Add delay between countries to avoid rate limiting (except for first country)
-    if (results.length > 0) {
-      await delay(300); // 300ms delay between countries (increased from 150ms)
     }
     
     try {
@@ -838,26 +835,20 @@ async function loadAllRows(forceRefresh = false, options = {}) {
           status: "in_progress"
         });
       }
+      
       const rows = await fetchSourceRows(sheets, source, {
         issues: issueSink,
         issueLimit,
         onSourceStatus,
         shouldAbort
       });
-      results.push(rows);
-      console.log(`✅ Successfully synced ${source.country}: ${rows.length} rows`);
+      
+      console.log(`✅ Successfully synced ${source.country}: ${rows.length} rows (attempt ${attemptNumber})`);
+      return { success: true, rows };
     } catch (error) {
       if (error?.code === "SYNC_STOPPED") throw error;
       
-      // Log error prominently
-      console.error(`❌ SYNC FAILED for ${source.country} (${source.tabName}): ${error.message}`);
-      
-      // Track failed country
-      failedCountries.push({
-        country: source.country,
-        tabName: source.tabName,
-        error: error.message
-      });
+      console.warn(`⚠️ Sync failed for ${source.country} (attempt ${attemptNumber}/${maxTotalAttempts}): ${error.message}`);
       
       if (onSourceStatus) {
         onSourceStatus({
@@ -868,36 +859,129 @@ async function loadAllRows(forceRefresh = false, options = {}) {
           detail: error.message
         });
       }
+      
+      return { success: false, error: error.message };
+    }
+  };
+  
+  // FIRST PASS: Try all countries
+  console.log(`📊 Starting first pass: syncing ${enabledSources.length} countries...`);
+  for (let i = 0; i < enabledSources.length; i++) {
+    const source = enabledSources[i];
+    
+    // Add delay between countries (except first)
+    if (i > 0) {
+      await delay(300);
+    }
+    
+    const result = await trySync(source, 1);
+    
+    if (result.success) {
+      successfulResults.set(source.country, result.rows);
+    } else {
+      failedSources.push({
+        source,
+        attempts: 1,
+        lastError: result.error
+      });
+    }
+  }
+  
+  // RETRY PASS: Retry failed countries up to maxTotalAttempts
+  if (failedSources.length > 0) {
+    console.log(`🔄 First pass complete. Retrying ${failedSources.length} failed countries...`);
+    
+    // Give API more time to recover before retry pass
+    await delay(2000);
+    
+    let retryRound = 2;
+    while (failedSources.length > 0 && retryRound <= maxTotalAttempts) {
+      console.log(`🔄 Retry round ${retryRound}: attempting ${failedSources.length} countries...`);
+      
+      const stillFailing = [];
+      
+      for (let i = 0; i < failedSources.length; i++) {
+        const failedItem = failedSources[i];
+        
+        // Add delay between retry attempts
+        if (i > 0) {
+          await delay(500); // Longer delay for retries
+        }
+        
+        const result = await trySync(failedItem.source, retryRound);
+        
+        if (result.success) {
+          successfulResults.set(failedItem.source.country, result.rows);
+          console.log(`✅ ${failedItem.source.country} recovered after ${retryRound} attempts`);
+        } else {
+          stillFailing.push({
+            source: failedItem.source,
+            attempts: retryRound,
+            lastError: result.error
+          });
+        }
+      }
+      
+      failedSources.length = 0;
+      failedSources.push(...stillFailing);
+      retryRound++;
+      
+      // If still have failures and more attempts available, wait before next round
+      if (failedSources.length > 0 && retryRound <= maxTotalAttempts) {
+        await delay(3000); // Longer wait between retry rounds
+      }
+    }
+  }
+  
+  // Check if any countries still failed after all attempts
+  if (failedSources.length > 0) {
+    console.error(`❌ ${failedSources.length} countries failed after ${maxTotalAttempts} attempts`);
+    
+    const failedCountries = failedSources.map(f => ({
+      country: f.source.country,
+      tabName: f.source.tabName,
+      error: f.lastError,
+      attempts: f.attempts
+    }));
+    
+    // Log to issue sink
+    failedCountries.forEach(fc => {
       if (issueSink && issueSink.length < issueLimit) {
         issueSink.push({
           type: "source_read_error",
           severity: "error",
-          sourceCountry: source.country || null,
-          sourceSheetId: source.sheetId || null,
-          configuredTab: source.tabName || null,
+          sourceCountry: fc.country,
+          sourceSheetId: null,
+          configuredTab: fc.tabName,
           resolvedTab: null,
           column: null,
           row: null,
-          detail: error.message
+          detail: `Failed after ${fc.attempts} attempts: ${fc.error}`
         });
       }
-      
-      // ALL-OR-NOTHING: If any country fails, abort entire sync
-      const timestamp = new Date().toISOString();
-      const failedList = failedCountries.map(f => f.country).join(', ');
-      const syncError = new Error(
-        `🚨 SYNC ABORTED at ${timestamp}: Failed to sync data for: ${failedList}. ` +
-        `Previous data preserved. Fix the issue and retry sync.`
-      );
-      syncError.code = "PARTIAL_SYNC_FAILURE";
-      syncError.failedCountries = failedCountries;
-      syncError.timestamp = timestamp;
-      throw syncError;
-    }
+    });
+    
+    // ALL-OR-NOTHING: Abort sync if any country failed
+    const timestamp = new Date().toISOString();
+    const failedList = failedCountries.map(f => f.country).join(', ');
+    const syncError = new Error(
+      `🚨 SYNC ABORTED at ${timestamp}: Failed to sync data for: ${failedList} after ${maxTotalAttempts} attempts. ` +
+      `Previous data preserved. Fix the issue and retry sync.`
+    );
+    syncError.code = "PARTIAL_SYNC_FAILURE";
+    syncError.failedCountries = failedCountries;
+    syncError.timestamp = timestamp;
+    throw syncError;
   }
 
-  // Only update cache if ALL countries succeeded
-  cachedRows = results.flat();
+  // All countries succeeded - combine results
+  const allRows = [];
+  for (const source of enabledSources) {
+    const rows = successfulResults.get(source.country) || [];
+    allRows.push(...rows);
+  }
+  
+  cachedRows = allRows;
   lastFetchTime = now;
   if (issueSink) {
     lastDataQualityReport = {
