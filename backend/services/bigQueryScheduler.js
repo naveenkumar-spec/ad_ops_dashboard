@@ -34,7 +34,7 @@ function startBigQueryScheduler() {
       const syncOptions = {
         fullRefresh: false,
         recentOnly: false,     // Sync ALL data every hour
-        forceRefresh: false,
+        forceRefresh: true,    // Always read fresh data from Google Sheets
         skipIfUnchanged: true,
         batchSize: 100
       };
