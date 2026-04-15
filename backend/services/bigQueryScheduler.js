@@ -55,8 +55,30 @@ function startBigQueryScheduler() {
         });
       }
     } catch (error) {
-      lastScheduledRun = { ok: false, startedAt, error: error.message };
-      console.error(`[BigQuery Scheduler] Sync failed: ${error.message}`);
+      // Handle partial sync failure with detailed error message
+      if (error?.code === "PARTIAL_SYNC_FAILURE") {
+        const failedList = error.failedCountries?.map(f => f.country).join(', ') || 'unknown';
+        console.error(`\n${'='.repeat(80)}`);
+        console.error(`🚨 SYNC ABORTED at ${error.timestamp}`);
+        console.error(`Failed countries: ${failedList}`);
+        console.error(`Previous data preserved in BigQuery`);
+        console.error(`\nFailed countries details:`);
+        error.failedCountries?.forEach(f => {
+          console.error(`  - ${f.country} (${f.tabName}): ${f.error}`);
+        });
+        console.error(`${'='.repeat(80)}\n`);
+        
+        lastScheduledRun = { 
+          ok: false, 
+          startedAt, 
+          error: error.message,
+          failedCountries: error.failedCountries,
+          timestamp: error.timestamp
+        };
+      } else {
+        lastScheduledRun = { ok: false, startedAt, error: error.message };
+        console.error(`[BigQuery Scheduler] Sync failed: ${error.message}`);
+      }
     }
   });
 

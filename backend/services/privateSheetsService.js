@@ -2,6 +2,11 @@ const path = require("path");
 const { google } = require("googleapis");
 const config = require("../config/googleSheetsSources.json");
 
+// Utility function to add delay between API calls (rate limiting)
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 const MONTHS = [
   "January",
   "February",
@@ -437,13 +442,34 @@ async function getSheetMetaById(sheets, spreadsheetId) {
   return meta;
 }
 
-async function readTabValues(sheets, spreadsheetId, tabName) {
+async function readTabValues(sheets, spreadsheetId, tabName, retries = 3) {
   const range = `'${String(tabName || "").replace(/'/g, "''")}'`;
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range
-  });
-  return res.data.values || [];
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range
+      });
+      return res.data.values || [];
+    } catch (error) {
+      // Check if it's a rate limit error
+      const isRateLimit = error.code === 429 || 
+                         error.message?.includes('rate limit') ||
+                         error.message?.includes('quota') ||
+                         error.message?.includes('RESOURCE_EXHAUSTED');
+      
+      if (isRateLimit && attempt < retries) {
+        const delayMs = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+        console.warn(`⚠️ Rate limit hit for ${tabName}, retrying in ${delayMs}ms (attempt ${attempt}/${retries})`);
+        await delay(delayMs);
+        continue;
+      }
+      
+      // Re-throw error if not rate limit or out of retries
+      throw error;
+    }
+  }
 }
 
 async function resolveTabName(sheets, source) {
@@ -789,12 +815,20 @@ async function loadAllRows(forceRefresh = false, options = {}) {
   const enabledSources = (config.sources || []).filter((s) => s.enabled !== false);
 
   const results = [];
+  const failedCountries = []; // Track failed countries for error reporting
+  
   for (const source of enabledSources) {
     if (shouldAbort && shouldAbort()) {
       const stopError = new Error("Sync stopped by admin");
       stopError.code = "SYNC_STOPPED";
       throw stopError;
     }
+    
+    // Add delay between countries to avoid rate limiting (except for first country)
+    if (results.length > 0) {
+      await delay(150); // 150ms delay between countries
+    }
+    
     try {
       if (onSourceStatus) {
         onSourceStatus({
@@ -811,9 +845,20 @@ async function loadAllRows(forceRefresh = false, options = {}) {
         shouldAbort
       });
       results.push(rows);
+      console.log(`✅ Successfully synced ${source.country}: ${rows.length} rows`);
     } catch (error) {
       if (error?.code === "SYNC_STOPPED") throw error;
-      console.warn(`Failed to read ${source.country} (${source.tabName}): ${error.message}`);
+      
+      // Log error prominently
+      console.error(`❌ SYNC FAILED for ${source.country} (${source.tabName}): ${error.message}`);
+      
+      // Track failed country
+      failedCountries.push({
+        country: source.country,
+        tabName: source.tabName,
+        error: error.message
+      });
+      
       if (onSourceStatus) {
         onSourceStatus({
           sourceCountry: source.country || null,
@@ -836,10 +881,22 @@ async function loadAllRows(forceRefresh = false, options = {}) {
           detail: error.message
         });
       }
-      results.push([]);
+      
+      // ALL-OR-NOTHING: If any country fails, abort entire sync
+      const timestamp = new Date().toISOString();
+      const failedList = failedCountries.map(f => f.country).join(', ');
+      const syncError = new Error(
+        `🚨 SYNC ABORTED at ${timestamp}: Failed to sync data for: ${failedList}. ` +
+        `Previous data preserved. Fix the issue and retry sync.`
+      );
+      syncError.code = "PARTIAL_SYNC_FAILURE";
+      syncError.failedCountries = failedCountries;
+      syncError.timestamp = timestamp;
+      throw syncError;
     }
   }
 
+  // Only update cache if ALL countries succeeded
   cachedRows = results.flat();
   lastFetchTime = now;
   if (issueSink) {
@@ -849,6 +906,8 @@ async function loadAllRows(forceRefresh = false, options = {}) {
       issues: issueSink.slice(0, issueLimit)
     };
   }
+  
+  console.log(`✅ ALL COUNTRIES SYNCED SUCCESSFULLY: ${cachedRows.length} total rows`);
   return cachedRows;
 }
 

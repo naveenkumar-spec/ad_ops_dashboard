@@ -849,7 +849,61 @@ async function syncToBigQuery(options = {}) {
     return result;
     
   } catch (error) {
-    // ... error handling remains the same
+    // Handle partial sync failure (all-or-nothing logic)
+    if (error?.code === "PARTIAL_SYNC_FAILURE") {
+      const failedList = error.failedCountries?.map(f => f.country).join(', ') || 'unknown';
+      const message = `🚨 SYNC ABORTED at ${error.timestamp}: Failed to sync data for: ${failedList}. Previous data preserved.`;
+      
+      console.error(message);
+      console.error("Failed countries details:", JSON.stringify(error.failedCountries, null, 2));
+      
+      try {
+        await writeState({
+          sync_id: syncId,
+          synced_at: new Date().toISOString(),
+          status: "failed",
+          mode: fullRefresh ? "full_refresh" : "snapshot",
+          row_count: 0,
+          checksum: null,
+          message
+        });
+      } catch (_ignored) {
+        // no-op
+      }
+      
+      const failed = {
+        ok: false,
+        failed: true,
+        syncId,
+        mode: fullRefresh ? "full_refresh" : "snapshot",
+        rowCount: 0,
+        transitionRowCount: 0,
+        datasetId,
+        tableId,
+        transitionTableId,
+        projectId,
+        syncedAt: syncedAtIso,
+        message,
+        failedCountries: error.failedCountries,
+        timestamp: error.timestamp
+      };
+      
+      lastSyncResult = failed;
+      activeSyncStatus = {
+        ...activeSyncStatus,
+        ok: false,
+        status: "failed",
+        step: "failed",
+        message,
+        finishedAt: new Date().toISOString(),
+        result: failed
+      };
+      
+      triggerSyncCompleteCallbacks(failed);
+      throw error;
+    }
+    
+    // Handle admin stop
     if (error?.code === "SYNC_STOPPED") {
       const stopped = {
         ok: false,
@@ -894,6 +948,8 @@ async function syncToBigQuery(options = {}) {
       
       return stopped;
     }
+    
+    // Handle other errors
     const message = `BigQuery sync failed (${syncId}): ${error.message}`;
     try {
       await writeState({

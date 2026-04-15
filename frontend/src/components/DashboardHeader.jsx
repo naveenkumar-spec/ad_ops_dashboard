@@ -28,6 +28,7 @@ export default function DashboardHeader({ activeTab, currentUser, onLogout }) {
 
   const [lastSync, setLastSync] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
 
   useEffect(() => {
     // Fetch last sync time
@@ -40,6 +41,7 @@ export default function DashboardHeader({ activeTab, currentUser, onLogout }) {
       apiGet("/api/overview/sync/bigquery/status")
         .then((res) => {
           const status = res.data?.status;
+          setSyncStatus(res.data);
           setIsSyncing(status === "running");
           
           // If sync just completed, refresh last sync time
@@ -61,6 +63,16 @@ export default function DashboardHeader({ activeTab, currentUser, onLogout }) {
     return () => clearInterval(interval);
   }, [isSyncing]);
 
+  // Extract failed countries from sync status
+  const getFailedCountries = () => {
+    if (!syncStatus?.result?.failedCountries) return [];
+    return syncStatus.result.failedCountries.map(f => f.country);
+  };
+
+  const failedCountries = getFailedCountries();
+  const isFailed = syncStatus?.status === "failed" && failedCountries.length > 0;
+  const failedTimestamp = syncStatus?.result?.timestamp || syncStatus?.finishedAt;
+
   return (
     <div className="dashboard-header">
       <div className="header-brand">
@@ -72,7 +84,16 @@ export default function DashboardHeader({ activeTab, currentUser, onLogout }) {
               Data refresh in progress
             </span>
           ) : lastSync ? (
-            <span className="header-last-sync">Last data sync: {formatIST(lastSync)}</span>
+            <>
+              <span className="header-last-sync">
+                Last successful data sync: {formatIST(lastSync)}
+              </span>
+              {isFailed && (
+                <span className="header-sync-failed">
+                  Sync failed at {formatIST(failedTimestamp)} - Failed sheets: {failedCountries.join(", ")}
+                </span>
+              )}
+            </>
           ) : null}
         </div>
       </div>
