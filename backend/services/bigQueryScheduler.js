@@ -32,7 +32,7 @@ function startBigQueryScheduler() {
       // Always sync ALL historical data for consistency
       console.log("[BigQuery Scheduler] 📊 HOURLY SYNC: Syncing ALL historical data");
       const syncOptions = {
-        fullRefresh: false,
+        fullRefresh: true,     // Full refresh including transition table
         recentOnly: false,     // Sync ALL data every hour
         forceRefresh: true,    // Always read fresh data from Google Sheets
         skipIfUnchanged: true,
