@@ -525,6 +525,20 @@ async function getBrandingSheetRawData() {
     console.log(`[getBrandingSheetRawData] Retrieved ${rawData.length} raw rows from branding sheet`);
     return rawData;
   } catch (error) {
+    // Check if it's a rate limit error
+    const isRateLimit = error.code === 429 || 
+                       error.message?.includes('rate limit') ||
+                       error.message?.includes('quota') ||
+                       error.message?.includes('RESOURCE_EXHAUSTED');
+    
+    if (isRateLimit) {
+      console.warn("[getBrandingSheetRawData] ⚠️ Rate limit hit for branding sheet, will retry in next sync");
+      // Return empty array to skip transition table update this time
+      // Old data will be preserved in BigQuery
+      return [];
+    }
+    
+    // For non-rate-limit errors, log and return empty (don't break the sync)
     console.error("[getBrandingSheetRawData] Failed to get branding sheet data:", error.message);
     return [];
   }
@@ -674,8 +688,18 @@ async function syncToBigQuery(options = {}) {
       activeSyncStatus.message = "Reading legacy branding sheet for trend metrics";
       console.log("[BigQuery Sync] 📊 FULL REFRESH: Reading Google Sheets for legacy branding data");
       
+      // Add delay before reading branding sheet to let API quota recover
+      console.log("[BigQuery Sync] ⏳ Waiting 3 seconds for API quota recovery before reading branding sheet...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       const rawBrandingData = await getBrandingSheetRawData();
-      console.log(`[BigQuery Sync] ✅ Retrieved ${rawBrandingData.length} raw branding sheet rows`);
+      
+      if (rawBrandingData.length === 0) {
+        console.warn("[BigQuery Sync] ⚠️ No branding sheet data retrieved (likely rate limit). Transition table will keep existing data.");
+      } else {
+        console.log(`[BigQuery Sync] ✅ Retrieved ${rawBrandingData.length} raw branding sheet rows`);
+      }
+      
       transitionRows = toTransitionRows(syncId, syncedAtIso, rawBrandingData);
     } else {
       console.log("[BigQuery Sync] 📊 SNAPSHOT MODE: Skipping transition table (hourly sync)");
