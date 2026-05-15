@@ -14,14 +14,14 @@ function startBigQueryScheduler() {
     return { enabled: false, reason: "BIGQUERY_SYNC_ENABLED is not 'true'" };
   }
 
-  const cronExpr = process.env.BIGQUERY_SYNC_CRON || "0 * * * *";
+  const cronExpr = process.env.BIGQUERY_SYNC_CRON ||;
   if (!cron.validate(cronExpr)) {
     return { enabled: false, reason: `Invalid cron expression: ${cronExpr}` };
   }
 
   // Transition table refresh mode
-  const transitionMode = "daily"; // Set to daily mode
-  const transitionCron = "30 18 * * *"; // 12 AM IST = 6:30 PM UTC (previous day)
+  const transitionMode = ; // Set to daily mode
+  const transitionCron = ; // 12 AM IST = 6:30 PM UTC (previous day)
 
   // Main hourly sync - always sync ALL data for consistency
   scheduledTask = cron.schedule(cronExpr, async () => {
