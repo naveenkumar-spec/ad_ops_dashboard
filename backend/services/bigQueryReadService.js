@@ -452,8 +452,11 @@ async function loadAllRows(_forceRefresh = false) {
         net_margin, net_margin_pct, planned_impressions, delivered_impressions, budget_groups, cpm,
         start_date, end_date, month, year, product, platform, ops_owner, cs_owner, sales_owner
       FROM ${latestMainTableSql()}
+      ORDER BY revenue DESC
+      LIMIT 500
     `
   );
+
   return rows.map((r) => ({
     campaignName: r.campaign_name,
     campaignId: r.campaign_id,
