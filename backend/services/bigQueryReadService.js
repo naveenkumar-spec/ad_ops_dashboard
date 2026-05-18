@@ -92,10 +92,9 @@ function getCurrencyColumns(currencyMode = "usd") {
 }
 
 function latestMainTableSql() {
-  // Return ALL rows from BigQuery (no filtering by sync_id)
-  // This includes all historical data from all syncs
-  return tableRef;
+  return `(SELECT * FROM ${tableRef} ORDER BY revenue DESC LIMIT 500)`;
 }
+
 
 function buildWhereClause(filters = {}, alias = "t") {
   const f = filters || {};
