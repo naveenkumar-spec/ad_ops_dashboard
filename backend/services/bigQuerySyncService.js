@@ -760,12 +760,15 @@ async function syncToBigQuery(options = {}) {
     }
 
     const bqRows = toBigQueryRows(rows, syncId, syncedAtIso);
-    activeSyncStatus.step = "writing_bigquery";
-    activeSyncStatus.message = `Writing data to BigQuery (batch size: ${batchSize})`;
-    throwIfStopRequested();
+bqRows.sort((a, b) => (b.revenue || 0) - (a.revenue || 0));
+const top500BqRows = bqRows.slice(0, 500);
+activeSyncStatus.step = "writing_bigquery";
+activeSyncStatus.message = `Writing data to BigQuery (batch size: ${batchSize})`;
+throwIfStopRequested();
 
-    // Always sync ALL rows (no filtering)
-    const rowsToSync = bqRows;
+// Determine which rows to sync based on mode
+let rowsToSync = top500BqRows;
+
     console.log(`[BigQuery Sync] 📊 SNAPSHOT MODE: Syncing ALL ${bqRows.length} rows (complete historical data)`);
 
     // Delete old data based on sync mode
