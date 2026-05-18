@@ -33,11 +33,14 @@ async function initialize() {
       filterOptions: () => bigQueryReadService.getFilterOptions({}),
     });
     
-    // Start auto-refresh (every 2 hours)
-    semanticCache.startAutoRefresh(async () => {
-      const rows = await bigQueryReadService.loadAllRows(true);
-      return { rows, syncId: Date.now() };
-    });
+    // Start auto-refresh (every 2 hours) — only when sync is enabled
+if (process.env.BIGQUERY_SYNC_ENABLED === "true") {
+  semanticCache.startAutoRefresh(async () => {
+    const rows = await bigQueryReadService.loadAllRows(true);
+    return { rows, syncId: Date.now() };
+  });
+}
+
     
     isInitialized = true;
     console.log("[CachedBigQueryService] Initialization complete");
